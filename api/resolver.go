@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -185,8 +186,12 @@ func isActorSubscribersOrFollowers(actorID *url.URL) bool {
 }
 
 func isActorAbleToBeFollower(actorID *url.URL) bool {
-	endingWithRelay := regexp.MustCompile(`/relay$`)
-	return endingWithRelay.MatchString(actorID.Path)
+	switch strings.TrimSuffix(actorID.Path, "/") {
+	case "/relay", "/friendica":
+		return true
+	default:
+		return false
+	}
 }
 
 func isActorAbleToRelay(actor *models.Actor) bool {
