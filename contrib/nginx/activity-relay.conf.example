@@ -1,5 +1,18 @@
-# Generic Nginx template for Activity-Relay plus the static landing site.
-# Replace relay.example.org, certificate paths, log paths, and root as needed.
+# Generic Nginx template for Activity-Relay plus the generated landing site.
+#
+# build-site.py must use the same output directory configured by the root
+# directive below. With the example paths, build the site using:
+#
+#   python3 /etc/activity-relay-web/build-site.py \
+#     --source /etc/activity-relay-web \
+#     --config /etc/activity-relay-web/site.json \
+#     --output /var/www/activity-relay/public
+#
+# Nginx serves those generated files. The landing-page JavaScript requests
+# /status.json, which Nginx proxies to the Go relay backend.
+#
+# Replace relay.example.org, certificate paths, log paths, root, and backend
+# address as needed.
 
 upstream activity_relay_backend {
     server 127.0.0.1:8080;
@@ -27,6 +40,7 @@ server {
     # Optional local hardening include:
     # include /etc/nginx/snippets/block-sensitive-probes.conf;
 
+    # This must match build-site.py --output.
     root /var/www/activity-relay/public;
     index index.html;
 
@@ -59,6 +73,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Live dashboard data from the Go relay. This exact match takes
+    # precedence over the static location / block below.
     location = /status.json {
         proxy_pass http://activity_relay_backend;
         proxy_http_version 1.1;
@@ -99,6 +115,7 @@ server {
         add_header Cache-Control "public, max-age=3600";
     }
 
+    # Generated landing page and content pages.
     location / {
         try_files $uri $uri/ =404;
     }

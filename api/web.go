@@ -86,7 +86,7 @@ func buildRelayStatus() relayStatusResponse {
 		Software: relayStatusSoftware{
 			Name:       "activity-relay",
 			Version:    version,
-			Repository: "https://github.com/yukimochi/Activity-Relay",
+			Repository: "https://github.com/thystra/Activity-Relay",
 		},
 	}
 }

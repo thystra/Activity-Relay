@@ -63,6 +63,9 @@ func TestHandleRelayStatus(t *testing.T) {
 	if got.Software.Version != "test-version" {
 		t.Errorf("version = %q; want test-version", got.Software.Version)
 	}
+	if got.Software.Repository != "https://github.com/thystra/Activity-Relay" {
+		t.Errorf("repository = %q; want maintained fork URL", got.Software.Repository)
+	}
 }
 
 func TestHandleRelayStatusMethodNotAllowed(t *testing.T) {
