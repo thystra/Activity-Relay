@@ -1,0 +1,68 @@
+<section class="hero">
+  <p class="eyebrow">ActivityPub Relay</p>
+  <h1>{{SITE_NAME}}</h1>
+  <p class="lede">{{TAGLINE}}</p>
+</section>
+
+<section class="panel" data-relay-dashboard data-status-url="{{STATUS_URL}}">
+  <div class="status-row">
+    <div>
+      <span class="label">Relay status</span>
+      <strong id="relay-health">Loading…</strong>
+    </div>
+    <div>
+      <span class="label">Registration</span>
+      <strong id="relay-registration">Loading…</strong>
+    </div>
+    <div>
+      <span class="label">Connected servers</span>
+      <strong id="relay-instance-count">—</strong>
+    </div>
+    <div>
+      <span class="label">Software</span>
+      <strong id="relay-version">—</strong>
+    </div>
+  </div>
+  <p id="relay-status-message" class="muted" role="status">Loading live relay information…</p>
+</section>
+
+<section class="grid-two">
+  <article class="panel">
+    <h2>Subscribe your server</h2>
+    <p>Use the endpoint appropriate for your ActivityPub software.</p>
+    <dl class="endpoint-list">
+      <div>
+        <dt>Mastodon and Misskey-compatible software</dt>
+        <dd><code id="relay-inbox-endpoint">/inbox</code></dd>
+      </div>
+      <div>
+        <dt>Pleroma, Akkoma, and Friendica-compatible software</dt>
+        <dd><code id="relay-actor-endpoint">/actor</code></dd>
+      </div>
+    </dl>
+    <p class="muted">Relay subscriptions increase federation traffic, processing, and storage on participating servers.</p>
+  </article>
+
+  <article class="panel">
+    <h2>Operating policy</h2>
+    <p>This relay is operated on a best-effort basis. Participating servers must follow the published rules and may be removed for abuse, illegal activity, or excessive operational impact.</p>
+    <p><a class="button" href="/rules/">Read the relay rules</a></p>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="section-heading">
+    <div>
+      <h2>Connected servers</h2>
+      <p class="muted">Domains currently registered with the relay.</p>
+    </div>
+    <label class="search-label">
+      <span>Filter domains</span>
+      <input id="instance-search" type="search" placeholder="example.social" autocomplete="off">
+    </label>
+  </div>
+  <ul id="instance-list" class="instance-list">
+    <li class="muted">Loading connected servers…</li>
+  </ul>
+  <p id="instance-empty" class="muted" hidden>No connected servers match that filter.</p>
+</section>

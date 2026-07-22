@@ -1,0 +1,9 @@
+{
+  "site_name": "ActivityPub Relay",
+  "tagline": "A community-operated relay for the fediverse.",
+  "operator_name": "Relay Operator",
+  "contact_url": "mailto:relay@example.org",
+  "source_url": "https://github.com/your-account/Activity-Relay",
+  "status_url": "/status.json",
+  "language": "en"
+}

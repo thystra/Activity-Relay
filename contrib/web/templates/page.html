@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="{{LANGUAGE}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="{{TAGLINE}}">
+  <title>{{PAGE_TITLE}} · {{SITE_NAME}}</title>
+  <link rel="stylesheet" href="/assets/relay.css">
+  <script defer src="/assets/relay.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-name" href="/">{{SITE_NAME}}</a>
+    <nav aria-label="Primary navigation">
+      <a href="/about/">About</a>
+      <a href="/rules/">Rules</a>
+      <a href="/privacy/">Privacy</a>
+    </nav>
+  </header>
+  <main>
+{{CONTENT}}
+  </main>
+{{FOOTER}}
+</body>
+</html>
