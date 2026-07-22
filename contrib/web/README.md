@@ -45,7 +45,7 @@ sudo install -d -o root -g root -m 0755 \
 
 sudo cp -a contrib/web/. /etc/activity-relay-web/
 
-sudo cp -n \
+sudo cp --update=none \
   /etc/activity-relay-web/site.json.example \
   /etc/activity-relay-web/site.json
 ```
