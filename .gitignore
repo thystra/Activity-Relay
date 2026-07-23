@@ -39,4 +39,6 @@
 # End of https://www.toptal.com/developers/gitignore/api/go,visualstudiocode
 # Python bytecode
 __pycache__/
+.env
+cache/
 *.py[cod]

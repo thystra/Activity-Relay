@@ -5,6 +5,42 @@ RELAY_BIND: 0.0.0.0:8080
 RELAY_DOMAIN: relay.toot.yukimochi.jp
 RELAY_SERVICENAME: YUKIMOCHI Toot Relay Service
 JOB_CONCURRENCY: 50
+MAX_ACTIVITY_BYTES: 1048576
+MAX_FANOUT_TARGETS: 5000
+MAX_QUEUE_JOBS: 100000
+
+# Single-disk VPS defaults used by contrib/ops/resource-guard.py. These should
+# match RELAY_STORAGE_DIR and RELAY_CACHE_DIR in the deployment environment.
+STORAGE_DIR: /var/lib/activity-relay/redis
+CACHE_DIR: /var/cache/activity-relay
+# Limits accept plain bytes, decimal units (KB, MB, GB, TB), or binary units
+# (KiB, MiB, GiB, TiB). Units are case-insensitive; decimals such as 1.5GB work.
+STORAGE_LIMIT: 10GB
+CACHE_LIMIT: 1GB
+STORAGE_REQUIRE_MOUNT: false
+CACHE_REQUIRE_MOUNT: false
+RESOURCE_WARNING_PERCENT: 75
+RESOURCE_CRITICAL_PERCENT: 100
+ADMIN_EMAIL: root
+MAIL_BACKEND: mail
+MAIL_COMMAND: /usr/bin/mail
+
+# Alternative for an installed sendmail-compatible MTA:
+# MAIL_BACKEND: sendmail
+# MAIL_COMMAND: /usr/sbin/sendmail
+
+# Optional daily operational summary, sent once after the configured local hour.
+# It reports connected, added, and removed servers plus storage/cache usage.
+DAILY_SUMMARY_EMAIL: false
+DAILY_SUMMARY_HOUR: 8
+SUMMARY_STATUS_URL: http://127.0.0.1:8080/status.json
+
+# Optional split-storage example. STORAGE_MOUNT_POINT lets the monitor validate
+# the parent mount while Redis uses a dedicated child directory.
+# STORAGE_DIR: /mnt/activity-relay-nas/redis
+# STORAGE_LIMIT: 50GB
+# STORAGE_REQUIRE_MOUNT: true
+# STORAGE_MOUNT_POINT: /mnt/activity-relay-nas
 # RELAY_SUMMARY: |
 
 # RELAY_ICON: https://

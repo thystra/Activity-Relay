@@ -1,0 +1,6 @@
+# The Go executable is deliberately built with CGO disabled for a self-contained
+# native service binary.
+activity-relay: statically-linked-binary [usr/bin/relay]
+# A daemon reload is required because all package services deliberately use
+# --no-enable and --no-start on initial installation.
+activity-relay: maintainer-script-calls-systemctl [postinst:*]

@@ -43,7 +43,23 @@ func contains(entries interface{}, key string) bool {
 	return false
 }
 
+func queueHasCapacity(additional int) bool {
+	queued, err := RelayState.RedisClient.LLen(context.TODO(), "relay").Result()
+	if err != nil {
+		logrus.Error("Unable to inspect relay queue: ", err)
+		return false
+	}
+	if queued+int64(additional) > GlobalConfig.MaxQueueJobs() {
+		logrus.Warn("Skipped relay work: queue would exceed MAX_QUEUE_JOBS")
+		return false
+	}
+	return true
+}
+
 func enqueueRegisterActivity(inboxURL string, body []byte) {
+	if !queueHasCapacity(1) {
+		return
+	}
 	job := &tasks.Signature{
 		Name:       "register",
 		RetryCount: 2,
@@ -90,10 +106,17 @@ func enqueueRelayActivity(inboxURL string, activityID string) {
 }
 
 func enqueueActivityForAll(sourceDomain string, body []byte) {
+	if len(RelayState.SubscribersAndFollowers) > GlobalConfig.MaxFanoutTargets() {
+		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
+		return
+	}
 	activityID := uuid.New()
 	remainCount := len(RelayState.SubscribersAndFollowers) - 1
 
 	if remainCount < 1 {
+		return
+	}
+	if !queueHasCapacity(remainCount) {
 		return
 	}
 
@@ -109,12 +132,19 @@ func enqueueActivityForAll(sourceDomain string, body []byte) {
 }
 
 func enqueueActivityForSubscriber(sourceDomain string, body []byte) {
+	if len(RelayState.Subscribers) > GlobalConfig.MaxFanoutTargets() {
+		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
+		return
+	}
 	activityID := uuid.New()
 	remainCount := len(RelayState.Subscribers)
 	if contains(RelayState.Subscribers, sourceDomain) {
 		remainCount = remainCount - 1
 	}
 	if remainCount < 1 {
+		return
+	}
+	if !queueHasCapacity(remainCount) {
 		return
 	}
 
@@ -130,12 +160,19 @@ func enqueueActivityForSubscriber(sourceDomain string, body []byte) {
 }
 
 func enqueueActivityForFollower(sourceDomain string, body []byte) {
+	if len(RelayState.Followers) > GlobalConfig.MaxFanoutTargets() {
+		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
+		return
+	}
 	activityID := uuid.New()
 	remainCount := len(RelayState.Followers)
 	if contains(RelayState.Followers, sourceDomain) {
 		remainCount = remainCount - 1
 	}
 	if remainCount < 1 {
+		return
+	}
+	if !queueHasCapacity(remainCount) {
 		return
 	}
 

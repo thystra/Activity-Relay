@@ -32,7 +32,8 @@ a { color: var(--accent); }
 .site-header, main, .site-footer { width: min(1120px, calc(100% - 2rem)); margin-inline: auto; }
 .site-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.25rem 0; }
 .site-header nav { display: flex; flex-wrap: wrap; gap: 1rem; }
-.site-name { color: var(--text); font-weight: 800; text-decoration: none; }
+.site-name { display: inline-flex; align-items: center; gap: 0.7rem; color: var(--text); font-weight: 800; text-decoration: none; }
+.site-logo { display: block; width: auto; height: 2.75rem; max-width: min(12rem, 35vw); object-fit: contain; }
 main { padding-bottom: 3rem; }
 .hero { padding: 4rem 0 2rem; }
 .hero.compact { padding-top: 2.5rem; }

@@ -15,7 +15,13 @@ import (
 
 func decodeActivity(request *http.Request) (*models.Activity, *models.Actor, []byte, error) {
 	request.Header.Set("Host", request.Host)
-	body, err := io.ReadAll(request.Body)
+	body, err := io.ReadAll(io.LimitReader(request.Body, GlobalConfig.MaxActivityBytes()+1))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if int64(len(body)) > GlobalConfig.MaxActivityBytes() {
+		return nil, nil, nil, errors.New("activity body exceeds configured limit")
+	}
 
 	// Verify HTTPSignature
 	verifier, err := httpsig.NewVerifier(request)

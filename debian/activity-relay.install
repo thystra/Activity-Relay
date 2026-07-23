@@ -1,0 +1,13 @@
+debian/build/relay usr/bin
+debian/config.yml.example etc/activity-relay
+debian/redis.conf etc/activity-relay
+debian/activity-relay-server.service usr/lib/systemd/system
+debian/activity-relay-worker.service usr/lib/systemd/system
+debian/activity-relay-redis.service usr/lib/systemd/system
+debian/activity-relay-resource-guard.service usr/lib/systemd/system
+contrib/ops/activity-relay-resource-guard.timer usr/lib/systemd/system
+contrib/ops/resource-guard.py usr/lib/activity-relay
+contrib/web usr/share/activity-relay
+contrib/web/site.json.example etc/activity-relay-web
+contrib/nginx/activity-relay.conf.example usr/share/doc/activity-relay/examples/nginx
+contrib/apache/activity-relay.conf.example usr/share/doc/activity-relay/examples/apache

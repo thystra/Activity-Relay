@@ -1,0 +1,29 @@
+[Unit]
+Description=Activity-Relay API server
+Requires=activity-relay-redis.service
+After=network-online.target activity-relay-redis.service
+Wants=network-online.target
+ConditionPathExists=/etc/activity-relay/config.yml
+ConditionPathExists=/etc/activity-relay/actor.pem
+Documentation=file:/usr/share/doc/activity-relay/README.Debian
+
+[Service]
+Type=simple
+User=activity-relay
+Group=activity-relay
+ExecStart=/usr/bin/relay --config /etc/activity-relay/config.yml server
+Restart=on-failure
+RestartSec=5s
+MemoryMax=512M
+TasksMax=256
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

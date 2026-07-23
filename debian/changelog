@@ -1,0 +1,8 @@
+activity-relay (2.2.0) noble; urgency=medium
+
+  * Add operational resource guardrails and administrator notifications.
+  * Add configurable storage and cache locations and limits.
+  * Add optional website logo support and web-server examples.
+  * Add safe actor identity generation and native Debian packaging.
+
+ -- thystra <noreply@github.com>  Wed, 22 Jul 2026 00:00:00 -0400

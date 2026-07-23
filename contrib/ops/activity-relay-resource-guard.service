@@ -1,0 +1,15 @@
+[Unit]
+Description=Check Activity-Relay storage guard rails
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/activity-relay/resource-guard.py --config /etc/activity-relay/config.yml
+SuccessExitStatus=1 2
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/activity-relay-guard

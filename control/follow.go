@@ -67,6 +67,11 @@ func followCmdInit() *cobra.Command {
 }
 
 func enqueueRegisterActivity(inboxURL string, body []byte) {
+	queued, err := RelayState.RedisClient.LLen(context.TODO(), "relay").Result()
+	if err != nil || queued >= GlobalConfig.MaxQueueJobs() {
+		logrus.Warn("Skipped register activity: queue is unavailable or full")
+		return
+	}
 	job := &tasks.Signature{
 		Name:       "register",
 		RetryCount: 25,
@@ -83,7 +88,7 @@ func enqueueRegisterActivity(inboxURL string, body []byte) {
 			},
 		},
 	}
-	_, err := MachineryServer.SendTask(job)
+	_, err = MachineryServer.SendTask(job)
 	if err != nil {
 		logrus.Error(err)
 	}

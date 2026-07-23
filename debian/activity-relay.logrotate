@@ -1,0 +1,14 @@
+/var/log/nginx/activity-relay.access.log /var/log/nginx/activity-relay.error.log /var/log/apache2/activity-relay.access.log /var/log/apache2/activity-relay.error.log {
+    daily
+    rotate 14
+    size 25M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        test ! -r /run/nginx.pid || kill -USR1 $(cat /run/nginx.pid)
+        test ! -r /run/apache2/apache2.pid || kill -USR1 $(cat /run/apache2/apache2.pid)
+    endscript
+}

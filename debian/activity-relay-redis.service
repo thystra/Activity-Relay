@@ -1,0 +1,24 @@
+[Unit]
+Description=Activity-Relay dedicated Redis instance
+After=network.target local-fs.target
+Documentation=file:/usr/share/doc/activity-relay/README.Debian
+
+[Service]
+Type=notify
+User=redis
+Group=redis
+ExecStart=/usr/bin/redis-server /etc/activity-relay/redis.conf --supervised systemd
+ExecStop=/bin/kill -s TERM $MAINPID
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=30s
+MemoryMax=768M
+TasksMax=128
+LimitNOFILE=10032
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

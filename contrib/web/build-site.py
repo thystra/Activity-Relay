@@ -26,6 +26,8 @@ def load_config(path: Path) -> dict[str, str]:
     missing = sorted(required.difference(data))
     if missing:
         raise SystemExit(f"Missing configuration keys: {', '.join(missing)}")
+    data.setdefault("logo_url", "")
+    data.setdefault("logo_alt", data["site_name"])
     return {key: str(value) for key, value in data.items()}
 
 
@@ -62,6 +64,14 @@ def main() -> int:
         "LANGUAGE": html.escape(config["language"], quote=True),
         "YEAR": str(datetime.now(timezone.utc).year),
     }
+    logo_url = html.escape(config["logo_url"], quote=True)
+    escaped["LOGO"] = (
+        '<img class="site-logo" src="'
+        + logo_url
+        + '" alt="'
+        + html.escape(config["logo_alt"], quote=True)
+        + '">' if logo_url else ""
+    )
 
     page_template = (source / "templates/page.html").read_text(encoding="utf-8")
     footer = replace_tokens(

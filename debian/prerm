@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke stop activity-relay-resource-guard.timer \
+                activity-relay-server.service activity-relay-worker.service \
+                activity-relay-redis.service >/dev/null 2>&1 || true
+            deb-systemd-helper disable activity-relay-resource-guard.timer \
+                activity-relay-server.service activity-relay-worker.service \
+                activity-relay-redis.service >/dev/null 2>&1 || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -35,3 +35,100 @@ jobs:
           tags: |
             ${{ secrets.REGISTRY_USER }}/activity-relay:${{ steps.variables.outputs.ref }}
             ghcr.io/${{ secrets.REGISTRY_USER }}/activity-relay/activity-relay:${{ steps.variables.outputs.ref }}
+
+  debian-package:
+    name: Build native Debian package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          # Avoid colliding with redis-server installed by the package smoke test.
+          - 6381:6379
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: true
+
+      - name: Install Debian packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes debhelper devscripts golang-any lintian
+
+      - name: Set package version from tag
+        env:
+          DEBEMAIL: noreply@github.com
+          DEBFULLNAME: thystra
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          version="${version/-/~}"
+          dpkg --validate-version "$version"
+          dch --newversion "$version" --distribution noble \
+            "Release ${RELEASE_TAG}."
+
+      - name: Run application tests
+        env:
+          REDIS_URL: redis://127.0.0.1:6381
+        run: go test -p 1 ./...
+
+      - name: Build package
+        run: dpkg-buildpackage --build=binary --no-sign
+
+      - name: Inspect and lint package
+        run: |
+          package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
+          test -n "$package"
+          dpkg-deb --info "$package"
+          dpkg-deb --contents "$package"
+          lintian --fail-on error "$package"
+
+      - name: Test clean install and identity preservation
+        run: |
+          package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
+          sudo apt-get install --yes --no-install-recommends "$package"
+          test -x /usr/bin/relay
+          test -f /etc/activity-relay/config.yml.example
+          test ! -e /etc/activity-relay/config.yml
+          test "$(stat --format='%a' /etc/activity-relay/actor.pem)" = 600
+          test "$(stat --format='%U:%G' /etc/activity-relay/actor.pem)" = activity-relay:activity-relay
+          /usr/bin/relay generate-key --output /etc/activity-relay/actor.pem 2>/dev/null && exit 1 || true
+          actor_hash="$(sha256sum /etc/activity-relay/actor.pem)"
+          sudo dpkg --install "$package"
+          test "$(sha256sum /etc/activity-relay/actor.pem)" = "$actor_hash"
+          test "$(systemctl is-enabled activity-relay-server.service 2>/dev/null || true)" = disabled
+          test "$(systemctl is-enabled activity-relay-worker.service 2>/dev/null || true)" = disabled
+          test "$(systemctl is-enabled activity-relay-resource-guard.timer 2>/dev/null || true)" = disabled
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p dist
+          package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
+          cp "$package" dist/
+          cd dist
+          sha256sum ./*.deb > SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: activity-relay-debian-amd64
+          path: dist/
+          if-no-files-found: error
+
+      - name: Attach package to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/* \
+              --title "$RELEASE_TAG" --generate-notes
+          fi

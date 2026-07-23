@@ -2,10 +2,27 @@ services:
   redis:
     restart: always
     image: redis:alpine
+    command:
+      - redis-server
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-512mb}
+      - --maxmemory-policy
+      - noeviction
+      - --save
+      - "900 1 300 10 60 10000"
+      - --appendonly
+      - "no"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
     volumes:
-      - "./redisdata:/data"
+      - "${RELAY_STORAGE_DIR:-./redisdata}:/data"
+    logging: &bounded-logging
+      driver: local
+      options:
+        max-size: ${CONTAINER_LOG_MAX_SIZE:-10m}
+        max-file: ${CONTAINER_LOG_MAX_FILES:-5}
+    mem_limit: ${REDIS_CONTAINER_MEMORY:-768m}
+    pids_limit: 128
 
   worker:
     build: .
@@ -14,8 +31,12 @@ services:
     restart: always
     command: relay worker
     volumes:
-      - "./actor.pem:/var/lib/relay/actor.pem"
-      - "./config.yml:/var/lib/relay/config.yml"
+      - "./actor.pem:/var/lib/relay/actor.pem:ro"
+      - "./config.yml:/var/lib/relay/config.yml:ro"
+      - "${RELAY_CACHE_DIR:-./cache}:/var/cache/activity-relay"
+    logging: *bounded-logging
+    mem_limit: ${WORKER_MEMORY_LIMIT:-512m}
+    pids_limit: 256
     deploy:
       mode: replicated
       replicas: 2
@@ -29,7 +50,11 @@ services:
     restart: always
     command: relay server
     volumes:
-      - "./actor.pem:/var/lib/relay/actor.pem"
-      - "./config.yml:/var/lib/relay/config.yml"
+      - "./actor.pem:/var/lib/relay/actor.pem:ro"
+      - "./config.yml:/var/lib/relay/config.yml:ro"
+      - "${RELAY_CACHE_DIR:-./cache}:/var/cache/activity-relay"
+    logging: *bounded-logging
+    mem_limit: ${SERVER_MEMORY_LIMIT:-512m}
+    pids_limit: 256
     depends_on:
       - redis

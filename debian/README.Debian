@@ -1,0 +1,81 @@
+Activity-Relay for Debian and Ubuntu
+====================================
+
+The package is intentionally inactive after installation. It generates the
+relay identity once, but it does not invent a public hostname, enable a web
+server, or start network services.
+
+Initial configuration
+---------------------
+
+1. Copy and edit the relay configuration:
+
+   cp /etc/activity-relay/config.yml.example /etc/activity-relay/config.yml
+   editor /etc/activity-relay/config.yml
+   chown root:activity-relay /etc/activity-relay/config.yml
+   chmod 0640 /etc/activity-relay/config.yml
+
+2. The installer creates /etc/activity-relay/actor.pem with mode 0600. Back it
+   up before enabling the service. Package upgrades never replace it.
+
+3. The package provides a dedicated Redis instance on 127.0.0.1:6380. It does
+   not use or reconfigure the distribution's default Redis service.
+
+4. Enable the native services explicitly:
+
+   systemctl enable --now activity-relay-server.service
+   systemctl enable --now activity-relay-worker.service
+   systemctl enable --now activity-relay-resource-guard.timer
+
+Starting the API server or worker also starts activity-relay-redis.service.
+
+Website and reverse proxy
+-------------------------
+
+Package-owned website sources are in /usr/share/activity-relay/web. Initialize
+an editable copy without replacing existing files:
+
+   cp -an /usr/share/activity-relay/web/. /etc/activity-relay-web/
+
+Edit /etc/activity-relay-web/site.json and build the site:
+
+   env PYTHONDONTWRITEBYTECODE=1 \
+     python3 /etc/activity-relay-web/build-site.py \
+       --source /etc/activity-relay-web \
+       --config /etc/activity-relay-web/site.json \
+       --output /var/www/activity-relay/public
+
+Nginx and Apache examples are installed under:
+
+   /usr/share/doc/activity-relay/examples/nginx/
+   /usr/share/doc/activity-relay/examples/apache/
+
+Neither example is installed into sites-available, enabled, or reloaded by the
+package. Both expect /var/www/activity-relay/public as the document root.
+
+Mail
+----
+
+Resource alerts default to /usr/bin/mail from mailutils. Configure an MTA and
+root forwarding, or set ADMIN_EMAIL. A sendmail-compatible backend can instead
+be selected in config.yml.
+
+Storage placement
+-----------------
+
+The single-disk default stores Redis at /var/lib/activity-relay/redis and cache
+data at /var/cache/activity-relay. To move Redis to another filesystem:
+
+* stop all Activity-Relay services;
+* move the data while preserving redis:redis ownership;
+* update dir in /etc/activity-relay/redis.conf;
+* update STORAGE_DIR, STORAGE_LIMIT, STORAGE_REQUIRE_MOUNT, and
+  STORAGE_MOUNT_POINT in /etc/activity-relay/config.yml;
+* ensure the filesystem is mounted before activity-relay-redis.service starts.
+
+Removal
+-------
+
+Package removal and purge retain actor.pem, config.yml, editable website files,
+and Redis data. This prevents package operations from destroying relay identity
+or state. Delete them manually only after testing backups.

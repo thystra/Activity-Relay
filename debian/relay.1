@@ -1,0 +1,37 @@
+.TH RELAY 1 "July 2026" "Activity-Relay" "System Administration"
+.SH NAME
+relay \- operate an ActivityPub relay server
+.SH SYNOPSIS
+.B relay
+[\fB--config\fR \fIPATH\fR] \fIserver|worker|control\fR
+.br
+.B relay generate-key
+[\fB--output\fR \fIPATH\fR] [\fB--bits\fR \fIBITS\fR]
+.SH DESCRIPTION
+.B relay
+runs the Activity-Relay API server, delivery worker, and control utility.
+The Debian package installs inactive systemd units and an example configuration
+under /etc/activity-relay.
+.SH COMMANDS
+.TP
+.B server
+Run the ActivityPub API and inbox server.
+.TP
+.B worker
+Run queued delivery workers.
+.TP
+.B control
+Manage relay policy, domains, and follow requests.
+.TP
+.B generate-key
+Create a PKCS#1 RSA actor identity without replacing an existing key.
+.SH FILES
+.TP
+.I /etc/activity-relay/config.yml
+Operator configuration, created from config.yml.example.
+.TP
+.I /etc/activity-relay/actor.pem
+Relay cryptographic identity generated during initial package installation.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR redis-server (1)

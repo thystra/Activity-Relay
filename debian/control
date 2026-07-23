@@ -1,0 +1,19 @@
+Source: activity-relay
+Section: net
+Priority: optional
+Maintainer: thystra <noreply@github.com>
+Build-Depends: debhelper-compat (= 13), golang-any
+Standards-Version: 4.7.0
+Homepage: https://github.com/thystra/Activity-Relay
+Rules-Requires-Root: no
+
+Package: activity-relay
+Architecture: any
+Depends: ${misc:Depends}, adduser, python3, redis-server (>= 5:7.0)
+Recommends: mailutils, default-mta | mail-transport-agent
+Suggests: nginx | apache2
+Description: ActivityPub relay with native service and resource monitoring
+ Activity-Relay forwards public ActivityPub activities between subscribed
+ servers. This package provides the relay server and worker, an isolated Redis
+ service, resource alerts, a generated landing site, and opt-in web-server
+ examples.

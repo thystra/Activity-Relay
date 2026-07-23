@@ -17,16 +17,19 @@ import (
 
 // RelayConfig contains valid configuration.
 type RelayConfig struct {
-	actorKey        *rsa.PrivateKey
-	domain          *url.URL
-	redisClient     *redis.Client
-	redisURL        string
-	serverBind      string
-	serviceName     string
-	serviceSummary  string
-	serviceIconURL  *url.URL
-	serviceImageURL *url.URL
-	jobConcurrency  int
+	actorKey         *rsa.PrivateKey
+	domain           *url.URL
+	redisClient      *redis.Client
+	redisURL         string
+	serverBind       string
+	serviceName      string
+	serviceSummary   string
+	serviceIconURL   *url.URL
+	serviceImageURL  *url.URL
+	jobConcurrency   int
+	maxActivityBytes int64
+	maxFanoutTargets int
+	maxQueueJobs     int64
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
@@ -52,6 +55,27 @@ func NewRelayConfig() (*RelayConfig, error) {
 	if jobConcurrency < 1 {
 		return nil, errors.New("JOB_CONCURRENCY IS 0 OR EMPTY. SHOULD BE SET MORE THAN 1")
 	}
+	maxActivityBytes := viper.GetInt64("MAX_ACTIVITY_BYTES")
+	if maxActivityBytes == 0 {
+		maxActivityBytes = 1024 * 1024
+	}
+	if maxActivityBytes < 1024 {
+		return nil, errors.New("MAX_ACTIVITY_BYTES SHOULD BE AT LEAST 1024")
+	}
+	maxFanoutTargets := viper.GetInt("MAX_FANOUT_TARGETS")
+	if maxFanoutTargets == 0 {
+		maxFanoutTargets = 5000
+	}
+	if maxFanoutTargets < 1 {
+		return nil, errors.New("MAX_FANOUT_TARGETS SHOULD BE POSITIVE")
+	}
+	maxQueueJobs := viper.GetInt64("MAX_QUEUE_JOBS")
+	if maxQueueJobs == 0 {
+		maxQueueJobs = 100000
+	}
+	if maxQueueJobs < 1 {
+		return nil, errors.New("MAX_QUEUE_JOBS SHOULD BE POSITIVE")
+	}
 
 	privateKey, err := readPrivateKeyRSA(viper.GetString("ACTOR_PEM"))
 	if err != nil {
@@ -72,16 +96,19 @@ func NewRelayConfig() (*RelayConfig, error) {
 	serverBind := viper.GetString("RELAY_BIND")
 
 	return &RelayConfig{
-		actorKey:        privateKey,
-		domain:          domain,
-		redisClient:     redisClient,
-		redisURL:        redisURL,
-		serverBind:      serverBind,
-		serviceName:     viper.GetString("RELAY_SERVICENAME"),
-		serviceSummary:  viper.GetString("RELAY_SUMMARY"),
-		serviceIconURL:  iconURL,
-		serviceImageURL: imageURL,
-		jobConcurrency:  jobConcurrency,
+		actorKey:         privateKey,
+		domain:           domain,
+		redisClient:      redisClient,
+		redisURL:         redisURL,
+		serverBind:       serverBind,
+		serviceName:      viper.GetString("RELAY_SERVICENAME"),
+		serviceSummary:   viper.GetString("RELAY_SUMMARY"),
+		serviceIconURL:   iconURL,
+		serviceImageURL:  imageURL,
+		jobConcurrency:   jobConcurrency,
+		maxActivityBytes: maxActivityBytes,
+		maxFanoutTargets: maxFanoutTargets,
+		maxQueueJobs:     maxQueueJobs,
 	}, nil
 }
 
@@ -104,6 +131,15 @@ func (relayConfig *RelayConfig) ServerServiceName() string {
 func (relayConfig *RelayConfig) JobConcurrency() int {
 	return relayConfig.jobConcurrency
 }
+
+// MaxActivityBytes limits an inbound ActivityPub request body.
+func (relayConfig *RelayConfig) MaxActivityBytes() int64 { return relayConfig.maxActivityBytes }
+
+// MaxFanoutTargets limits jobs created by one inbound activity.
+func (relayConfig *RelayConfig) MaxFanoutTargets() int { return relayConfig.maxFanoutTargets }
+
+// MaxQueueJobs limits admission based on the Redis broker backlog.
+func (relayConfig *RelayConfig) MaxQueueJobs() int64 { return relayConfig.maxQueueJobs }
 
 // ActorKey is API Worker's HTTPSignature private key.
 func (relayConfig *RelayConfig) ActorKey() *rsa.PrivateKey {

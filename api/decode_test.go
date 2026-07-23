@@ -12,6 +12,17 @@ import (
 	"github.com/yukimochi/Activity-Relay/models"
 )
 
+func TestDecodeActivityRejectsOversizedBody(t *testing.T) {
+	request, err := http.NewRequest("POST", "https://relay.example/inbox", bytes.NewReader(make([]byte, GlobalConfig.MaxActivityBytes()+1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, _, err = decodeActivity(request)
+	if err == nil || err.Error() != "activity body exceeds configured limit" {
+		t.Fatalf("expected activity size error, got %v", err)
+	}
+}
+
 func TestDecodeActivity(t *testing.T) {
 	t.Skip("Skipping TestDecodeActivity due to external dependency issues")
 	RelayState.RedisClient.FlushAll(context.TODO()).Result()

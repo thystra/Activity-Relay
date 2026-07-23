@@ -2,6 +2,12 @@
 
 This repository uses annotated Git tags and GitHub Releases. The relay binary receives its version through the existing `main.version` linker variable.
 
+Pushing a `v*` tag also builds the native Ubuntu 24.04 `amd64` package. The
+release workflow runs the Redis-backed tests, derives the Debian version from
+the tag, builds and lints the package, performs a clean installation/reinstall
+test, verifies actor identity preservation and disabled services, writes
+`SHA256SUMS`, and attaches both assets to the GitHub Release.
+
 ## Version policy
 
 - Patch release: backward-compatible fixes only, for example `2.1.1`.
@@ -25,19 +31,19 @@ The first maintained-fork release is `v2.1.0` because it adds backward-compatibl
 
 ## Build the release candidate
 
-For version `2.1.0`:
+For version `2.2.0`:
 
 ```bash
 mkdir -p build
 
 go build \
   -trimpath \
-  -ldflags='-X main.version=2.1.0' \
-  -o build/relay-2.1.0 \
+  -ldflags='-X main.version=2.2.0' \
+  -o build/relay-2.2.0 \
   .
 
-sha256sum build/relay-2.1.0 \
-  > build/relay-2.1.0.sha256
+sha256sum build/relay-2.2.0 \
+  > build/relay-2.2.0.sha256
 ```
 
 ## Tag the tested commit
@@ -46,10 +52,10 @@ sha256sum build/relay-2.1.0 \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.1.0 \
-  -m 'Activity-Relay v2.1.0 maintained fork release'
+git tag -a v2.2.0 \
+  -m 'Activity-Relay v2.2.0 maintained fork release'
 
-git push origin v2.1.0
+git push origin v2.2.0
 ```
 
 Do not move an already-published release tag. Correct mistakes with a new patch release.

@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export CGO_ENABLED = 0
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	mkdir -p debian/build
+	go build -trimpath -ldflags "-s -w -X main.version=$$(dpkg-parsechangelog -SVersion)" -o debian/build/relay .
+
+override_dh_auto_test:
+	# Redis-backed tests run in CI before package assembly.
+	true
+
+override_dh_installsystemd:
+	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
+
+override_dh_clean:
+	dh_clean
+	rm -rf debian/build

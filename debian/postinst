@@ -1,0 +1,44 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    install -d -o root -g root -m 0755 /var/lib/activity-relay
+    if ! getent passwd activity-relay >/dev/null; then
+        adduser --system --group --home /var/lib/activity-relay \
+            --no-create-home activity-relay
+    fi
+
+    install -d -o root -g root -m 0755 /etc/activity-relay
+    install -d -o redis -g redis -m 0700 /var/lib/activity-relay/redis
+    install -d -o activity-relay -g activity-relay -m 0750 /var/cache/activity-relay
+    install -d -o root -g root -m 0750 /var/lib/activity-relay-guard
+    install -d -o root -g root -m 0755 /etc/activity-relay-web
+    install -d -o root -g root -m 0755 /var/www/activity-relay/public
+
+    if [ ! -e /etc/activity-relay/actor.pem ]; then
+        relay generate-key --output /etc/activity-relay/actor.pem
+    fi
+    chown activity-relay:activity-relay /etc/activity-relay/actor.pem
+    chmod 0600 /etc/activity-relay/actor.pem
+
+    echo ""
+    echo "Activity-Relay was installed but not enabled or started."
+    echo "Copy and edit /etc/activity-relay/config.yml.example as config.yml."
+    echo "The actor identity is at /etc/activity-relay/actor.pem."
+    echo "Web-server examples are under /usr/share/doc/activity-relay/examples/."
+    echo "The generated website root is /var/www/activity-relay/public."
+    echo "See /usr/share/doc/activity-relay/README.Debian for setup steps."
+fi
+
+#DEBHELPER#
+
+if [ "$1" = "configure" ] && [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null || true
+    if [ -n "$2" ]; then
+        deb-systemd-invoke try-restart activity-relay-redis.service \
+            activity-relay-server.service activity-relay-worker.service \
+            activity-relay-resource-guard.timer >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

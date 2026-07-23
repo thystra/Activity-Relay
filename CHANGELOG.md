@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.0] - 2026-07-22
+
+- Add configurable request and fan-out limits, bounded Redis/container resource
+  settings, host storage/cache paths, disk budget email alerts, Nginx admission
+  controls and log rotation guidance.
+- Add optional landing-site logo URL and alternative text settings.
+- Add safe, non-overwriting RSA actor identity generation through
+  `relay generate-key`.
+- Add an optional daily administrator summary with connected-server changes and
+  storage usage versus configured caps.
+- Support selectable `mail` and `sendmail` alert transports, defaulting to the
+  `mailutils` mail command.
+- Add an opt-in Apache 2.4 HTTPS, static-site, and reverse-proxy example.
+
 All notable changes to the maintained `thystra/Activity-Relay` fork are documented in this file.
 
 The project is based on [`yukimochi/Activity-Relay`](https://github.com/yukimochi/Activity-Relay).

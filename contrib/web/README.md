@@ -60,6 +60,10 @@ Edit:
 sudoedit /etc/activity-relay-web/site.json
 ```
 
+Set `logo_url` to an HTTPS URL or a public path such as `/assets/logo.svg` and
+set `logo_alt` to meaningful alternative text. For a local logo, place the file
+under `assets/` before rebuilding. Set `logo_url` to an empty string to omit it.
+
 Reusable HTML content is stored in:
 
 ```text
@@ -145,6 +149,14 @@ Replace the hostname, certificate paths, document root, log paths, and backend a
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+## Apache
+
+An Apache 2.4 alternative is provided at
+`../apache/activity-relay.conf.example`. It serves the same generated document
+root and proxies only the relay API endpoints. On Debian/Ubuntu, copy and edit
+the example, enable its listed modules, then explicitly enable the site. The
+package does not enable or reload Apache automatically.
 
 ## Verify
 

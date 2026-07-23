@@ -78,6 +78,22 @@ func main() {
 }
 
 func buildCommand() *cobra.Command {
+	var keyOutput string
+	var keyBits int
+	var generateKey = &cobra.Command{
+		Use:   "generate-key",
+		Short: "Generate the relay actor identity key",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := models.GenerateActorKey(keyOutput, keyBits); err != nil {
+				return err
+			}
+			fmt.Printf("Generated relay actor key at %s\n", keyOutput)
+			return nil
+		},
+	}
+	generateKey.Flags().StringVarP(&keyOutput, "output", "o", "actor.pem", "Output path; must not already exist")
+	generateKey.Flags().IntVar(&keyBits, "bits", 3072, "RSA key size (minimum 2048)")
+
 	var server = &cobra.Command{
 		Use:   "server",
 		Short: "Activity-Relay API Server",
@@ -122,6 +138,7 @@ func buildCommand() *cobra.Command {
 	app.AddCommand(server)
 	app.AddCommand(worker)
 	app.AddCommand(command)
+	app.AddCommand(generateKey)
 
 	return app
 }
@@ -150,6 +167,9 @@ func initConfig(cmd *cobra.Command) {
 		viper.BindEnv("RELAY_SUMMARY")
 		viper.BindEnv("RELAY_ICON")
 		viper.BindEnv("RELAY_IMAGE")
+		viper.BindEnv("MAX_ACTIVITY_BYTES")
+		viper.BindEnv("MAX_FANOUT_TARGETS")
+		viper.BindEnv("MAX_QUEUE_JOBS")
 	}
 
 	GlobalConfig, err = models.NewRelayConfig()

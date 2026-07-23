@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "purge" ]; then
+    echo "Activity-Relay identity, local configuration, website content, and Redis data were retained."
+    echo "Remove them manually only after confirming that backups are usable."
+fi
+
+#DEBHELPER#
+
+exit 0

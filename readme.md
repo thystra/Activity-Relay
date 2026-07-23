@@ -50,11 +50,11 @@ Keeping the original module path minimizes downstream breakage and makes future 
 For a tagged release build:
 
 ```bash
-git checkout v2.1.0
+git checkout v2.2.0
 mkdir -p build
 go build \
   -trimpath \
-  -ldflags='-X main.version=2.1.0' \
+  -ldflags='-X main.version=2.2.0' \
   -o build/relay \
   .
 ```
@@ -69,6 +69,25 @@ go build \
   -o build/relay \
   .
 ```
+
+### Native Debian/Ubuntu package
+
+Tagged releases build an `amd64` `.deb` for Ubuntu 24.04 and attach it, together
+with `SHA256SUMS`, to the GitHub Release. The package provides a dedicated Redis
+instance, inactive-by-default server and worker units, resource monitoring,
+website sources, and opt-in Nginx and Apache examples.
+
+Install a downloaded release with:
+
+```bash
+sudo apt install ./activity-relay_VERSION_amd64.deb
+```
+
+Installation generates `/etc/activity-relay/actor.pem` but does not create an
+active `config.yml`, enable services, or modify a web-server configuration.
+Continue with `/usr/share/doc/activity-relay/README.Debian` after installation.
+Package removal and purge retain the actor identity, operator configuration,
+website content, and Redis data.
 
 ## Run
 
@@ -110,12 +129,25 @@ JOB_CONCURRENCY: 10
 
 Binding the relay to `127.0.0.1` is recommended when Nginx runs on the same host.
 
+Generate the relay identity key once before starting the service:
+
+```bash
+relay generate-key --output /var/lib/relay/actor.pem
+```
+
+The command creates a PKCS#1 RSA-3072 key with mode `0600` and refuses to
+replace an existing key. Back up this file: replacing it changes the relay's
+cryptographic identity.
+
 ### Environment variables
 
 When the configuration file does not exist, the following environment variables may be used:
 
 - `ACTOR_PEM`
 - `REDIS_URL`
+- `MAX_ACTIVITY_BYTES` (default `1048576`)
+- `MAX_FANOUT_TARGETS` (default `5000`)
+- `MAX_QUEUE_JOBS` (default `100000`)
 - `RELAY_BIND`
 - `RELAY_DOMAIN`
 - `RELAY_SERVICENAME`
@@ -123,6 +155,12 @@ When the configuration file does not exist, the following environment variables 
 - `RELAY_SUMMARY`
 - `RELAY_ICON`
 - `RELAY_IMAGE`
+
+The example Compose deployment includes bounded container logs, Redis and
+process memory limits, PID limits, and configurable host storage/cache paths.
+Copy `.env.example` to `.env` and size it for the deployment host. Storage
+monitoring, warning/critical mail, Nginx log rotation, and operational guidance
+are documented in [`contrib/ops/README.md`](contrib/ops/README.md).
 
 ## How participating servers subscribe
 
@@ -343,6 +381,9 @@ python3 -m json.tool
 After editing `site.json`, a template, an include, CSS, or JavaScript, rerun the site-builder command. Nginx does not need to be reloaded when only generated website files change.
 
 Additional site-specific documentation is in [`contrib/web/README.md`](contrib/web/README.md).
+Equivalent, opt-in reverse-proxy examples are provided for Nginx and Apache 2.4
+under `contrib/nginx/` and `contrib/apache/`; neither should be enabled
+automatically by a native package.
 
 ## Testing
 
