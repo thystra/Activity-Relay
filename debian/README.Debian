@@ -29,6 +29,10 @@ Initial configuration
 
 Starting the API server or worker also starts activity-relay-redis.service.
 
+Package upgrades restart Activity-Relay services that are already active and
+print the restart result when configuration finishes. Inactive services are
+not enabled or started by an upgrade.
+
 Website and reverse proxy
 -------------------------
 

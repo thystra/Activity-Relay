@@ -50,11 +50,11 @@ Keeping the original module path minimizes downstream breakage and makes future 
 For a tagged release build:
 
 ```bash
-git checkout v2.3.0
+git checkout v2.3.1
 mkdir -p build
 go build \
   -trimpath \
-  -ldflags='-X main.version=2.3.0' \
+  -ldflags='-X main.version=2.3.1' \
   -o build/relay \
   .
 ```
@@ -88,6 +88,10 @@ active `config.yml`, enable services, or modify a web-server configuration.
 Continue with `/usr/share/doc/activity-relay/README.Debian` after installation.
 Package removal and purge retain the actor identity, operator configuration,
 website content, and Redis data.
+
+When upgrading an existing installation, the package restarts Activity-Relay
+services that are already active and prints the restart result at the end of
+the upgrade. Services that were inactive remain inactive.
 
 The Nginx example also contains commented HTTP/3/QUIC listeners and an
 `Alt-Svc` header. They can be enabled when Nginx includes

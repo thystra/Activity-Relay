@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.1] - 2026-07-22
+
+- Report whether active Activity-Relay services restarted after a Debian
+  package upgrade and provide a diagnostic command if restarting fails.
+- Avoid showing initial-install guidance during package upgrades.
+
 ## [2.3.0] - 2026-07-22
 
 - Add opt-in HTTP/3/QUIC directives to the Nginx deployment example.

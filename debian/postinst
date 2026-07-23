@@ -21,13 +21,15 @@ if [ "$1" = "configure" ]; then
     chown activity-relay:activity-relay /etc/activity-relay/actor.pem
     chmod 0600 /etc/activity-relay/actor.pem
 
-    echo ""
-    echo "Activity-Relay was installed but not enabled or started."
-    echo "Copy and edit /etc/activity-relay/config.yml.example as config.yml."
-    echo "The actor identity is at /etc/activity-relay/actor.pem."
-    echo "Web-server examples are under /usr/share/doc/activity-relay/examples/."
-    echo "The generated website root is /var/www/activity-relay/public."
-    echo "See /usr/share/doc/activity-relay/README.Debian for setup steps."
+    if [ -z "$2" ]; then
+        echo ""
+        echo "Activity-Relay was installed but not enabled or started."
+        echo "Copy and edit /etc/activity-relay/config.yml.example as config.yml."
+        echo "The actor identity is at /etc/activity-relay/actor.pem."
+        echo "Web-server examples are under /usr/share/doc/activity-relay/examples/."
+        echo "The generated website root is /var/www/activity-relay/public."
+        echo "See /usr/share/doc/activity-relay/README.Debian for setup steps."
+    fi
 fi
 
 #DEBHELPER#
@@ -35,9 +37,15 @@ fi
 if [ "$1" = "configure" ] && [ -d /run/systemd/system ]; then
     systemctl daemon-reload >/dev/null || true
     if [ -n "$2" ]; then
-        deb-systemd-invoke try-restart activity-relay-redis.service \
+        echo ""
+        if deb-systemd-invoke try-restart activity-relay-redis.service \
             activity-relay-server.service activity-relay-worker.service \
-            activity-relay-resource-guard.timer >/dev/null 2>&1 || true
+            activity-relay-resource-guard.timer >/dev/null 2>&1; then
+            echo "Activity-Relay upgrade complete; active services were restarted."
+        else
+            echo "Warning: Activity-Relay was upgraded, but one or more active services could not be restarted." >&2
+            echo "Check them with: systemctl --failed 'activity-relay-*'" >&2
+        fi
     fi
 fi
 
