@@ -128,7 +128,10 @@ jobs:
           test "$(stat --format='%a' /etc/activity-relay/actor.pem)" = 600
           test "$(stat --format='%U:%G' /etc/activity-relay/actor.pem)" = activity-relay:activity-relay
           actor_hash="$(sudo sha256sum /etc/activity-relay/actor.pem)"
-          key_output="$(sudo /usr/bin/relay generate-key --output /etc/activity-relay/actor.pem 2>&1)"
+          if key_output="$(sudo /usr/bin/relay generate-key --output /etc/activity-relay/actor.pem 2>&1)"; then
+            echo "generate-key unexpectedly replaced an existing actor identity" >&2
+            exit 1
+          fi
           grep --quiet 'actor key already exists' <<<"$key_output"
           test "$(sudo sha256sum /etc/activity-relay/actor.pem)" = "$actor_hash"
           sudo dpkg --install "$package"
