@@ -127,12 +127,12 @@ jobs:
           test ! -e /etc/activity-relay/config.yml
           test "$(stat --format='%a' /etc/activity-relay/actor.pem)" = 600
           test "$(stat --format='%U:%G' /etc/activity-relay/actor.pem)" = activity-relay:activity-relay
-          actor_hash="$(sha256sum /etc/activity-relay/actor.pem)"
-          key_output="$(/usr/bin/relay generate-key --output /etc/activity-relay/actor.pem 2>&1)"
+          actor_hash="$(sudo sha256sum /etc/activity-relay/actor.pem)"
+          key_output="$(sudo /usr/bin/relay generate-key --output /etc/activity-relay/actor.pem 2>&1)"
           grep --quiet 'actor key already exists' <<<"$key_output"
-          test "$(sha256sum /etc/activity-relay/actor.pem)" = "$actor_hash"
+          test "$(sudo sha256sum /etc/activity-relay/actor.pem)" = "$actor_hash"
           sudo dpkg --install "$package"
-          test "$(sha256sum /etc/activity-relay/actor.pem)" = "$actor_hash"
+          test "$(sudo sha256sum /etc/activity-relay/actor.pem)" = "$actor_hash"
           test ! -e /etc/systemd/system/multi-user.target.wants/activity-relay-server.service
           test ! -e /etc/systemd/system/multi-user.target.wants/activity-relay-worker.service
           test ! -e /etc/systemd/system/timers.target.wants/activity-relay-resource-guard.timer
