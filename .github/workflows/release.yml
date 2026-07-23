@@ -68,7 +68,7 @@ jobs:
       - name: Install Debian packaging tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes debhelper devscripts golang-any lintian
+          sudo apt-get install --yes build-essential debhelper devscripts golang-any lintian
 
       - name: Set package version from tag
         env:
