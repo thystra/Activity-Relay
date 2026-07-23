@@ -3,10 +3,17 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing v* tag to package and publish
+        required: true
+        type: string
 
 jobs:
   build:
     name: Release Build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
@@ -51,6 +58,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - uses: actions/setup-go@v5
         with:
@@ -66,13 +74,16 @@ jobs:
         env:
           DEBEMAIL: noreply@github.com
           DEBFULLNAME: thystra
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           version="${RELEASE_TAG#v}"
           version="${version/-/~}"
           dpkg --validate-version "$version"
-          dch --newversion "$version" --distribution noble \
-            "Release ${RELEASE_TAG}."
+          current_version="$(dpkg-parsechangelog --show-field Version)"
+          if [ "$current_version" != "$version" ]; then
+            dch --newversion "$version" --distribution noble \
+              "Release ${RELEASE_TAG}."
+          fi
 
       - name: Run application tests
         env:
@@ -124,7 +135,7 @@ jobs:
       - name: Attach package to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/* --clobber
