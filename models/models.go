@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +12,51 @@ import (
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 )
+
+const maxRemoteJSONBytes int64 = 2 * 1024 * 1024
+
+var remoteHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: func() http.RoundTripper {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.MaxIdleConns = 100
+		transport.MaxIdleConnsPerHost = 8
+		transport.IdleConnTimeout = 90 * time.Second
+		transport.ResponseHeaderTimeout = 5 * time.Second
+		return transport
+	}(),
+}
+
+func fetchRemoteJSON(address string, uaString string, destination interface{}) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, address, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create remote request: %w", err)
+	}
+	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+		return nil, fmt.Errorf("unsupported remote URL scheme %q", req.URL.Scheme)
+	}
+	req.Header.Set("Accept", "application/activity+json")
+	req.Header.Set("User-Agent", uaString)
+	resp, err := remoteHTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(resp.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxRemoteJSONBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read remote response: %w", err)
+	}
+	if int64(len(data)) > maxRemoteJSONBytes {
+		return nil, errors.New("remote JSON response exceeds 2 MiB limit")
+	}
+	if err := json.Unmarshal(data, destination); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
 
 // PublicKey : Activity Certificate.
 type PublicKey struct {
@@ -90,29 +136,19 @@ func NewActivityPubActorFromRemoteActor(url string, uaString string, cache *cach
 	var err error
 	cacheData, found := cache.Get(url)
 	if found {
-		err = json.Unmarshal(cacheData.([]byte), &actor)
-		if err != nil {
+		data, ok := cacheData.([]byte)
+		if !ok {
 			cache.Delete(url)
 		} else {
+			err = json.Unmarshal(data, actor)
+		}
+		if err != nil {
+			cache.Delete(url)
+		} else if ok {
 			return *actor, nil
 		}
 	}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Accept", "application/activity+json")
-	req.Header.Set("User-Agent", uaString)
-	client := new(http.Client)
-	resp, err := client.Do(req)
-	if err != nil {
-		return *actor, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return *actor, errors.New(resp.Status)
-	}
-
-	data, _ := io.ReadAll(resp.Body)
-	err = json.Unmarshal(data, &actor)
+	data, err := fetchRemoteJSON(url, uaString, actor)
 	if err != nil {
 		return *actor, err
 	}
@@ -206,23 +242,7 @@ func NewActivityPubActivity(actor Actor, to []string, object interface{}, activi
 func NewActivityPubActivityFromRemoteActivity(url string, uaString string) (Activity, error) {
 	var activity = new(Activity)
 	var err error
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Accept", "application/activity+json")
-	req.Header.Set("User-Agent", uaString)
-	client := new(http.Client)
-	resp, err := client.Do(req)
-	if err != nil {
-		return *activity, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return *activity, errors.New(resp.Status)
-	}
-
-	data, _ := io.ReadAll(resp.Body)
-	err = json.Unmarshal(data, &activity)
-	if err != nil {
+	if _, err = fetchRemoteJSON(url, uaString, activity); err != nil {
 		return *activity, err
 	}
 	return *activity, nil

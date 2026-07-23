@@ -14,6 +14,10 @@ import (
 	"github.com/yukimochi/machinery-v1/v1/tasks"
 )
 
+var followersPathPattern = regexp.MustCompile(`/followers$`)
+
+const queueReservationKey = "relay:queue:reservations"
+
 func contains(entries interface{}, key string) bool {
 	switch entry := entries.(type) {
 	case string:
@@ -43,23 +47,56 @@ func contains(entries interface{}, key string) bool {
 	return false
 }
 
-func queueHasCapacity(additional int) bool {
-	queued, err := RelayState.RedisClient.LLen(context.TODO(), "relay").Result()
+func reserveQueueCapacity(additional int) bool {
+	if additional < 1 {
+		return true
+	}
+	const reserveScript = `
+local queued = redis.call('LLEN', KEYS[1])
+local reserved = tonumber(redis.call('GET', KEYS[2]) or '0')
+local additional = tonumber(ARGV[1])
+local maximum = tonumber(ARGV[2])
+if queued + reserved + additional > maximum then
+  return 0
+end
+redis.call('INCRBY', KEYS[2], additional)
+redis.call('EXPIRE', KEYS[2], 60)
+return 1`
+	reserved, err := RelayState.RedisClient.Eval(
+		context.Background(), reserveScript, []string{"relay", queueReservationKey},
+		additional, GlobalConfig.MaxQueueJobs(),
+	).Int()
 	if err != nil {
-		logrus.Error("Unable to inspect relay queue: ", err)
+		logrus.Error("Unable to reserve relay queue capacity: ", err)
 		return false
 	}
-	if queued+int64(additional) > GlobalConfig.MaxQueueJobs() {
+	if reserved != 1 {
 		logrus.Warn("Skipped relay work: queue would exceed MAX_QUEUE_JOBS")
 		return false
 	}
 	return true
 }
 
-func enqueueRegisterActivity(inboxURL string, body []byte) {
-	if !queueHasCapacity(1) {
+func releaseQueueCapacity(additional int) {
+	if additional < 1 {
 		return
 	}
+	const releaseScript = `
+local remaining = redis.call('DECRBY', KEYS[1], ARGV[1])
+if remaining <= 0 then
+  redis.call('DEL', KEYS[1])
+end
+return remaining`
+	if err := RelayState.RedisClient.Eval(context.Background(), releaseScript, []string{queueReservationKey}, additional).Err(); err != nil {
+		logrus.Error("Unable to release relay queue capacity: ", err)
+	}
+}
+
+func enqueueRegisterActivity(inboxURL string, body []byte) {
+	if !reserveQueueCapacity(1) {
+		return
+	}
+	defer releaseQueueCapacity(1)
 	job := &tasks.Signature{
 		Name:       "register",
 		RetryCount: 2,
@@ -82,8 +119,8 @@ func enqueueRegisterActivity(inboxURL string, body []byte) {
 	}
 }
 
-func enqueueRelayActivity(inboxURL string, activityID string) {
-	job := &tasks.Signature{
+func relayTask(inboxURL string, activityID string) *tasks.Signature {
+	return &tasks.Signature{
 		Name:       "relay-v2",
 		RetryCount: 0,
 		Args: []tasks.Arg{
@@ -99,127 +136,90 @@ func enqueueRelayActivity(inboxURL string, activityID string) {
 			},
 		},
 	}
-	_, err := MachineryServer.SendTask(job)
+}
+
+func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, body []byte) {
+	if len(subscriptions) > GlobalConfig.MaxFanoutTargets() {
+		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
+		return
+	}
+	targets := make([]models.Subscriber, 0, len(subscriptions))
+	for _, subscription := range subscriptions {
+		if sourceDomain != subscription.Domain {
+			targets = append(targets, subscription)
+		}
+	}
+	if len(targets) < 1 {
+		return
+	}
+	if !reserveQueueCapacity(len(targets)) {
+		return
+	}
+	defer releaseQueueCapacity(len(targets))
+
+	activityID := uuid.NewString()
+	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
+	if err := RelayState.RedisClient.Eval(context.Background(), pushActivityScript, []string{"relay:activity:" + activityID}, body, len(targets), 2*60).Err(); err != nil {
+		logrus.Error("Unable to store relay activity: ", err)
+		return
+	}
+
+	signatures := make([]*tasks.Signature, 0, len(targets))
+	for _, target := range targets {
+		signatures = append(signatures, relayTask(target.InboxURL, activityID))
+	}
+	group, err := tasks.NewGroup(signatures...)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("Unable to create relay task group: ", err)
+		return
+	}
+	concurrency := len(signatures)
+	if concurrency > 16 {
+		concurrency = 16
+	}
+	if _, err := MachineryServer.SendGroup(group, concurrency); err != nil {
+		logrus.Error("Unable to enqueue relay task group: ", err)
 	}
 }
 
 func enqueueActivityForAll(sourceDomain string, body []byte) {
-	if len(RelayState.SubscribersAndFollowers) > GlobalConfig.MaxFanoutTargets() {
-		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
-		return
-	}
-	activityID := uuid.New()
-	remainCount := len(RelayState.SubscribersAndFollowers) - 1
-
-	if remainCount < 1 {
-		return
-	}
-	if !queueHasCapacity(remainCount) {
-		return
-	}
-
-	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
-	RelayState.RedisClient.Eval(context.TODO(), pushActivityScript, []string{"relay:activity:" + activityID.String()}, body, remainCount, 2*60).Result()
-
-	for _, subscription := range RelayState.SubscribersAndFollowers {
-		if sourceDomain == subscription.Domain {
-			continue
-		}
-		enqueueRelayActivity(subscription.InboxURL, activityID.String())
-	}
+	enqueueActivity(RelayState.Snapshot().SubscribersAndFollowers, sourceDomain, body)
 }
 
 func enqueueActivityForSubscriber(sourceDomain string, body []byte) {
-	if len(RelayState.Subscribers) > GlobalConfig.MaxFanoutTargets() {
-		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
-		return
-	}
-	activityID := uuid.New()
-	remainCount := len(RelayState.Subscribers)
-	if contains(RelayState.Subscribers, sourceDomain) {
-		remainCount = remainCount - 1
-	}
-	if remainCount < 1 {
-		return
-	}
-	if !queueHasCapacity(remainCount) {
-		return
-	}
-
-	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
-	RelayState.RedisClient.Eval(context.TODO(), pushActivityScript, []string{"relay:activity:" + activityID.String()}, body, remainCount, 2*60).Result()
-
-	for _, subscription := range RelayState.Subscribers {
-		if sourceDomain == subscription.Domain {
-			continue
-		}
-		enqueueRelayActivity(subscription.InboxURL, activityID.String())
-	}
+	enqueueActivity(RelayState.Snapshot().Subscribers, sourceDomain, body)
 }
 
 func enqueueActivityForFollower(sourceDomain string, body []byte) {
-	if len(RelayState.Followers) > GlobalConfig.MaxFanoutTargets() {
-		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
-		return
+	snapshot := RelayState.Snapshot()
+	subscriptions := make([]models.Subscriber, 0, len(snapshot.Followers))
+	for _, follower := range snapshot.Followers {
+		subscriptions = append(subscriptions, models.Subscriber{
+			Domain: follower.Domain, InboxURL: follower.InboxURL,
+			ActivityID: follower.ActivityID, ActorID: follower.ActorID,
+		})
 	}
-	activityID := uuid.New()
-	remainCount := len(RelayState.Followers)
-	if contains(RelayState.Followers, sourceDomain) {
-		remainCount = remainCount - 1
-	}
-	if remainCount < 1 {
-		return
-	}
-	if !queueHasCapacity(remainCount) {
-		return
-	}
-
-	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
-	RelayState.RedisClient.Eval(context.TODO(), pushActivityScript, []string{"relay:activity:" + activityID.String()}, body, remainCount, 2*60).Result()
-
-	for _, subscription := range RelayState.Followers {
-		if sourceDomain == subscription.Domain {
-			continue
-		}
-		enqueueRelayActivity(subscription.InboxURL, activityID.String())
-	}
+	enqueueActivity(subscriptions, sourceDomain, body)
 }
 
 func isActorLimited(actorID *url.URL) bool {
-	if contains(RelayState.LimitedDomains, actorID.Host) {
-		return true
-	}
-	return false
+	return RelayState.IsLimited(actorID.Host)
 }
 
 func isActorBlocked(actorID *url.URL) bool {
-	if contains(RelayState.BlockedDomains, actorID.Host) {
-		return true
-	}
-	return false
+	return RelayState.IsBlocked(actorID.Host)
 }
 
 func isActorSubscribed(actorID *url.URL) bool {
-	if contains(RelayState.Subscribers, actorID.Host) {
-		return true
-	}
-	return false
+	return RelayState.IsSubscriber(actorID.Host)
 }
 
 func isActorFollowers(actorID *url.URL) bool {
-	if contains(RelayState.Followers, actorID.Host) {
-		return true
-	}
-	return false
+	return RelayState.IsFollower(actorID.Host)
 }
 
 func isActorSubscribersOrFollowers(actorID *url.URL) bool {
-	if contains(RelayState.SubscribersAndFollowers, actorID.Host) {
-		return true
-	}
-	return false
+	return RelayState.IsSubscriberOrFollower(actorID.Host)
 }
 
 func isActorAbleToBeFollower(actorID *url.URL) bool {
@@ -233,20 +233,20 @@ func isActorAbleToBeFollower(actorID *url.URL) bool {
 
 func isActorAbleToRelay(actor *models.Actor) bool {
 	domain, _ := url.Parse(actor.ID)
-	if contains(RelayState.LimitedDomains, domain.Host) {
+	if RelayState.IsLimited(domain.Host) {
 		return false
 	}
-	if RelayState.RelayConfig.PersonOnly && actor.Type != "Person" {
+	if RelayState.PersonOnly() && actor.Type != "Person" {
 		return false
 	}
 	return true
 }
 
 func isToMyFollower(entries []string) bool {
+	snapshot := RelayState.Snapshot()
 	for _, entry := range entries {
-		isToFollower := regexp.MustCompile(`/followers$`)
-		if isToFollower.MatchString(entry) {
-			for _, follower := range RelayState.Followers {
+		if followersPathPattern.MatchString(entry) {
+			for _, follower := range snapshot.Followers {
 				if follower.ActorID+"/followers" == entry {
 					return true
 				}
@@ -263,7 +263,7 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 	}
 	switch {
 	case contains(activity.Object, "https://www.w3.org/ns/activitystreams#Public"):
-		if RelayState.RelayConfig.ManuallyAccept {
+		if RelayState.ManualApprovalRequired() {
 			RelayState.RedisClient.HMSet(context.TODO(), "relay:pending:"+actorID.Host, map[string]interface{}{
 				"inbox_url":   actor.Endpoints.SharedInbox,
 				"activity_id": activity.ID,
@@ -286,7 +286,7 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 		}
 	case contains(activity.Object, RelayActor.ID):
 		if isActorAbleToBeFollower(actorID) {
-			if RelayState.RelayConfig.ManuallyAccept {
+			if RelayState.ManualApprovalRequired() {
 				RelayState.RedisClient.HMSet(context.TODO(), "relay:pending:"+actorID.Host, map[string]interface{}{
 					"inbox_url":   actor.Endpoints.SharedInbox,
 					"activity_id": activity.ID,

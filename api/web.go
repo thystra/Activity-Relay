@@ -37,6 +37,7 @@ type relayStatusResponse struct {
 }
 
 func buildRelayStatus() relayStatusResponse {
+	snapshot := RelayState.Snapshot()
 	baseURL := ""
 	name := RelayActor.Name
 
@@ -48,12 +49,12 @@ func buildRelayStatus() relayStatusResponse {
 	}
 
 	registration := "open"
-	if RelayState.RelayConfig.ManuallyAccept {
+	if snapshot.RelayConfig.ManuallyAccept {
 		registration = "approval_required"
 	}
 
-	seen := make(map[string]struct{}, len(RelayState.SubscribersAndFollowers))
-	for _, instance := range RelayState.SubscribersAndFollowers {
+	seen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers))
+	for _, instance := range snapshot.SubscribersAndFollowers {
 		domain := strings.ToLower(strings.TrimSpace(instance.Domain))
 		if domain == "" {
 			continue
@@ -73,8 +74,8 @@ func buildRelayStatus() relayStatusResponse {
 		Name:           name,
 		Domain:         strings.TrimPrefix(baseURL, "https://"),
 		Registration:   registration,
-		ManualApproval: RelayState.RelayConfig.ManuallyAccept,
-		PersonOnly:     RelayState.RelayConfig.PersonOnly,
+		ManualApproval: snapshot.RelayConfig.ManuallyAccept,
+		PersonOnly:     snapshot.RelayConfig.PersonOnly,
 		Endpoints: relayStatusEndpoints{
 			Inbox: baseURL + "/inbox",
 			Actor: baseURL + "/actor",

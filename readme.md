@@ -50,11 +50,11 @@ Keeping the original module path minimizes downstream breakage and makes future 
 For a tagged release build:
 
 ```bash
-git checkout v2.2.0
+git checkout v2.3.0
 mkdir -p build
 go build \
   -trimpath \
-  -ldflags='-X main.version=2.2.0' \
+  -ldflags='-X main.version=2.3.0' \
   -o build/relay \
   .
 ```
@@ -88,6 +88,12 @@ active `config.yml`, enable services, or modify a web-server configuration.
 Continue with `/usr/share/doc/activity-relay/README.Debian` after installation.
 Package removal and purge retain the actor identity, operator configuration,
 website content, and Redis data.
+
+The Nginx example also contains commented HTTP/3/QUIC listeners and an
+`Alt-Svc` header. They can be enabled when Nginx includes
+`--with-http_v3_module` and both TCP and UDP port 443 are permitted. Nginx
+terminates HTTP/3 and continues proxying to the relay over local HTTP/1.1, so
+no separate HTTP/3 listener is required in the Go service.
 
 ## Run
 

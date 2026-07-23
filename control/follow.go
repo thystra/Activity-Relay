@@ -134,7 +134,7 @@ func createFollowRequestResponse(domain string, response string) error {
 				ActorID:    data["actor"],
 			})
 			actorID, _ := url.Parse(data["actor"])
-			if !contains(RelayState.LimitedDomains, actorID.Host) {
+			if !RelayState.IsLimited(actorID.Host) {
 				followRequest := models.NewActivityPubActivity(RelayActor, []string{data["actor"]}, data["actor"], "Follow")
 				jsonData, _ := json.Marshal(&followRequest)
 				enqueueRegisterActivity(data["inbox_url"], jsonData)
@@ -164,14 +164,10 @@ func createUpdateActorActivity(subscription models.Subscriber) error {
 }
 
 func listFollows(cmd *cobra.Command, _ []string) error {
-	var domains []string
 	cmd.Println(" - Follow requests:")
-	follows, err := RelayState.RedisClient.Keys(context.TODO(), "relay:pending:*").Result()
+	domains, err := pendingFollowDomains()
 	if err != nil {
 		return err
-	}
-	for _, follow := range follows {
-		domains = append(domains, strings.Replace(follow, "relay:pending:", "", 1))
 	}
 	for _, domain := range domains {
 		cmd.Println(domain)
@@ -182,14 +178,9 @@ func listFollows(cmd *cobra.Command, _ []string) error {
 }
 
 func acceptFollow(cmd *cobra.Command, args []string) error {
-	var err error
-	var domains []string
-	follows, err := RelayState.RedisClient.Keys(context.TODO(), "relay:pending:*").Result()
+	domains, err := pendingFollowDomains()
 	if err != nil {
 		return err
-	}
-	for _, follow := range follows {
-		domains = append(domains, strings.Replace(follow, "relay:pending:", "", 1))
 	}
 
 	for _, domain := range args {
@@ -205,14 +196,9 @@ func acceptFollow(cmd *cobra.Command, args []string) error {
 }
 
 func rejectFollow(cmd *cobra.Command, args []string) error {
-	var err error
-	var domains []string
-	follows, err := RelayState.RedisClient.Keys(context.TODO(), "relay:pending:*").Result()
+	domains, err := pendingFollowDomains()
 	if err != nil {
 		return err
-	}
-	for _, follow := range follows {
-		domains = append(domains, strings.Replace(follow, "relay:pending:", "", 1))
 	}
 
 	for _, domain := range args {
@@ -227,8 +213,20 @@ func rejectFollow(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func pendingFollowDomains() ([]string, error) {
+	follows, err := models.ScanKeys(context.Background(), RelayState.RedisClient, "relay:pending:*")
+	if err != nil {
+		return nil, err
+	}
+	domains := make([]string, 0, len(follows))
+	for _, follow := range follows {
+		domains = append(domains, strings.TrimPrefix(follow, "relay:pending:"))
+	}
+	return domains, nil
+}
+
 func updateActor(cmd *cobra.Command, _ []string) error {
-	for _, subscription := range RelayState.SubscribersAndFollowers {
+	for _, subscription := range RelayState.Snapshot().SubscribersAndFollowers {
 		err := createUpdateActorActivity(subscription)
 		if err != nil {
 			cmd.Println("Failed to update RelayActor for [" + subscription.Domain + "]")

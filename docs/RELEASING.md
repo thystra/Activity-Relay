@@ -31,19 +31,19 @@ The first maintained-fork release is `v2.1.0` because it adds backward-compatibl
 
 ## Build the release candidate
 
-For version `2.2.0`:
+For version `2.3.0`:
 
 ```bash
 mkdir -p build
 
 go build \
   -trimpath \
-  -ldflags='-X main.version=2.2.0' \
-  -o build/relay-2.2.0 \
+  -ldflags='-X main.version=2.3.0' \
+  -o build/relay-2.3.0 \
   .
 
-sha256sum build/relay-2.2.0 \
-  > build/relay-2.2.0.sha256
+sha256sum build/relay-2.3.0 \
+  > build/relay-2.3.0.sha256
 ```
 
 ## Tag the tested commit
@@ -52,10 +52,10 @@ sha256sum build/relay-2.2.0 \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.2.0 \
-  -m 'Activity-Relay v2.2.0 maintained fork release'
+git tag -a v2.3.0 \
+  -m 'Activity-Relay v2.3.0 maintained fork release'
 
-git push origin v2.2.0
+git push origin v2.3.0
 ```
 
 Do not move an already-published release tag. Correct mistakes with a new patch release.

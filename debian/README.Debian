@@ -53,6 +53,10 @@ Nginx and Apache examples are installed under:
 Neither example is installed into sites-available, enabled, or reloaded by the
 package. Both expect /var/www/activity-relay/public as the document root.
 
+The Nginx example includes commented HTTP/3/QUIC directives. Enable them only
+when nginx -V reports --with-http_v3_module and UDP port 443 is open. Keep the
+TCP 443 listener enabled for HTTP/1.1 and HTTP/2 fallback.
+
 Mail
 ----
 

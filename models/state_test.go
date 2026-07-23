@@ -8,12 +8,13 @@ import (
 func TestLoadEmpty(t *testing.T) {
 	relayState.RedisClient.FlushAll(context.TODO()).Result()
 	relayState.Load()
+	snapshot := relayState.Snapshot()
 
-	if relayState.RelayConfig.PersonOnly != false {
-		t.Fatalf("Expected PersonOnly to be false, but got %v", relayState.RelayConfig.PersonOnly)
+	if snapshot.RelayConfig.PersonOnly != false {
+		t.Fatalf("Expected PersonOnly to be false, but got %v", snapshot.RelayConfig.PersonOnly)
 	}
-	if relayState.RelayConfig.ManuallyAccept != false {
-		t.Fatalf("Expected ManuallyAccept to be false, but got %v", relayState.RelayConfig.ManuallyAccept)
+	if snapshot.RelayConfig.ManuallyAccept != false {
+		t.Fatalf("Expected ManuallyAccept to be false, but got %v", snapshot.RelayConfig.ManuallyAccept)
 	}
 }
 
@@ -23,32 +24,32 @@ func TestSetConfig(t *testing.T) {
 	t.Run("Set PersonOnly to true", func(t *testing.T) {
 		relayState.SetConfig(PersonOnly, true)
 		<-ch
-		if relayState.RelayConfig.PersonOnly != true {
-			t.Fatalf("Expected PersonOnly to be true, but got %v", relayState.RelayConfig.PersonOnly)
+		if got := relayState.Snapshot().RelayConfig.PersonOnly; got != true {
+			t.Fatalf("Expected PersonOnly to be true, but got %v", got)
 		}
 	})
 
 	t.Run("Set ManuallyAccept to true", func(t *testing.T) {
 		relayState.SetConfig(ManuallyAccept, true)
 		<-ch
-		if relayState.RelayConfig.ManuallyAccept != true {
-			t.Fatalf("Expected ManuallyAccept to be true, but got %v", relayState.RelayConfig.ManuallyAccept)
+		if got := relayState.Snapshot().RelayConfig.ManuallyAccept; got != true {
+			t.Fatalf("Expected ManuallyAccept to be true, but got %v", got)
 		}
 	})
 
 	t.Run("Set PersonOnly to false", func(t *testing.T) {
 		relayState.SetConfig(PersonOnly, false)
 		<-ch
-		if relayState.RelayConfig.PersonOnly != false {
-			t.Fatalf("Expected PersonOnly to be false, but got %v", relayState.RelayConfig.PersonOnly)
+		if got := relayState.Snapshot().RelayConfig.PersonOnly; got != false {
+			t.Fatalf("Expected PersonOnly to be false, but got %v", got)
 		}
 	})
 
 	t.Run("Set ManuallyAccept to false", func(t *testing.T) {
 		relayState.SetConfig(ManuallyAccept, false)
 		<-ch
-		if relayState.RelayConfig.ManuallyAccept != false {
-			t.Fatalf("Expected ManuallyAccept to be false, but got %v", relayState.RelayConfig.ManuallyAccept)
+		if got := relayState.Snapshot().RelayConfig.ManuallyAccept; got != false {
+			t.Fatalf("Expected ManuallyAccept to be false, but got %v", got)
 		}
 	})
 }
@@ -64,7 +65,7 @@ func TestTreatSubscriptionNotify(t *testing.T) {
 		<-ch
 
 		valid := false
-		for _, domain := range relayState.Subscribers {
+		for _, domain := range relayState.Snapshot().Subscribers {
 			if domain.Domain == "example.com" && domain.InboxURL == "https://example.com/inbox" {
 				valid = true
 			}
@@ -79,7 +80,7 @@ func TestTreatSubscriptionNotify(t *testing.T) {
 		<-ch
 
 		valid := true
-		for _, domain := range relayState.Subscribers {
+		for _, domain := range relayState.Snapshot().Subscribers {
 			if domain.Domain == "example.com" {
 				valid = false
 			}
@@ -124,7 +125,7 @@ func TestBlockedDomain(t *testing.T) {
 		<-ch
 
 		valid := false
-		for _, domain := range relayState.BlockedDomains {
+		for _, domain := range relayState.Snapshot().BlockedDomains {
 			if domain == "example.com" {
 				valid = true
 			}
@@ -139,7 +140,7 @@ func TestBlockedDomain(t *testing.T) {
 		<-ch
 
 		valid := true
-		for _, domain := range relayState.BlockedDomains {
+		for _, domain := range relayState.Snapshot().BlockedDomains {
 			if domain == "example.com" {
 				valid = false
 			}
@@ -158,7 +159,7 @@ func TestLimitedDomain(t *testing.T) {
 		<-ch
 
 		valid := false
-		for _, domain := range relayState.LimitedDomains {
+		for _, domain := range relayState.Snapshot().LimitedDomains {
 			if domain == "example.com" {
 				valid = true
 			}
@@ -173,7 +174,7 @@ func TestLimitedDomain(t *testing.T) {
 		<-ch
 
 		valid := true
-		for _, domain := range relayState.LimitedDomains {
+		for _, domain := range relayState.Snapshot().LimitedDomains {
 			if domain == "example.com" {
 				valid = false
 			}
@@ -196,7 +197,7 @@ func TestLoadCompatibleSubscription(t *testing.T) {
 	relayState.Load()
 
 	valid := false
-	for _, domain := range relayState.Subscribers {
+	for _, domain := range relayState.Snapshot().Subscribers {
 		if domain.Domain == "example.com" && domain.InboxURL == "https://example.com/inbox" {
 			valid = true
 		}

@@ -74,7 +74,9 @@ func main() {
 	app.PersistentFlags().StringP("config", "c", "config.yml", "Path of config")
 	app.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Show debug log")
 
-	app.Execute()
+	if err := app.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func buildCommand() *cobra.Command {

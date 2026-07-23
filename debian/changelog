@@ -1,3 +1,12 @@
+activity-relay (2.3.0) noble; urgency=medium
+
+  * Add concurrency-safe and indexed relay state snapshots.
+  * Reduce Redis load with SCAN, pipelined reads, and bounded fan-out.
+  * Add atomic queue admission and bounded remote HTTP responses.
+  * Add opt-in HTTP/3 configuration guidance for Nginx.
+
+ -- thystra <noreply@github.com>  Wed, 22 Jul 2026 21:30:00 -0400
+
 activity-relay (2.2.0) noble; urgency=medium
 
   * Add operational resource guardrails and administrator notifications.

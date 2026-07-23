@@ -2,7 +2,9 @@ package models
 
 import (
 	"context"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -22,6 +24,7 @@ const (
 type RelayState struct {
 	RedisClient *redis.Client `json:"-"`
 	notifiable  bool
+	mu          *sync.RWMutex
 
 	RelayConfig             relayConfig  `json:"relayConfig,omitempty"`
 	LimitedDomains          []string     `json:"limitedDomains,omitempty"`
@@ -29,6 +32,20 @@ type RelayState struct {
 	Subscribers             []Subscriber `json:"subscriptions,omitempty"`
 	Followers               []Follower   `json:"followers,omitempty"`
 	SubscribersAndFollowers []Subscriber `json:"-"`
+	limitedDomains          map[string]struct{}
+	blockedDomains          map[string]struct{}
+	subscribersByDomain     map[string]Subscriber
+	followersByDomain       map[string]Follower
+}
+
+// RelayStateSnapshot is an immutable point-in-time view safe for concurrent readers.
+type RelayStateSnapshot struct {
+	RelayConfig             relayConfig
+	LimitedDomains          []string
+	BlockedDomains          []string
+	Subscribers             []Subscriber
+	Followers               []Follower
+	SubscribersAndFollowers []Subscriber
 }
 
 // NewState : Create new RelayState instance with redis client
@@ -36,23 +53,32 @@ func NewState(redisClient *redis.Client, notifiable bool) RelayState {
 	var config RelayState
 	config.RedisClient = redisClient
 	config.notifiable = notifiable
+	config.mu = new(sync.RWMutex)
 
-	config.Load()
+	if err := config.Load(); err != nil {
+		logrus.Error("Unable to load relay state: ", err)
+	}
 	return config
 }
 
 func (config *RelayState) ListenNotify(c chan<- bool) {
-	_, err := config.RedisClient.Subscribe(context.TODO(), "relay_refresh").Receive(context.TODO())
+	pubsub := config.RedisClient.Subscribe(context.Background(), "relay_refresh")
+	_, err := pubsub.Receive(context.Background())
 	if err != nil {
+		_ = pubsub.Close()
 		panic(err)
 	}
-	ch := config.RedisClient.Subscribe(context.TODO(), "relay_refresh").Channel()
+	ch := pubsub.Channel()
 
 	cNotify := c != nil
 	go func() {
+		defer pubsub.Close()
 		for range ch {
 			logrus.Info("RelayState reloaded")
-			config.Load()
+			if err := config.Load(); err != nil {
+				logrus.Error("Unable to reload relay state: ", err)
+				continue
+			}
 			if cNotify {
 				c <- true
 			}
@@ -60,65 +86,195 @@ func (config *RelayState) ListenNotify(c chan<- bool) {
 	}()
 }
 
-// Load : Refrash content from redis
-func (config *RelayState) Load() {
-	config.RelayConfig.load(config.RedisClient)
+// ScanKeys returns matching Redis keys without blocking the server with KEYS.
+func ScanKeys(ctx context.Context, client *redis.Client, pattern string) ([]string, error) {
+	keys := make([]string, 0)
+	iterator := client.Scan(ctx, 0, pattern, 256).Iterator()
+	for iterator.Next(ctx) {
+		keys = append(keys, iterator.Val())
+	}
+	if err := iterator.Err(); err != nil {
+		return nil, err
+	}
+	sort.Strings(keys)
+	return keys, nil
+}
+
+func loadHashes(ctx context.Context, client *redis.Client, keys []string, fields ...string) ([][]interface{}, error) {
+	pipe := client.Pipeline()
+	commands := make([]*redis.SliceCmd, len(keys))
+	for i, key := range keys {
+		commands[i] = pipe.HMGet(ctx, key, fields...)
+	}
+	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
+		return nil, err
+	}
+	values := make([][]interface{}, len(commands))
+	for i, command := range commands {
+		values[i] = command.Val()
+	}
+	return values, nil
+}
+
+func stringValue(values []interface{}, index int) string {
+	if index >= len(values) || values[index] == nil {
+		return ""
+	}
+	value, _ := values[index].(string)
+	return value
+}
+
+// Load refreshes relay state from Redis and atomically publishes a complete snapshot.
+func (config *RelayState) Load() error {
+	ctx := context.Background()
+	relayConfiguration, err := loadRelayConfig(ctx, config.RedisClient)
+	if err != nil {
+		return err
+	}
 	var limitedDomains []string
 	var blockedDomains []string
 	var subscribers []Subscriber
 	var followers []Follower
 	var subscribersAndFollowers []Subscriber
 
-	domains, _ := config.RedisClient.HKeys(context.TODO(), "relay:config:limitedDomain").Result()
-	for _, domain := range domains {
-		limitedDomains = append(limitedDomains, domain)
+	limitedDomains, err = config.RedisClient.HKeys(ctx, "relay:config:limitedDomain").Result()
+	if err != nil {
+		return err
 	}
-	domains, _ = config.RedisClient.HKeys(context.TODO(), "relay:config:blockedDomain").Result()
-	for _, domain := range domains {
-		blockedDomains = append(blockedDomains, domain)
+	blockedDomains, err = config.RedisClient.HKeys(ctx, "relay:config:blockedDomain").Result()
+	if err != nil {
+		return err
 	}
+	sort.Strings(limitedDomains)
+	sort.Strings(blockedDomains)
 
-	domains, _ = config.RedisClient.Keys(context.TODO(), "relay:subscription:*").Result()
-	for _, domain := range domains {
-		domainName := strings.Replace(domain, "relay:subscription:", "", 1)
-		inboxURL, _ := config.RedisClient.HGet(context.TODO(), domain, "inbox_url").Result()
-		activityID, err := config.RedisClient.HGet(context.TODO(), domain, "activity_id").Result()
-		if err != nil {
-			activityID = ""
-		}
-		actorID, err := config.RedisClient.HGet(context.TODO(), domain, "actor_id").Result()
-		if err != nil {
-			actorID = ""
-		}
+	domains, err := ScanKeys(ctx, config.RedisClient, "relay:subscription:*")
+	if err != nil {
+		return err
+	}
+	values, err := loadHashes(ctx, config.RedisClient, domains, "inbox_url", "activity_id", "actor_id")
+	if err != nil {
+		return err
+	}
+	for i, domain := range domains {
+		domainName := strings.TrimPrefix(domain, "relay:subscription:")
+		inboxURL := stringValue(values[i], 0)
+		activityID := stringValue(values[i], 1)
+		actorID := stringValue(values[i], 2)
 		subscribers = append(subscribers, Subscriber{domainName, inboxURL, activityID, actorID})
 		subscribersAndFollowers = append(subscribersAndFollowers, Subscriber{domainName, inboxURL, activityID, actorID})
 	}
 
-	domains, _ = config.RedisClient.Keys(context.TODO(), "relay:follower:*").Result()
-	for _, domain := range domains {
-		domainName := strings.Replace(domain, "relay:follower:", "", 1)
-		inboxURL, _ := config.RedisClient.HGet(context.TODO(), domain, "inbox_url").Result()
-		activityID, err := config.RedisClient.HGet(context.TODO(), domain, "activity_id").Result()
-		if err != nil {
-			activityID = ""
-		}
-		actorID, err := config.RedisClient.HGet(context.TODO(), domain, "actor_id").Result()
-		if err != nil {
-			actorID = ""
-		}
-		mutuallyFollow, err := config.RedisClient.HGet(context.TODO(), domain, "mutually_follow").Result()
-		if err != nil {
-			mutuallyFollow = "0"
-		}
+	domains, err = ScanKeys(ctx, config.RedisClient, "relay:follower:*")
+	if err != nil {
+		return err
+	}
+	values, err = loadHashes(ctx, config.RedisClient, domains, "inbox_url", "activity_id", "actor_id", "mutually_follow")
+	if err != nil {
+		return err
+	}
+	for i, domain := range domains {
+		domainName := strings.TrimPrefix(domain, "relay:follower:")
+		inboxURL := stringValue(values[i], 0)
+		activityID := stringValue(values[i], 1)
+		actorID := stringValue(values[i], 2)
+		mutuallyFollow := stringValue(values[i], 3)
 		followers = append(followers, Follower{domainName, inboxURL, activityID, actorID, mutuallyFollow == "1"})
 		subscribersAndFollowers = append(subscribersAndFollowers, Subscriber{domainName, inboxURL, activityID, actorID})
 	}
 
+	limitedSet := make(map[string]struct{}, len(limitedDomains))
+	for _, domain := range limitedDomains {
+		limitedSet[domain] = struct{}{}
+	}
+	blockedSet := make(map[string]struct{}, len(blockedDomains))
+	for _, domain := range blockedDomains {
+		blockedSet[domain] = struct{}{}
+	}
+	subscriberSet := make(map[string]Subscriber, len(subscribers))
+	for _, subscriber := range subscribers {
+		subscriberSet[subscriber.Domain] = subscriber
+	}
+	followerSet := make(map[string]Follower, len(followers))
+	for _, follower := range followers {
+		followerSet[follower.Domain] = follower
+	}
+
+	config.mu.Lock()
+	defer config.mu.Unlock()
+	config.RelayConfig = relayConfiguration
 	config.LimitedDomains = limitedDomains
 	config.BlockedDomains = blockedDomains
 	config.Subscribers = subscribers
 	config.Followers = followers
 	config.SubscribersAndFollowers = subscribersAndFollowers
+	config.limitedDomains = limitedSet
+	config.blockedDomains = blockedSet
+	config.subscribersByDomain = subscriberSet
+	config.followersByDomain = followerSet
+	return nil
+}
+
+// Snapshot returns copies of the state slices so callers can iterate without races.
+func (config *RelayState) Snapshot() RelayStateSnapshot {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	return RelayStateSnapshot{
+		RelayConfig:             config.RelayConfig,
+		LimitedDomains:          append([]string(nil), config.LimitedDomains...),
+		BlockedDomains:          append([]string(nil), config.BlockedDomains...),
+		Subscribers:             append([]Subscriber(nil), config.Subscribers...),
+		Followers:               append([]Follower(nil), config.Followers...),
+		SubscribersAndFollowers: append([]Subscriber(nil), config.SubscribersAndFollowers...),
+	}
+}
+
+func (config *RelayState) IsLimited(domain string) bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	_, ok := config.limitedDomains[domain]
+	return ok
+}
+
+func (config *RelayState) IsBlocked(domain string) bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	_, ok := config.blockedDomains[domain]
+	return ok
+}
+
+func (config *RelayState) IsSubscriber(domain string) bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	_, ok := config.subscribersByDomain[domain]
+	return ok
+}
+
+func (config *RelayState) IsFollower(domain string) bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	_, ok := config.followersByDomain[domain]
+	return ok
+}
+
+func (config *RelayState) IsSubscriberOrFollower(domain string) bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	_, subscriber := config.subscribersByDomain[domain]
+	_, follower := config.followersByDomain[domain]
+	return subscriber || follower
+}
+
+func (config *RelayState) PersonOnly() bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	return config.RelayConfig.PersonOnly
+}
+
+func (config *RelayState) ManualApprovalRequired() bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	return config.RelayConfig.ManuallyAccept
 }
 
 // SetConfig : Set relay configuration
@@ -158,10 +314,10 @@ func (config *RelayState) DelSubscriber(domain string) {
 
 // SelectSubscriber : Select instance from subscriber list
 func (config *RelayState) SelectSubscriber(domain string) *Subscriber {
-	for _, subscriber := range config.Subscribers {
-		if domain == subscriber.Domain {
-			return &subscriber
-		}
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	if subscriber, ok := config.subscribersByDomain[domain]; ok {
+		return &subscriber
 	}
 	return nil
 }
@@ -199,10 +355,10 @@ func (config *RelayState) DelFollower(domain string) {
 
 // SelectFollower : Select instance from follower list
 func (config *RelayState) SelectFollower(domain string) *Follower {
-	for _, follower := range config.Followers {
-		if domain == follower.Domain {
-			return &follower
-		}
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	if follower, ok := config.followersByDomain[domain]; ok {
+		return &follower
 	}
 	return nil
 }
@@ -259,15 +415,13 @@ type relayConfig struct {
 	ManuallyAccept bool `json:"manuallyAccept,omitempty"`
 }
 
-func (config *relayConfig) load(redisClient *redis.Client) {
-	personOnly, err := redisClient.HGet(context.TODO(), "relay:config", "block_service").Result()
+func loadRelayConfig(ctx context.Context, redisClient *redis.Client) (relayConfig, error) {
+	values, err := redisClient.HMGet(ctx, "relay:config", "block_service", "manually_accept").Result()
 	if err != nil {
-		personOnly = "0"
+		return relayConfig{}, err
 	}
-	manuallyAccept, err := redisClient.HGet(context.TODO(), "relay:config", "manually_accept").Result()
-	if err != nil {
-		manuallyAccept = "0"
-	}
-	config.PersonOnly = personOnly == "1"
-	config.ManuallyAccept = manuallyAccept == "1"
+	return relayConfig{
+		PersonOnly:     stringValue(values, 0) == "1",
+		ManuallyAccept: stringValue(values, 1) == "1",
+	}, nil
 }

@@ -37,10 +37,20 @@ func Entrypoint(g *models.RelayConfig, v string) error {
 		return err
 	}
 
-	handlersRegister()
+	mux := http.NewServeMux()
+	handlersRegister(mux)
 
 	logrus.Info("Starting API Server at ", GlobalConfig.ServerBind())
-	err = http.ListenAndServe(GlobalConfig.ServerBind(), nil)
+	server := &http.Server{
+		Addr:              GlobalConfig.ServerBind(),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 * 1024,
+	}
+	err = server.ListenAndServe()
 	if err != nil {
 		return err
 	}
@@ -69,13 +79,13 @@ func initialize(globalConfig *models.RelayConfig) error {
 	return nil
 }
 
-func handlersRegister() {
-	http.HandleFunc("/.well-known/nodeinfo", handleNodeinfoLink)
-	http.HandleFunc("/.well-known/webfinger", handleWebfinger)
-	http.HandleFunc("/nodeinfo/2.1", handleNodeinfo)
-	http.HandleFunc("/status.json", handleRelayStatus)
-	http.HandleFunc("/actor", handleRelayActor)
-	http.HandleFunc("/inbox", func(w http.ResponseWriter, r *http.Request) {
+func handlersRegister(mux *http.ServeMux) {
+	mux.HandleFunc("/.well-known/nodeinfo", handleNodeinfoLink)
+	mux.HandleFunc("/.well-known/webfinger", handleWebfinger)
+	mux.HandleFunc("/nodeinfo/2.1", handleNodeinfo)
+	mux.HandleFunc("/status.json", handleRelayStatus)
+	mux.HandleFunc("/actor", handleRelayActor)
+	mux.HandleFunc("/inbox", func(w http.ResponseWriter, r *http.Request) {
 		handleInbox(w, r, decodeActivity)
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,10 +16,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var hs2019Pattern = regexp.MustCompile(`algorithm="hs2019"`)
+
 func compatibilityForHTTPSignature11(request *http.Request, algorithm httpsig.Algorithm) {
 	signature := request.Header.Get("Signature")
-	targetString := regexp.MustCompile("algorithm=\"hs2019\"")
-	signature = targetString.ReplaceAllString(signature, string("algorithm=\""+algorithm+"\""))
+	signature = hs2019Pattern.ReplaceAllString(signature, string("algorithm=\""+algorithm+"\""))
 	request.Header.Set("Signature", signature)
 }
 
@@ -38,24 +40,32 @@ func appendSignature(request *http.Request, body *[]byte, KeyID string, privateK
 }
 
 func sendActivity(inboxURL string, KeyID string, body []byte, privateKey *rsa.PrivateKey) error {
-	req, _ := http.NewRequest("POST", inboxURL, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPost, inboxURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create delivery request: %w", err)
+	}
 	req.Header.Set("Content-Type", "application/activity+json")
 	req.Header.Set("User-Agent", fmt.Sprintf("%s (golang net/http; Activity-Relay %s; %s)", GlobalConfig.ServerServiceName(), version, GlobalConfig.ServerHostname().Host))
 	req.Header.Set("Date", httpdate.Time2Str(time.Now()))
-	appendSignature(req, &body, KeyID, privateKey)
+	if err := appendSignature(req, &body, KeyID, privateKey); err != nil {
+		return fmt.Errorf("sign delivery request: %w", err)
+	}
 	resp, err := HttpClient.Do(req)
 	if err != nil {
-		urlErr := err.(*url.Error)
+		var urlErr *url.Error
 		errMsg := ""
 
-		if urlErr.Timeout() {
+		if errors.As(err, &urlErr) && urlErr.Timeout() {
 			errMsg = "Client.Timeout exceeded while awaiting headers"
-		} else {
+		} else if urlErr != nil {
 			errMsg = urlErr.Unwrap().Error()
+		} else {
+			errMsg = err.Error()
 		}
 		return errors.New(inboxURL + ": " + errMsg)
 	}
 	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 
 	logrus.Debug(inboxURL, " ", resp.StatusCode)
 	if resp.StatusCode/100 != 2 {

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.0] - 2026-07-22
+
+- Add opt-in HTTP/3/QUIC directives to the Nginx deployment example.
+- Make relay state reads concurrency-safe and replace blocking Redis key scans
+  and per-field reloads with `SCAN` and pipelined hash reads.
+- Add atomic queue-capacity reservations and bounded concurrent fan-out
+  publication.
+- Reuse bounded HTTP clients, limit remote JSON responses, harden API server
+  timeouts, and propagate command and delivery errors correctly.
+
 ## [2.2.0] - 2026-07-22
 
 - Add configurable request and fan-out limits, bounded Redis/container resource
