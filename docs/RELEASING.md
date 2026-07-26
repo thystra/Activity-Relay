@@ -3,19 +3,23 @@
 This repository uses annotated Git tags and GitHub Releases. The relay binary receives its version through the existing `main.version` linker variable.
 
 Pushing a `v*` tag builds both the multi-architecture GHCR container image and
-the native Ubuntu 24.04 `amd64` package. Container tags include the full semantic
-version, major/minor, major, and `latest`. The release workflow runs the
-Redis-backed tests, derives the Debian version from
-the tag, builds and lints the package, performs a clean installation/reinstall
-test, verifies actor identity preservation and disabled services, writes
-`SHA256SUMS`, and attaches the Debian package and checksums to the GitHub
-Release. The container is published to GHCR by the parallel release job.
+the native Ubuntu 24.04 `amd64` package. Stable tags publish the full semantic
+version, major/minor, major, and `latest` container tags. Prerelease tags publish
+only their full prerelease version and do not move `latest`. The release workflow
+runs the Redis-backed tests, derives a Debian version with revision `-1` from the
+tag (for example, `v2.4.0-rc1` becomes `2.4.0~rc1-1`), builds and lints the
+package, performs a clean installation/reinstall test, verifies actor identity
+preservation and disabled services, writes `SHA256SUMS`, and attaches the Debian
+package and checksums to the GitHub Release. Prerelease tags create GitHub
+prereleases. The container is published to GHCR by the parallel release job.
 
 ## Version policy
 
 - Patch release: backward-compatible fixes only, for example `2.1.1`.
 - Minor release: backward-compatible features, for example `2.2.0`.
 - Major release: incompatible configuration, API, storage, protocol, or identity changes.
+- Release candidate: append `-rcN` to the Git tag, for example `v2.4.0-rc1`.
+  Release candidates do not update container `latest`, major, or major/minor tags.
 
 The first maintained-fork release is `v2.1.0` because it adds backward-compatible public API and landing-site functionality beyond upstream `v2.0.10`.
 
@@ -52,10 +56,22 @@ sha256sum build/relay-2.4.0 \
 
 ## Tag the tested commit
 
+For a release candidate:
+
 ```bash
 git switch master
 git pull --ff-only origin master
 
+git tag -a v2.4.0-rc1 \
+  -m 'Activity-Relay v2.4.0-rc1 release candidate'
+
+git push origin v2.4.0-rc1
+```
+
+After the release candidate is validated, prepare the final Debian changelog
+version and tag the tested final commit:
+
+```bash
 git tag -a v2.4.0 \
   -m 'Activity-Relay v2.4.0 maintained fork release'
 

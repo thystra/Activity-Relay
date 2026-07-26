@@ -34,8 +34,14 @@ jobs:
             v[0-9]*) ;;
             *) echo "Release tag must begin with v and a digit: $ref" >&2; exit 1 ;;
           esac
+          version="${ref#v}"
+          case "$version" in
+            *-*) prerelease=true ;;
+            *) prerelease=false ;;
+          esac
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
       - name: Generate GHCR metadata
         id: ghcr-metadata
         uses: docker/metadata-action@v5
@@ -43,9 +49,20 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/activity-relay
           tags: |
             type=semver,pattern={{version}},value=${{ steps.variables.outputs.ref }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.variables.outputs.ref }}
-            type=semver,pattern={{major}},value=${{ steps.variables.outputs.ref }}
-            type=raw,value=latest
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.variables.outputs.ref }},enable=${{ steps.variables.outputs.prerelease == 'false' }}
+            type=semver,pattern={{major}},value=${{ steps.variables.outputs.ref }},enable=${{ steps.variables.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ steps.variables.outputs.prerelease == 'false' }}
+      - name: Generate Docker Hub metadata
+        if: env.REGISTRY_USER != '' && env.REGISTRY_PASS != ''
+        id: dockerhub-metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_USER }}/activity-relay
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.variables.outputs.ref }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.variables.outputs.ref }},enable=${{ steps.variables.outputs.prerelease == 'false' }}
+            type=semver,pattern={{major}},value=${{ steps.variables.outputs.ref }},enable=${{ steps.variables.outputs.prerelease == 'false' }}
+            type=raw,value=latest,enable=${{ steps.variables.outputs.prerelease == 'false' }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Log in to Docker Hub
@@ -79,9 +96,8 @@ jobs:
           push: true
           context: .
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.REGISTRY_USER }}/activity-relay:${{ steps.variables.outputs.version }}
-            ${{ env.REGISTRY_USER }}/activity-relay:latest
+          tags: ${{ steps.dockerhub-metadata.outputs.tags }}
+          labels: ${{ steps.dockerhub-metadata.outputs.labels }}
           build-args: |
             VERSION=${{ steps.variables.outputs.version }}
           provenance: mode=max
@@ -121,7 +137,11 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           version="${RELEASE_TAG#v}"
-          version="${version/-/~}"
+          if [[ "$version" == *-* ]]; then
+            version="${version/-/~}-1"
+          else
+            version="${version}-1"
+          fi
           dpkg --validate-version "$version"
           current_version="$(dpkg-parsechangelog --show-field Version)"
           if [ "$current_version" != "$version" ]; then
@@ -140,10 +160,12 @@ jobs:
       - name: Inspect and lint package
         run: |
           package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
+          changes="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.changes' -print -quit)"
           test -n "$package"
+          test -n "$changes"
           dpkg-deb --info "$package"
           dpkg-deb --contents "$package"
-          lintian --fail-on error "$package"
+          lintian --fail-on error "$changes"
 
       - name: Test clean install and identity preservation
         run: |
@@ -190,6 +212,9 @@ jobs:
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/* --clobber
           else
-            gh release create "$RELEASE_TAG" dist/* \
-              --title "$RELEASE_TAG" --generate-notes
+            release_args=(--title "$RELEASE_TAG" --generate-notes)
+            if [[ "${RELEASE_TAG#v}" == *-* ]]; then
+              release_args+=(--prerelease)
+            fi
+            gh release create "$RELEASE_TAG" dist/* "${release_args[@]}"
           fi
