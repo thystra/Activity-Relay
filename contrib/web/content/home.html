@@ -15,12 +15,12 @@
       <strong id="relay-registration">Loading…</strong>
     </div>
     <div>
-      <span class="label">Connected servers</span>
+      <span class="label">Participating servers</span>
       <strong id="relay-instance-count">—</strong>
     </div>
     <div>
-      <span class="label">Observed publishers</span>
-      <strong id="relay-publisher-count">—</strong>
+      <span class="label">Receiving servers</span>
+      <strong id="relay-receiving-count">—</strong>
     </div>
     <div>
       <span class="label">Software</span>
@@ -57,8 +57,8 @@
 <section class="panel">
   <div class="section-heading">
     <div>
-      <h2>Connected servers</h2>
-      <p class="muted">Domains currently subscribed to or following the relay and receiving relay traffic.</p>
+      <h2>Participating servers</h2>
+      <p class="muted">Unique domains that receive relay traffic, publish accepted activities, or do both.</p>
     </div>
     <label class="search-label">
       <span>Filter domains</span>
@@ -66,15 +66,16 @@
     </label>
   </div>
   <ul id="instance-list" class="instance-list">
-    <li class="muted">Loading connected servers…</li>
+    <li class="muted">Loading participating servers…</li>
   </ul>
-  <p id="instance-empty" class="muted" hidden>No connected servers match that filter.</p>
+  <p id="instance-empty" class="muted" hidden>No participating servers match that filter.</p>
 </section>
+
 <section class="panel">
   <div class="section-heading">
     <div>
-      <h2>Observed publishers</h2>
-      <p class="muted">Domains that have sent valid, signed public activities. Send-only publishers do not receive the relay feed.</p>
+      <h2>Publisher details</h2>
+      <p class="muted">Domains that have sent valid, signed public activities, including whether they also receive the relay feed.</p>
     </div>
     <label class="search-label">
       <span>Filter publishers</span>
@@ -82,7 +83,7 @@
     </label>
   </div>
   <ul id="publisher-list" class="publisher-list">
-    <li class="muted">Loading observed publishers…</li>
+    <li class="muted">Loading publisher details…</li>
   </ul>
-  <p id="publisher-empty" class="muted" hidden>No observed publishers match that filter.</p>
+  <p id="publisher-empty" class="muted" hidden>No publishers match that filter.</p>
 </section>

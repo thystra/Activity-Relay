@@ -95,3 +95,5 @@ curl --fail --silent --show-error \
   http://127.0.0.1:8080/status.json |
 python3 -m json.tool
 ```
+
+Release assets replace Debian's `~` prerelease separator with `-` in the uploaded filename so GitHub does not rewrite it. The package's internal Debian version remains unchanged.

@@ -48,12 +48,22 @@ type relayStatusResponse struct {
 	PersonOnly         bool                  `json:"person_only"`
 	Endpoints          relayStatusEndpoints  `json:"endpoints"`
 	ConnectedInstances relayStatusInstances  `json:"connected_instances"`
+	ReceivingInstances relayStatusInstances  `json:"receiving_instances"`
 	Publishers         relayStatusPublishers `json:"publishers"`
 	Software           relayStatusSoftware   `json:"software"`
 }
 
 func normalizedStatusDomain(domain string) string {
 	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(domain), "."))
+}
+
+func sortedStatusDomains(seen map[string]struct{}) []string {
+	domains := make([]string, 0, len(seen))
+	for domain := range seen {
+		domains = append(domains, domain)
+	}
+	sort.Strings(domains)
+	return domains
 }
 
 func buildRelayStatus() relayStatusResponse {
@@ -73,20 +83,13 @@ func buildRelayStatus() relayStatusResponse {
 		registration = "approval_required"
 	}
 
-	seen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers))
+	receivingSeen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers))
 	for _, instance := range snapshot.SubscribersAndFollowers {
 		domain := normalizedStatusDomain(instance.Domain)
-		if domain == "" {
-			continue
+		if domain != "" {
+			receivingSeen[domain] = struct{}{}
 		}
-		seen[domain] = struct{}{}
 	}
-
-	domains := make([]string, 0, len(seen))
-	for domain := range seen {
-		domains = append(domains, domain)
-	}
-	sort.Strings(domains)
 
 	subscribed := make(map[string]struct{}, len(snapshot.Subscribers))
 	for _, subscriber := range snapshot.Subscribers {
@@ -95,14 +98,21 @@ func buildRelayStatus() relayStatusResponse {
 			subscribed[domain] = struct{}{}
 		}
 	}
+
+	participatingSeen := make(map[string]struct{}, len(receivingSeen)+len(snapshot.Publishers))
+	for domain := range receivingSeen {
+		participatingSeen[domain] = struct{}{}
+	}
+
 	publishers := make([]relayStatusPublisher, 0, len(snapshot.Publishers))
 	for _, publisher := range snapshot.Publishers {
 		domain := normalizedStatusDomain(publisher.Domain)
 		if domain == "" {
 			continue
 		}
+		participatingSeen[domain] = struct{}{}
 		_, isSubscribed := subscribed[domain]
-		_, receivesRelay := seen[domain]
+		_, receivesRelay := receivingSeen[domain]
 		publishers = append(publishers, relayStatusPublisher{
 			Domain:           domain,
 			FirstSeen:        publisher.FirstSeen,
@@ -117,8 +127,11 @@ func buildRelayStatus() relayStatusResponse {
 		return publishers[i].Domain < publishers[j].Domain
 	})
 
+	participatingDomains := sortedStatusDomains(participatingSeen)
+	receivingDomains := sortedStatusDomains(receivingSeen)
+
 	return relayStatusResponse{
-		SchemaVersion:  2,
+		SchemaVersion:  3,
 		Status:         "ok",
 		Name:           name,
 		Domain:         strings.TrimPrefix(baseURL, "https://"),
@@ -130,8 +143,12 @@ func buildRelayStatus() relayStatusResponse {
 			Actor: baseURL + "/actor",
 		},
 		ConnectedInstances: relayStatusInstances{
-			Count:   len(domains),
-			Domains: domains,
+			Count:   len(participatingDomains),
+			Domains: participatingDomains,
+		},
+		ReceivingInstances: relayStatusInstances{
+			Count:   len(receivingDomains),
+			Domains: receivingDomains,
 		},
 		Publishers: relayStatusPublishers{
 			Count:   len(publishers),

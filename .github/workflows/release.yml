@@ -154,7 +154,9 @@ jobs:
       - name: Run application tests
         env:
           REDIS_URL: redis://127.0.0.1:6381
-        run: go test -p 1 ./...
+        run: |
+          go test -p 1 ./...
+          python3 -m unittest discover -s contrib/web -p 'test_*.py'
 
       - name: Build package
         run: dpkg-buildpackage --build=binary --no-sign
@@ -196,7 +198,10 @@ jobs:
         run: |
           mkdir -p dist
           package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
-          cp "$package" dist/
+          test -n "$package"
+          package_name="$(basename "$package")"
+          release_name="${package_name//~/-}"
+          cp "$package" "dist/$release_name"
           cd dist
           sha256sum ./*.deb > SHA256SUMS
 

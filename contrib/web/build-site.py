@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Build the static Activity-Relay landing site without external dependencies."""
+"Build the static Activity-Relay landing site without external dependencies."
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import shutil
@@ -37,6 +38,17 @@ def replace_tokens(text: str, values: dict[str, str]) -> str:
     return text
 
 
+def asset_version(source: Path) -> str:
+    digest = hashlib.sha256()
+    for path in sorted((source / "assets").rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(source).as_posix().encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+            digest.update(b"\0")
+    return digest.hexdigest()[:16]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
@@ -48,12 +60,10 @@ def main() -> int:
         help="Directory containing templates/, content/, and assets/",
     )
     args = parser.parse_args()
-
     config = load_config(args.config)
     source = args.source.resolve()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-
     escaped = {
         "SITE_NAME": html.escape(config["site_name"]),
         "TAGLINE": html.escape(config["tagline"]),
@@ -63,6 +73,7 @@ def main() -> int:
         "STATUS_URL": html.escape(config["status_url"], quote=True),
         "LANGUAGE": html.escape(config["language"], quote=True),
         "YEAR": str(datetime.now(timezone.utc).year),
+        "ASSET_VERSION": asset_version(source),
     }
     logo_url = html.escape(config["logo_url"], quote=True)
     escaped["LOGO"] = (
@@ -72,7 +83,6 @@ def main() -> int:
         + html.escape(config["logo_alt"], quote=True)
         + '">' if logo_url else ""
     )
-
     page_template = (source / "templates/page.html").read_text(encoding="utf-8")
     footer = replace_tokens(
         (source / "content/footer.html").read_text(encoding="utf-8"), escaped
@@ -84,7 +94,6 @@ def main() -> int:
         "rules": ("Rules", "rules.html"),
         "privacy": ("Privacy", "privacy.html"),
     }
-
     for slug, (title, content_file) in pages.items():
         values = dict(escaped)
         values["PAGE_TITLE"] = html.escape(title)
@@ -94,7 +103,6 @@ def main() -> int:
         values["CONTENT"] = content
         values["FOOTER"] = footer
         rendered = replace_tokens(page_template, values)
-
         destination = output if slug == "" else output / slug
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "index.html").write_text(rendered, encoding="utf-8")

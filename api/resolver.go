@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -17,6 +18,11 @@ import (
 var followersPathPattern = regexp.MustCompile(`/followers$`)
 
 const queueReservationKey = "relay:queue:reservations"
+
+const storeRelayActivityScript = `
+redis.call('HSET', KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2])
+redis.call('EXPIRE', KEYS[1], ARGV[3])
+return 1`
 
 func contains(entries interface{}, key string) bool {
 	switch entry := entries.(type) {
@@ -138,6 +144,24 @@ func relayTask(inboxURL string, activityID string) *tasks.Signature {
 	}
 }
 
+func storeRelayActivity(activityID string, body []byte, targetCount int) error {
+	stored, err := RelayState.RedisClient.Eval(
+		context.Background(),
+		storeRelayActivityScript,
+		[]string{"relay:activity:" + activityID},
+		body,
+		targetCount,
+		2*60,
+	).Int()
+	if err != nil {
+		return err
+	}
+	if stored != 1 {
+		return fmt.Errorf("unexpected relay activity storage result: %d", stored)
+	}
+	return nil
+}
+
 func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, body []byte) {
 	if len(subscriptions) > GlobalConfig.MaxFanoutTargets() {
 		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
@@ -158,8 +182,7 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 	defer releaseQueueCapacity(len(targets))
 
 	activityID := uuid.NewString()
-	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
-	if err := RelayState.RedisClient.Eval(context.Background(), pushActivityScript, []string{"relay:activity:" + activityID}, body, len(targets), 2*60).Err(); err != nil {
+	if err := storeRelayActivity(activityID, body, len(targets)); err != nil {
 		logrus.Error("Unable to store relay activity: ", err)
 		return
 	}

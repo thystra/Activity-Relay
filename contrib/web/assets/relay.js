@@ -3,25 +3,40 @@
 
   const dashboard = document.querySelector("[data-relay-dashboard]");
   if (!dashboard) return;
+
+  const byId = (id) => document.getElementById(id);
   const statusURL = dashboard.dataset.statusUrl || "/status.json";
-  const health = document.getElementById("relay-health");
-  const registration = document.getElementById("relay-registration");
-  const count = document.getElementById("relay-instance-count");
-  const publisherCount = document.getElementById("relay-publisher-count");
-  const version = document.getElementById("relay-version");
-  const inbox = document.getElementById("relay-inbox-endpoint");
-  const actor = document.getElementById("relay-actor-endpoint");
-  const message = document.getElementById("relay-status-message");
-  const list = document.getElementById("instance-list");
-  const empty = document.getElementById("instance-empty");
-  const search = document.getElementById("instance-search");
-  const publisherList = document.getElementById("publisher-list");
-  const publisherEmpty = document.getElementById("publisher-empty");
-  const publisherSearch = document.getElementById("publisher-search");
+  const health = byId("relay-health");
+  const registration = byId("relay-registration");
+  const count = byId("relay-instance-count");
+  const receivingCount = byId("relay-receiving-count");
+  const publisherCount = byId("relay-publisher-count");
+  const version = byId("relay-version");
+  const inbox = byId("relay-inbox-endpoint");
+  const actor = byId("relay-actor-endpoint");
+  const message = byId("relay-status-message");
+  const list = byId("instance-list");
+  const empty = byId("instance-empty");
+  const search = byId("instance-search");
+  const publisherList = byId("publisher-list");
+  const publisherEmpty = byId("publisher-empty");
+  const publisherSearch = byId("publisher-search");
+
   let domains = [];
   let publishers = [];
 
+  function setText(element, value) {
+    if (element) element.textContent = value;
+  }
+
+  function setStatusClass(element, className) {
+    if (!element) return;
+    element.classList.remove("status-good", "status-warning");
+    element.classList.add(className);
+  }
+
   function renderDomains(filter = "") {
+    if (!list) return;
     const needle = filter.trim().toLowerCase();
     const visible = domains.filter((domain) => domain.includes(needle));
     list.replaceChildren();
@@ -32,7 +47,7 @@
       list.appendChild(item);
     }
 
-    empty.hidden = visible.length !== 0;
+    if (empty) empty.hidden = visible.length !== 0;
   }
 
   function formatSeen(value) {
@@ -46,6 +61,7 @@
   }
 
   function renderPublishers(filter = "") {
+    if (!publisherList) return;
     const needle = filter.trim().toLowerCase();
     const visible = publishers.filter((publisher) =>
       String(publisher.domain ?? "").toLowerCase().includes(needle)
@@ -57,7 +73,9 @@
       const heading = document.createElement("strong");
       const meta = document.createElement("span");
       const role = publisher.receives_relay
-        ? (publisher.subscribed ? "Subscriber and publisher" : "Connected follower and publisher")
+        ? (publisher.subscribed
+          ? "Subscriber and publisher"
+          : "Connected follower and publisher")
         : "Send-only publisher";
       heading.textContent = publisher.domain;
       meta.className = "publisher-meta";
@@ -66,11 +84,12 @@
       publisherList.appendChild(item);
     }
 
-    publisherEmpty.hidden = visible.length !== 0;
+    if (publisherEmpty) publisherEmpty.hidden = visible.length !== 0;
   }
 
   search?.addEventListener("input", () => renderDomains(search.value));
   publisherSearch?.addEventListener("input", () => renderPublishers(publisherSearch.value));
+
   fetch(statusURL, {
     headers: { Accept: "application/json" },
     credentials: "same-origin"
@@ -80,33 +99,42 @@
       return response.json();
     })
     .then((data) => {
-      health.textContent = data.status === "ok" ? "Online" : data.status;
-      health.classList.add(data.status === "ok" ? "status-good" : "status-warning");
-      registration.textContent = data.manual_approval ? "Approval required" : "Open";
-      count.textContent = String(data.connected_instances?.count ?? 0);
-      publisherCount.textContent = String(data.publishers?.count ?? 0);
-      version.textContent = `${data.software?.name ?? "Activity-Relay"} ${data.software?.version ?? ""}`.trim();
-      inbox.textContent = data.endpoints?.inbox ?? "/inbox";
-      actor.textContent = data.endpoints?.actor ?? "/actor";
+      setText(health, data.status === "ok" ? "Online" : String(data.status ?? "Unknown"));
+      setStatusClass(health, data.status === "ok" ? "status-good" : "status-warning");
+      setText(registration, data.manual_approval ? "Approval required" : "Open");
+      setText(count, String(data.connected_instances?.count ?? 0));
+      setText(receivingCount, String(data.receiving_instances?.count ?? data.connected_instances?.count ?? 0));
+      setText(publisherCount, String(data.publishers?.count ?? 0));
+      setText(version, `${data.software?.name ?? "Activity-Relay"} ${data.software?.version ?? ""}`.trim());
+      setText(inbox, data.endpoints?.inbox ?? "/inbox");
+      setText(actor, data.endpoints?.actor ?? "/actor");
+
       domains = Array.isArray(data.connected_instances?.domains)
-        ? data.connected_instances.domains.map(String)
+        ? data.connected_instances.domains.map((domain) => String(domain).toLowerCase())
         : [];
       publishers = Array.isArray(data.publishers?.entries)
         ? data.publishers.entries
         : [];
+
       renderDomains();
       renderPublishers();
-      message.textContent = `Status loaded from ${statusURL}.`;
+      setText(message, `Status loaded from ${statusURL}.`);
     })
     .catch((error) => {
-      health.textContent = "Unavailable";
-      health.classList.add("status-warning");
-      registration.textContent = "Unknown";
-      count.textContent = "—";
-      publisherCount.textContent = "—";
-      version.textContent = "—";
-      list.innerHTML = '<li class="muted">The live connected-server list is temporarily unavailable.</li>';
-      publisherList.innerHTML = '<li class="muted">The live publisher list is temporarily unavailable.</li>';
-      message.textContent = `Unable to load relay status: ${error.message}`;
+      setText(health, "Unavailable");
+      setStatusClass(health, "status-warning");
+      setText(registration, "Unknown");
+      setText(count, "—");
+      setText(receivingCount, "—");
+      setText(publisherCount, "—");
+      setText(version, "—");
+
+      if (list) {
+        list.innerHTML = '<li class="muted">The live participating-server list is temporarily unavailable.</li>';
+      }
+      if (publisherList) {
+        publisherList.innerHTML = '<li class="muted">The live publisher list is temporarily unavailable.</li>';
+      }
+      setText(message, `Unable to load relay status: ${error.message}`);
     });
 })();

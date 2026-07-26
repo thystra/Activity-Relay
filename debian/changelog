@@ -1,4 +1,4 @@
-activity-relay (2.4.0~rc1-1) noble; urgency=medium
+activity-relay (2.4.0~rc2-1) noble; urgency=medium
 
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
@@ -6,6 +6,12 @@ activity-relay (2.4.0~rc1-1) noble; urgency=medium
   * Adopt the maintained github.com/thystra/Activity-Relay Go module path.
 
   * Remove legacy upstream CLI branding and expose the compiled version.
+
+  * Count publishers in the advertised participating-server total.
+  * Expose receiving servers separately from all participating servers.
+  * Fix Redis activity storage so accepted activities reach fan-out tasks.
+  * Make the static dashboard tolerant of mixed asset versions.
+  * Use cache-busted static assets and GitHub-safe release filenames.
 
  -- thystra <noreply@github.com>  Sun, 26 Jul 2026 14:30:00 -0400
 

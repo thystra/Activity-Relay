@@ -45,7 +45,6 @@ func TestHandleRelayStatus(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/status.json", nil)
 	rec := httptest.NewRecorder()
 	handleRelayStatus(rec, req)
-
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status code = %d; want %d", rec.Code, http.StatusOK)
 	}
@@ -57,30 +56,43 @@ func TestHandleRelayStatus(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-
 	if got.Name != "Test Relay" {
 		t.Errorf("name = %q; want Test Relay", got.Name)
 	}
 	if got.Registration != "open" || got.ManualApproval {
 		t.Errorf("registration = %q, manual_approval = %v", got.Registration, got.ManualApproval)
 	}
-	if got.ConnectedInstances.Count != 2 {
-		t.Errorf("connected count = %d; want 2", got.ConnectedInstances.Count)
+	if got.SchemaVersion != 3 {
+		t.Errorf("schema version = %d; want 3", got.SchemaVersion)
 	}
-	wantDomains := []string{"a.example", "z.example"}
-	if !reflect.DeepEqual(got.ConnectedInstances.Domains, wantDomains) {
-		t.Errorf("domains = %#v; want %#v", got.ConnectedInstances.Domains, wantDomains)
+
+	wantParticipating := []string{"a.example", "publisher.example", "z.example"}
+	if got.ConnectedInstances.Count != len(wantParticipating) {
+		t.Errorf("participating count = %d; want %d", got.ConnectedInstances.Count, len(wantParticipating))
 	}
-	if got.SchemaVersion != 2 {
-		t.Errorf("schema version = %d; want 2", got.SchemaVersion)
+	if !reflect.DeepEqual(got.ConnectedInstances.Domains, wantParticipating) {
+		t.Errorf("participating domains = %#v; want %#v", got.ConnectedInstances.Domains, wantParticipating)
 	}
+
+	wantReceiving := []string{"a.example", "z.example"}
+	if got.ReceivingInstances.Count != len(wantReceiving) {
+		t.Errorf("receiving count = %d; want %d", got.ReceivingInstances.Count, len(wantReceiving))
+	}
+	if !reflect.DeepEqual(got.ReceivingInstances.Domains, wantReceiving) {
+		t.Errorf("receiving domains = %#v; want %#v", got.ReceivingInstances.Domains, wantReceiving)
+	}
+
 	if got.Publishers.Count != 2 {
 		t.Fatalf("publisher count = %d; want 2", got.Publishers.Count)
 	}
-	if got.Publishers.Entries[0].Domain != "a.example" || !got.Publishers.Entries[0].Subscribed || !got.Publishers.Entries[0].ReceivesRelay {
-		t.Errorf("unexpected connected publisher entry: %+v", got.Publishers.Entries[0])
+	if got.Publishers.Entries[0].Domain != "a.example" ||
+		!got.Publishers.Entries[0].Subscribed ||
+		!got.Publishers.Entries[0].ReceivesRelay {
+		t.Errorf("unexpected receiving publisher entry: %+v", got.Publishers.Entries[0])
 	}
-	if got.Publishers.Entries[1].Domain != "publisher.example" || got.Publishers.Entries[1].Subscribed || got.Publishers.Entries[1].ReceivesRelay {
+	if got.Publishers.Entries[1].Domain != "publisher.example" ||
+		got.Publishers.Entries[1].Subscribed ||
+		got.Publishers.Entries[1].ReceivesRelay {
 		t.Errorf("unexpected send-only publisher entry: %+v", got.Publishers.Entries[1])
 	}
 	if got.Software.Version != "test-version" {

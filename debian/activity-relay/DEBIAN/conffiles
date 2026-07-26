@@ -1,4 +1,0 @@
-/etc/activity-relay-web/site.json.example
-/etc/activity-relay/config.yml.example
-/etc/activity-relay/redis.conf
-/etc/logrotate.d/activity-relay

@@ -476,3 +476,11 @@ The original upstream project and its sponsors are acknowledged in the upstream 
 ## License
 
 GNU Affero General Public License version 3. See [`LICENCE`](LICENCE).
+
+## Relay status counts
+
+`/status.json` reports `connected_instances` as the unique set of participating
+domains: servers that receive relay traffic, publish accepted activities, or do
+both. `receiving_instances` is the narrower operational set that receives
+fan-out. Publisher metadata remains available under `publishers`.
+

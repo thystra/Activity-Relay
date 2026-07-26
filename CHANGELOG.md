@@ -2,6 +2,18 @@
 
 ## [2.4.0] - 2026-07-26
 
+### RC2
+
+- Count the unique union of relay receivers and accepted publishers in
+  `connected_instances`, and expose the narrower fan-out set as
+  `receiving_instances`.
+- Fix relay activity storage by returning success from the Redis Lua script,
+  allowing worker task creation to continue.
+- Make the generated dashboard list every participating domain, remain usable
+  across mixed HTML/JavaScript deployments, and cache-bust its assets.
+- Publish Debian release assets with GitHub-safe filenames while retaining the
+  Debian version inside the package.
+
 - Remove legacy upstream branding from the CLI, give the root command the `relay` name, and expose the compiled version through `relay --version`.
 - Accept valid signed public `Create`, `Update`, `Delete`, and `Move`
   activities from unsubscribed ActivityPub publishers.
