@@ -353,7 +353,7 @@ func GenerateNodeinfoResources(hostname *url.URL, serverVersion string) Nodeinfo
 	}
 	resources.Nodeinfo = Nodeinfo{
 		"2.1",
-		NodeinfoSoftware{"activity-relay", serverVersion, "https://github.com/yukimochi/Activity-Relay"},
+		NodeinfoSoftware{"activity-relay", serverVersion, "https://github.com/thystra/Activity-Relay"},
 		[]string{"activitypub"},
 		NodeinfoServices{[]string{}, []string{}},
 		true,

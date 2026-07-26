@@ -11,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 const (
@@ -743,7 +743,7 @@ func TestHandleInboxLimitedCreate(t *testing.T) {
 	RelayState.SetLimitedDomain(domain.Host, false)
 }
 
-func TestHandleInboxUnsubscriptionCreate(t *testing.T) {
+func TestHandleInboxUnsubscribedPublisherCreate(t *testing.T) {
 	activity := mockActivity("Create")
 	actor := mockActor("Person")
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -757,9 +757,15 @@ func TestHandleInboxUnsubscriptionCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected request to succeed, but got error: %v", err)
 	}
-	if r.StatusCode != 401 {
-		t.Fatalf("Expected StatusCode to be 401, but got %d", r.StatusCode)
+	if r.StatusCode != 202 {
+		t.Fatalf("Expected StatusCode to be 202, but got %d", r.StatusCode)
 	}
+	domain, _ := url.Parse(activity.Actor)
+	if !RelayState.IsPublisher(domain.Hostname()) {
+		t.Fatalf("Expected %s to be recorded as a publisher", domain.Hostname())
+	}
+	RelayState.RedisClient.Del(context.TODO(), "relay:publisher:"+domain.Hostname()).Result()
+	RelayState.Load()
 }
 
 func TestHandleInboxAnnounceLitePub(t *testing.T) {

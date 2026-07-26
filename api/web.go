@@ -23,17 +23,37 @@ type relayStatusInstances struct {
 	Domains []string `json:"domains"`
 }
 
+type relayStatusPublisher struct {
+	Domain           string `json:"domain"`
+	FirstSeen        string `json:"first_seen,omitempty"`
+	LastSeen         string `json:"last_seen,omitempty"`
+	LastActivityType string `json:"last_activity_type,omitempty"`
+	ActivityCount    int64  `json:"activity_count"`
+	Subscribed       bool   `json:"subscribed"`
+	ReceivesRelay    bool   `json:"receives_relay"`
+}
+
+type relayStatusPublishers struct {
+	Count   int                    `json:"count"`
+	Entries []relayStatusPublisher `json:"entries"`
+}
+
 type relayStatusResponse struct {
-	SchemaVersion      int                  `json:"schema_version"`
-	Status             string               `json:"status"`
-	Name               string               `json:"name"`
-	Domain             string               `json:"domain"`
-	Registration       string               `json:"registration"`
-	ManualApproval     bool                 `json:"manual_approval"`
-	PersonOnly         bool                 `json:"person_only"`
-	Endpoints          relayStatusEndpoints `json:"endpoints"`
-	ConnectedInstances relayStatusInstances `json:"connected_instances"`
-	Software           relayStatusSoftware  `json:"software"`
+	SchemaVersion      int                   `json:"schema_version"`
+	Status             string                `json:"status"`
+	Name               string                `json:"name"`
+	Domain             string                `json:"domain"`
+	Registration       string                `json:"registration"`
+	ManualApproval     bool                  `json:"manual_approval"`
+	PersonOnly         bool                  `json:"person_only"`
+	Endpoints          relayStatusEndpoints  `json:"endpoints"`
+	ConnectedInstances relayStatusInstances  `json:"connected_instances"`
+	Publishers         relayStatusPublishers `json:"publishers"`
+	Software           relayStatusSoftware   `json:"software"`
+}
+
+func normalizedStatusDomain(domain string) string {
+	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(domain), "."))
 }
 
 func buildRelayStatus() relayStatusResponse {
@@ -55,7 +75,7 @@ func buildRelayStatus() relayStatusResponse {
 
 	seen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers))
 	for _, instance := range snapshot.SubscribersAndFollowers {
-		domain := strings.ToLower(strings.TrimSpace(instance.Domain))
+		domain := normalizedStatusDomain(instance.Domain)
 		if domain == "" {
 			continue
 		}
@@ -68,8 +88,37 @@ func buildRelayStatus() relayStatusResponse {
 	}
 	sort.Strings(domains)
 
+	subscribed := make(map[string]struct{}, len(snapshot.Subscribers))
+	for _, subscriber := range snapshot.Subscribers {
+		domain := normalizedStatusDomain(subscriber.Domain)
+		if domain != "" {
+			subscribed[domain] = struct{}{}
+		}
+	}
+	publishers := make([]relayStatusPublisher, 0, len(snapshot.Publishers))
+	for _, publisher := range snapshot.Publishers {
+		domain := normalizedStatusDomain(publisher.Domain)
+		if domain == "" {
+			continue
+		}
+		_, isSubscribed := subscribed[domain]
+		_, receivesRelay := seen[domain]
+		publishers = append(publishers, relayStatusPublisher{
+			Domain:           domain,
+			FirstSeen:        publisher.FirstSeen,
+			LastSeen:         publisher.LastSeen,
+			LastActivityType: publisher.LastActivityType,
+			ActivityCount:    publisher.ActivityCount,
+			Subscribed:       isSubscribed,
+			ReceivesRelay:    receivesRelay,
+		})
+	}
+	sort.Slice(publishers, func(i, j int) bool {
+		return publishers[i].Domain < publishers[j].Domain
+	})
+
 	return relayStatusResponse{
-		SchemaVersion:  1,
+		SchemaVersion:  2,
 		Status:         "ok",
 		Name:           name,
 		Domain:         strings.TrimPrefix(baseURL, "https://"),
@@ -83,6 +132,10 @@ func buildRelayStatus() relayStatusResponse {
 		ConnectedInstances: relayStatusInstances{
 			Count:   len(domains),
 			Domains: domains,
+		},
+		Publishers: relayStatusPublishers{
+			Count:   len(publishers),
+			Entries: publishers,
 		},
 		Software: relayStatusSoftware{
 			Name:       "activity-relay",

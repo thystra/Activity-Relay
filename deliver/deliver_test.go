@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func TestMain(m *testing.M) {

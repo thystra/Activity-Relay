@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func TestDecodeActivityRejectsOversizedBody(t *testing.T) {

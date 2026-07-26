@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.4.0] - 2026-07-26
+
+- Remove legacy upstream branding from the CLI, give the root command the `relay` name, and expose the compiled version through `relay --version`.
+- Accept valid signed public `Create`, `Update`, `Delete`, and `Move`
+  activities from unsubscribed ActivityPub publishers.
+- Persist observed publisher domains with first-seen, last-seen, activity type,
+  and accepted-activity count metadata.
+- Add publisher role and relay-receipt state to `/status.json` schema version 2
+  and the generated landing dashboard.
+- Bind HTTP signature key hosts to activity actor hosts before accepting open
+  publisher traffic, while retaining blocked, limited-domain, and person-only
+  policy enforcement.
+- Publish multi-architecture release containers to GHCR with semantic-version,
+  major/minor, major, and `latest` tags; publish `edge` and commit tags from
+  `master`.
+- Make the published GHCR image the default Compose deployment and provide a
+  separate `compose.build.yml` overlay for local source builds.
+- Continue building, linting, installing, and attaching the native Ubuntu 24.04
+  `amd64` Debian package for tagged releases.
+
 ## [2.3.1] - 2026-07-22
 
 - Report whether active Activity-Relay services restarted after a Debian

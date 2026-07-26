@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 	"github.com/yukimochi/machinery-v1/v1/tasks"
 )
 
@@ -202,24 +202,31 @@ func enqueueActivityForFollower(sourceDomain string, body []byte) {
 	enqueueActivity(subscriptions, sourceDomain, body)
 }
 
+func normalizedActorDomain(actorID *url.URL) string {
+	if actorID == nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSuffix(actorID.Hostname(), "."))
+}
+
 func isActorLimited(actorID *url.URL) bool {
-	return RelayState.IsLimited(actorID.Host)
+	return RelayState.IsLimited(normalizedActorDomain(actorID))
 }
 
 func isActorBlocked(actorID *url.URL) bool {
-	return RelayState.IsBlocked(actorID.Host)
+	return RelayState.IsBlocked(normalizedActorDomain(actorID))
 }
 
 func isActorSubscribed(actorID *url.URL) bool {
-	return RelayState.IsSubscriber(actorID.Host)
+	return RelayState.IsSubscriber(normalizedActorDomain(actorID))
 }
 
 func isActorFollowers(actorID *url.URL) bool {
-	return RelayState.IsFollower(actorID.Host)
+	return RelayState.IsFollower(normalizedActorDomain(actorID))
 }
 
 func isActorSubscribersOrFollowers(actorID *url.URL) bool {
-	return RelayState.IsSubscriberOrFollower(actorID.Host)
+	return RelayState.IsSubscriberOrFollower(normalizedActorDomain(actorID))
 }
 
 func isActorAbleToBeFollower(actorID *url.URL) bool {
@@ -232,8 +239,11 @@ func isActorAbleToBeFollower(actorID *url.URL) bool {
 }
 
 func isActorAbleToRelay(actor *models.Actor) bool {
-	domain, _ := url.Parse(actor.ID)
-	if RelayState.IsLimited(domain.Host) {
+	domain, err := url.Parse(actor.ID)
+	if err != nil || normalizedActorDomain(domain) == "" {
+		return false
+	}
+	if isActorBlocked(domain) || isActorLimited(domain) {
 		return false
 	}
 	if RelayState.PersonOnly() && actor.Type != "Person" {
@@ -367,14 +377,46 @@ func executeRejectRequest(activity *models.Activity, actor *models.Actor, err er
 	logrus.Error("Rejected Follow, Unfollow Request : ", activity.Actor, " ", err.Error())
 }
 
+func publisherInbox(actor *models.Actor) string {
+	if actor.Endpoints != nil && actor.Endpoints.SharedInbox != "" {
+		return actor.Endpoints.SharedInbox
+	}
+	return actor.Inbox
+}
+
+func recordPublisherActivity(activity *models.Activity, actor *models.Actor) error {
+	actorID, err := url.Parse(actor.ID)
+	if err != nil || normalizedActorDomain(actorID) == "" {
+		return errors.New("activity actor has an invalid ID")
+	}
+	if isActorBlocked(actorID) {
+		return errors.New(normalizedActorDomain(actorID) + " is blocked")
+	}
+	if !isActorAbleToRelay(actor) {
+		return nil
+	}
+	return RelayState.RecordPublisherActivity(models.Publisher{
+		Domain:           normalizedActorDomain(actorID),
+		ActorID:          actor.ID,
+		InboxURL:         publisherInbox(actor),
+		LastActivityID:   activity.ID,
+		LastActivityType: activity.Type,
+	})
+}
+
 func executeRelayActivity(activity *models.Activity, actor *models.Actor, body []byte) error {
-	actorID, _ := url.Parse(actor.ID)
-	if !isActorSubscribed(actorID) {
-		err := errors.New("to use the relay service, please follow in advance")
-		return err
+	actorID, err := url.Parse(actor.ID)
+	if err != nil || normalizedActorDomain(actorID) == "" {
+		return errors.New("activity actor has an invalid ID")
+	}
+	if isActorBlocked(actorID) {
+		return errors.New(normalizedActorDomain(actorID) + " is blocked")
 	}
 	if isActorAbleToRelay(actor) {
-		go enqueueActivityForSubscriber(actorID.Host, body)
+		if err := recordPublisherActivity(activity, actor); err != nil {
+			return err
+		}
+		go enqueueActivityForSubscriber(normalizedActorDomain(actorID), body)
 
 		var innnerObjectId, err = activity.UnwrapInnerObjectId()
 		if err != nil {
@@ -382,7 +424,7 @@ func executeRelayActivity(activity *models.Activity, actor *models.Actor, body [
 		} else {
 			announce := models.NewActivityPubActivity(RelayActor, []string{RelayActor.Followers()}, innnerObjectId, "Announce")
 			jsonData, _ := json.Marshal(&announce)
-			go enqueueActivityForFollower(actorID.Host, jsonData)
+			go enqueueActivityForFollower(normalizedActorDomain(actorID), jsonData)
 			logrus.Debug("Accepted Relay Activity : ", activity.Actor)
 		}
 	} else {
@@ -392,11 +434,20 @@ func executeRelayActivity(activity *models.Activity, actor *models.Actor, body [
 }
 
 func executeAnnounceActivity(activity *models.Activity, actor *models.Actor) error {
-	actorID, _ := url.Parse(actor.ID)
+	actorID, err := url.Parse(actor.ID)
+	if err != nil || normalizedActorDomain(actorID) == "" {
+		return errors.New("activity actor has an invalid ID")
+	}
+	if isActorBlocked(actorID) {
+		return errors.New(normalizedActorDomain(actorID) + " is blocked")
+	}
 	if isActorAbleToRelay(actor) {
+		if err := recordPublisherActivity(activity, actor); err != nil {
+			return err
+		}
 		announce := models.NewActivityPubActivity(RelayActor, []string{RelayActor.Followers()}, activity.ID, "Announce")
 		jsonData, _ := json.Marshal(&announce)
-		go enqueueActivityForAll(actorID.Host, jsonData)
+		go enqueueActivityForAll(normalizedActorDomain(actorID), jsonData)
 		logrus.Debug("Accepted Announce Activity : ", activity.Actor)
 	} else {
 		logrus.Debug("Skipped Announce Activity : ", activity.Actor)

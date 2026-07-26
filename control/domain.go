@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func domainCmdInit() *cobra.Command {

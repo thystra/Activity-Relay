@@ -1,0 +1,15 @@
+.git
+.github
+build
+dist
+debian/build
+*.deb
+*.build
+*.buildinfo
+*.changes
+redisdata
+cache
+actor.pem
+config.yml
+.env
+activity-relay-backups

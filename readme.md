@@ -99,6 +99,33 @@ The Nginx example also contains commented HTTP/3/QUIC listeners and an
 terminates HTTP/3 and continues proxying to the relay over local HTTP/1.1, so
 no separate HTTP/3 listener is required in the Go service.
 
+### Container deployment
+
+`compose.yml` uses the maintained published image by default:
+
+```text
+ghcr.io/thystra/activity-relay:latest
+```
+
+Copy `.env.example` to `.env` and set `ACTIVITY_RELAY_IMAGE` to pin a release,
+for example `ghcr.io/thystra/activity-relay:2.4.0`. To build the same services
+from the current checkout instead, use the local-build overlay:
+
+```bash
+docker compose -f compose.yml -f compose.build.yml up -d --build
+```
+
+The image uses `/usr/bin/relay` as its entrypoint. Standalone checks therefore
+pass relay arguments directly:
+
+```bash
+docker run --rm ghcr.io/thystra/activity-relay:latest --help
+docker run --rm ghcr.io/thystra/activity-relay:latest version
+```
+
+Tagged releases publish `linux/amd64` and `linux/arm64` images to GHCR and keep
+the native Ubuntu 24.04 `amd64` Debian package as a separate release asset.
+
 ## Run
 
 ### API server
@@ -208,7 +235,18 @@ curl --fail --silent --show-error \
 python3 -m json.tool
 ```
 
-The endpoint intentionally does not expose Redis keys, queue internals, blocked-domain lists, or private configuration values.
+The endpoint intentionally does not expose Redis keys, queue internals, blocked-domain lists, actor IDs, inbox URLs, or private configuration values.
+
+Schema version 2 also exposes a `publishers` section. A publisher is a domain
+that has sent a valid, HTTP-signed public activity accepted by the relay. A
+publisher may be send-only, or it may also be a subscriber/follower that
+receives relay traffic. Publisher observations are stored under
+`relay:publisher:<domain>` and include first-seen, last-seen, last activity type,
+and accepted-activity count metadata.
+
+Open publisher ingestion does not bypass relay policy. Blocked domains are
+rejected, limited domains and non-Person actors remain subject to the existing
+configuration, and the signature key host must match the activity actor host.
 
 ## Optional landing website
 

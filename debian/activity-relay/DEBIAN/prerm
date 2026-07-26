@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke stop activity-relay-resource-guard.timer \
+                activity-relay-server.service activity-relay-worker.service \
+                activity-relay-redis.service >/dev/null 2>&1 || true
+            deb-systemd-helper disable activity-relay-resource-guard.timer \
+                activity-relay-server.service activity-relay-worker.service \
+                activity-relay-redis.service >/dev/null 2>&1 || true
+        fi
+        ;;
+esac
+
+# Automatically added by dh_installsystemd/13.31ubuntu1
+if [ -z "$DPKG_ROOT" ] && [ "$1" = remove ] && [ -d /run/systemd/system ] ; then
+	deb-systemd-invoke stop 'activity-relay-redis.service' 'activity-relay-resource-guard.service' 'activity-relay-resource-guard.timer' 'activity-relay-server.service' 'activity-relay-worker.service' >/dev/null || true
+fi
+# End automatically added section
+
+
+exit 0

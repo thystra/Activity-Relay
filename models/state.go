@@ -2,9 +2,12 @@ package models
 
 import (
 	"context"
+	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -31,11 +34,13 @@ type RelayState struct {
 	BlockedDomains          []string     `json:"blockedDomains,omitempty"`
 	Subscribers             []Subscriber `json:"subscriptions,omitempty"`
 	Followers               []Follower   `json:"followers,omitempty"`
+	Publishers              []Publisher  `json:"publishers,omitempty"`
 	SubscribersAndFollowers []Subscriber `json:"-"`
 	limitedDomains          map[string]struct{}
 	blockedDomains          map[string]struct{}
 	subscribersByDomain     map[string]Subscriber
 	followersByDomain       map[string]Follower
+	publishersByDomain      map[string]Publisher
 }
 
 // RelayStateSnapshot is an immutable point-in-time view safe for concurrent readers.
@@ -45,6 +50,7 @@ type RelayStateSnapshot struct {
 	BlockedDomains          []string
 	Subscribers             []Subscriber
 	Followers               []Follower
+	Publishers              []Publisher
 	SubscribersAndFollowers []Subscriber
 }
 
@@ -135,6 +141,7 @@ func (config *RelayState) Load() error {
 	var blockedDomains []string
 	var subscribers []Subscriber
 	var followers []Follower
+	var publishers []Publisher
 	var subscribersAndFollowers []Subscriber
 
 	limitedDomains, err = config.RedisClient.HKeys(ctx, "relay:config:limitedDomain").Result()
@@ -183,6 +190,40 @@ func (config *RelayState) Load() error {
 		subscribersAndFollowers = append(subscribersAndFollowers, Subscriber{domainName, inboxURL, activityID, actorID})
 	}
 
+	domains, err = ScanKeys(ctx, config.RedisClient, "relay:publisher:*")
+	if err != nil {
+		return err
+	}
+	values, err = loadHashes(
+		ctx,
+		config.RedisClient,
+		domains,
+		"actor_id",
+		"inbox_url",
+		"first_seen",
+		"last_seen",
+		"last_activity_id",
+		"last_activity_type",
+		"activity_count",
+	)
+	if err != nil {
+		return err
+	}
+	for i, key := range domains {
+		domainName := strings.TrimPrefix(key, "relay:publisher:")
+		activityCount, _ := strconv.ParseInt(stringValue(values[i], 6), 10, 64)
+		publishers = append(publishers, Publisher{
+			Domain:           domainName,
+			ActorID:          stringValue(values[i], 0),
+			InboxURL:         stringValue(values[i], 1),
+			FirstSeen:        stringValue(values[i], 2),
+			LastSeen:         stringValue(values[i], 3),
+			LastActivityID:   stringValue(values[i], 4),
+			LastActivityType: stringValue(values[i], 5),
+			ActivityCount:    activityCount,
+		})
+	}
+
 	limitedSet := make(map[string]struct{}, len(limitedDomains))
 	for _, domain := range limitedDomains {
 		limitedSet[domain] = struct{}{}
@@ -199,6 +240,10 @@ func (config *RelayState) Load() error {
 	for _, follower := range followers {
 		followerSet[follower.Domain] = follower
 	}
+	publisherSet := make(map[string]Publisher, len(publishers))
+	for _, publisher := range publishers {
+		publisherSet[publisher.Domain] = publisher
+	}
 
 	config.mu.Lock()
 	defer config.mu.Unlock()
@@ -207,11 +252,13 @@ func (config *RelayState) Load() error {
 	config.BlockedDomains = blockedDomains
 	config.Subscribers = subscribers
 	config.Followers = followers
+	config.Publishers = publishers
 	config.SubscribersAndFollowers = subscribersAndFollowers
 	config.limitedDomains = limitedSet
 	config.blockedDomains = blockedSet
 	config.subscribersByDomain = subscriberSet
 	config.followersByDomain = followerSet
+	config.publishersByDomain = publisherSet
 	return nil
 }
 
@@ -225,6 +272,7 @@ func (config *RelayState) Snapshot() RelayStateSnapshot {
 		BlockedDomains:          append([]string(nil), config.BlockedDomains...),
 		Subscribers:             append([]Subscriber(nil), config.Subscribers...),
 		Followers:               append([]Follower(nil), config.Followers...),
+		Publishers:              append([]Publisher(nil), config.Publishers...),
 		SubscribersAndFollowers: append([]Subscriber(nil), config.SubscribersAndFollowers...),
 	}
 }
@@ -263,6 +311,13 @@ func (config *RelayState) IsSubscriberOrFollower(domain string) bool {
 	_, subscriber := config.subscribersByDomain[domain]
 	_, follower := config.followersByDomain[domain]
 	return subscriber || follower
+}
+
+func (config *RelayState) IsPublisher(domain string) bool {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	_, ok := config.publishersByDomain[normalizeStateDomain(domain)]
+	return ok
 }
 
 func (config *RelayState) PersonOnly() bool {
@@ -363,6 +418,78 @@ func (config *RelayState) SelectFollower(domain string) *Follower {
 	return nil
 }
 
+func normalizeStateDomain(domain string) string {
+	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(domain), "."))
+}
+
+// RecordPublisherActivity stores an accepted send-only or subscribed publisher.
+func (config *RelayState) RecordPublisherActivity(publisher Publisher) error {
+	domain := normalizeStateDomain(publisher.Domain)
+	if domain == "" {
+		return errors.New("publisher domain is empty")
+	}
+
+	seenAt := publisher.LastSeen
+	if seenAt == "" {
+		seenAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	key := "relay:publisher:" + domain
+	ctx := context.Background()
+	pipe := config.RedisClient.TxPipeline()
+	pipe.HSetNX(ctx, key, "first_seen", seenAt)
+	pipe.HSet(ctx, key, map[string]interface{}{
+		"actor_id":           publisher.ActorID,
+		"inbox_url":          publisher.InboxURL,
+		"last_seen":          seenAt,
+		"last_activity_id":   publisher.LastActivityID,
+		"last_activity_type": publisher.LastActivityType,
+	})
+	countCommand := pipe.HIncrBy(ctx, key, "activity_count", 1)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+	firstSeen, err := config.RedisClient.HGet(ctx, key, "first_seen").Result()
+	if err != nil {
+		return err
+	}
+
+	publisher.Domain = domain
+	publisher.FirstSeen = firstSeen
+	publisher.LastSeen = seenAt
+	publisher.ActivityCount = countCommand.Val()
+
+	config.mu.Lock()
+	defer config.mu.Unlock()
+	if config.publishersByDomain == nil {
+		config.publishersByDomain = make(map[string]Publisher)
+	}
+	if current, ok := config.publishersByDomain[domain]; ok && current.ActivityCount > publisher.ActivityCount {
+		return nil
+	}
+	config.publishersByDomain[domain] = publisher
+	index := sort.Search(len(config.Publishers), func(index int) bool {
+		return config.Publishers[index].Domain >= domain
+	})
+	if index < len(config.Publishers) && config.Publishers[index].Domain == domain {
+		config.Publishers[index] = publisher
+	} else {
+		config.Publishers = append(config.Publishers, Publisher{})
+		copy(config.Publishers[index+1:], config.Publishers[index:])
+		config.Publishers[index] = publisher
+	}
+	return nil
+}
+
+// SelectPublisher returns a copy of the observed publisher record.
+func (config *RelayState) SelectPublisher(domain string) *Publisher {
+	config.mu.RLock()
+	defer config.mu.RUnlock()
+	if publisher, ok := config.publishersByDomain[normalizeStateDomain(domain)]; ok {
+		return &publisher
+	}
+	return nil
+}
+
 // SetBlockedDomain : Set/Unset instance for blocked domain
 func (config *RelayState) SetBlockedDomain(domain string, value bool) {
 	if value {
@@ -399,6 +526,18 @@ type Subscriber struct {
 	InboxURL   string `json:"inbox_url,omitempty"`
 	ActivityID string `json:"activity_id,omitempty"`
 	ActorID    string `json:"actor_id,omitempty"`
+}
+
+// Publisher tracks a domain that sent a valid, accepted public activity.
+type Publisher struct {
+	Domain           string `json:"domain,omitempty"`
+	ActorID          string `json:"actor_id,omitempty"`
+	InboxURL         string `json:"inbox_url,omitempty"`
+	FirstSeen        string `json:"first_seen,omitempty"`
+	LastSeen         string `json:"last_seen,omitempty"`
+	LastActivityID   string `json:"last_activity_id,omitempty"`
+	LastActivityType string `json:"last_activity_type,omitempty"`
+	ActivityCount    int64  `json:"activity_count,omitempty"`
 }
 
 // Follower : Manage for LitePub Style Relay Follower

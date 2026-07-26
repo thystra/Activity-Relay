@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func handleWebfinger(writer http.ResponseWriter, request *http.Request) {
@@ -114,6 +114,15 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 						writer.WriteHeader(401)
 						writer.Write([]byte(err.Error()))
 
+						return
+					}
+					writer.WriteHeader(202)
+					writer.Write(nil)
+				case "Announce":
+					err = recordPublisherActivity(activity, actor)
+					if err != nil {
+						writer.WriteHeader(401)
+						writer.Write([]byte(err.Error()))
 						return
 					}
 					writer.WriteHeader(202)

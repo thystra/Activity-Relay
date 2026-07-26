@@ -25,11 +25,10 @@ services:
     pids_limit: 128
 
   worker:
-    build: .
-    image: yukimochi/activity-relay
+    image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:latest}
     working_dir: /var/lib/relay
     restart: always
-    command: relay worker
+    command: ["worker"]
     volumes:
       - "./actor.pem:/var/lib/relay/actor.pem:ro"
       - "./config.yml:/var/lib/relay/config.yml:ro"
@@ -44,11 +43,10 @@ services:
       - redis
 
   server:
-    build: .
-    image: yukimochi/activity-relay
+    image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:latest}
     working_dir: /var/lib/relay
     restart: always
-    command: relay server
+    command: ["server"]
     volumes:
       - "./actor.pem:/var/lib/relay/actor.pem:ro"
       - "./config.yml:/var/lib/relay/config.yml:ro"

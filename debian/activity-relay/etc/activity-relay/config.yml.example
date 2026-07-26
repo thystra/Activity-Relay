@@ -1,0 +1,43 @@
+# Copy to /etc/activity-relay/config.yml and replace the example identity.
+ACTOR_PEM: /etc/activity-relay/actor.pem
+REDIS_URL: redis://127.0.0.1:6380
+
+RELAY_BIND: 127.0.0.1:8080
+RELAY_DOMAIN: relay.example.org
+RELAY_SERVICENAME: Community ActivityPub Relay
+JOB_CONCURRENCY: 50
+MAX_ACTIVITY_BYTES: 1048576
+MAX_FANOUT_TARGETS: 5000
+MAX_QUEUE_JOBS: 100000
+
+# Single-disk VPS defaults.
+STORAGE_DIR: /var/lib/activity-relay/redis
+CACHE_DIR: /var/cache/activity-relay
+# Plain bytes, decimal KB/MB/GB/TB, and binary KiB/MiB/GiB/TiB are accepted.
+STORAGE_LIMIT: 10GB
+CACHE_LIMIT: 1GB
+STORAGE_REQUIRE_MOUNT: false
+CACHE_REQUIRE_MOUNT: false
+RESOURCE_WARNING_PERCENT: 75
+RESOURCE_CRITICAL_PERCENT: 100
+
+ADMIN_EMAIL: root
+MAIL_BACKEND: mail
+MAIL_COMMAND: /usr/bin/mail
+# MAIL_BACKEND: sendmail
+# MAIL_COMMAND: /usr/sbin/sendmail
+
+DAILY_SUMMARY_EMAIL: false
+DAILY_SUMMARY_HOUR: 8
+SUMMARY_STATUS_URL: http://127.0.0.1:8080/status.json
+
+# Split-storage example:
+# STORAGE_DIR: /mnt/activity-relay-nas/redis
+# STORAGE_LIMIT: 50GB
+# STORAGE_REQUIRE_MOUNT: true
+# STORAGE_MOUNT_POINT: /mnt/activity-relay-nas
+
+# RELAY_SUMMARY: |
+#   A community-operated ActivityPub relay.
+# RELAY_ICON: https://relay.example.org/assets/icon.png
+# RELAY_IMAGE: https://relay.example.org/assets/banner.png

@@ -42,3 +42,6 @@ __pycache__/
 .env
 cache/
 *.py[cod]
+
+# Debian package build output.
+/debian/build/

@@ -22,11 +22,11 @@ YAML Format
 	ACTOR_PEM: /var/lib/relay/actor.pem
 	REDIS_URL: redis://localhost:6379
 	RELAY_BIND: 0.0.0.0:8080
-	RELAY_DOMAIN: relay.toot.yukimochi.jp
-	RELAY_SERVICENAME: YUKIMOCHI Toot Relay Service
+	RELAY_DOMAIN: relay.example.org
+	RELAY_SERVICENAME: Example ActivityPub Relay
 	JOB_CONCURRENCY: 50
 	RELAY_SUMMARY: |
-		YUKIMOCHI Toot Relay Service is Running by Activity-Relay
+		Example ActivityPub Relay is powered by Activity-Relay
 	RELAY_ICON: https://example.com/example_icon.png
 	RELAY_IMAGE: https://example.com/example_image.png
 
@@ -52,10 +52,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/yukimochi/Activity-Relay/api"
-	"github.com/yukimochi/Activity-Relay/control"
-	"github.com/yukimochi/Activity-Relay/deliver"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/api"
+	"github.com/thystra/Activity-Relay/control"
+	"github.com/thystra/Activity-Relay/deliver"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 var (
@@ -134,8 +134,10 @@ func buildCommand() *cobra.Command {
 	control.BuildCommand(command)
 
 	var app = &cobra.Command{
-		Short: "YUKIMOCHI Activity-Relay",
-		Long:  "YUKIMOCHI Activity-Relay - ActivityPub Relay Server",
+		Use:     "relay",
+		Short:   "Activity-Relay",
+		Long:    "Activity-Relay - ActivityPub Relay Server",
+		Version: version,
 	}
 	app.AddCommand(server)
 	app.AddCommand(worker)

@@ -1,6 +1,6 @@
 package control
 
-import "github.com/yukimochi/Activity-Relay/models"
+import "github.com/thystra/Activity-Relay/models"
 
 func contains(entries interface{}, key string) bool {
 	switch entry := entries.(type) {

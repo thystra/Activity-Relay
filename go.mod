@@ -1,4 +1,4 @@
-module github.com/yukimochi/Activity-Relay
+module github.com/thystra/Activity-Relay
 
 go 1.23.0
 

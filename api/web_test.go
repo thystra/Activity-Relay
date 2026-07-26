@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func TestHandleRelayStatus(t *testing.T) {
@@ -24,11 +24,22 @@ func TestHandleRelayStatus(t *testing.T) {
 	version = "test-version"
 	RelayState.RelayConfig.ManuallyAccept = false
 	RelayState.RelayConfig.PersonOnly = false
+	RelayState.Subscribers = []models.Subscriber{{Domain: "a.example"}}
 	RelayState.SubscribersAndFollowers = []models.Subscriber{
 		{Domain: "z.example"},
 		{Domain: "a.example"},
 		{Domain: "Z.EXAMPLE"},
 		{Domain: ""},
+	}
+	RelayState.Publishers = []models.Publisher{
+		{
+			Domain:           "publisher.example",
+			FirstSeen:        "2026-07-26T17:30:13Z",
+			LastSeen:         "2026-07-26T17:31:13Z",
+			LastActivityType: "Update",
+			ActivityCount:    2,
+		},
+		{Domain: "a.example", ActivityCount: 1},
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/status.json", nil)
@@ -59,6 +70,18 @@ func TestHandleRelayStatus(t *testing.T) {
 	wantDomains := []string{"a.example", "z.example"}
 	if !reflect.DeepEqual(got.ConnectedInstances.Domains, wantDomains) {
 		t.Errorf("domains = %#v; want %#v", got.ConnectedInstances.Domains, wantDomains)
+	}
+	if got.SchemaVersion != 2 {
+		t.Errorf("schema version = %d; want 2", got.SchemaVersion)
+	}
+	if got.Publishers.Count != 2 {
+		t.Fatalf("publisher count = %d; want 2", got.Publishers.Count)
+	}
+	if got.Publishers.Entries[0].Domain != "a.example" || !got.Publishers.Entries[0].Subscribed || !got.Publishers.Entries[0].ReceivesRelay {
+		t.Errorf("unexpected connected publisher entry: %+v", got.Publishers.Entries[0])
+	}
+	if got.Publishers.Entries[1].Domain != "publisher.example" || got.Publishers.Entries[1].Subscribed || got.Publishers.Entries[1].ReceivesRelay {
+		t.Errorf("unexpected send-only publisher entry: %+v", got.Publishers.Entries[1])
 	}
 	if got.Software.Version != "test-version" {
 		t.Errorf("version = %q; want test-version", got.Software.Version)

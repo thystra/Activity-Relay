@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-fed/httpsig"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func decodeActivity(request *http.Request) (*models.Activity, *models.Actor, []byte, error) {
@@ -62,12 +64,69 @@ func decodeActivity(request *http.Request) (*models.Activity, *models.Actor, []b
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if err := verifySignatureActorBinding(KeyID, keyOwnerActor, activity.Actor); err != nil {
+		return nil, nil, nil, err
+	}
 	remoteActor, err := models.NewActivityPubActorFromRemoteActor(activity.Actor, fmt.Sprintf("%s (golang net/http; Activity-Relay %s; %s)", GlobalConfig.ServerServiceName(), version, GlobalConfig.ServerHostname().Host), ActorCache)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if err := verifyActivityActorDocument(activity.Actor, remoteActor); err != nil {
+		return nil, nil, nil, err
+	}
 
 	return &activity, &remoteActor, body, nil
+}
+
+func normalizedRemoteHost(address string) (string, error) {
+	parsed, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if host == "" {
+		return "", errors.New("remote URL has no host")
+	}
+	return host, nil
+}
+
+func verifySignatureActorBinding(keyID string, keyOwner models.Actor, activityActor string) error {
+	actorHost, err := normalizedRemoteHost(activityActor)
+	if err != nil {
+		return fmt.Errorf("invalid activity actor: %w", err)
+	}
+	keyHost, err := normalizedRemoteHost(keyID)
+	if err != nil {
+		return fmt.Errorf("invalid signature key ID: %w", err)
+	}
+	if keyHost != actorHost {
+		return errors.New("signature key host does not match activity actor host")
+	}
+	if keyOwner.ID != "" {
+		ownerHost, err := normalizedRemoteHost(keyOwner.ID)
+		if err != nil || ownerHost != actorHost {
+			return errors.New("signature key owner does not match activity actor host")
+		}
+	}
+	if keyOwner.PublicKey.Owner != "" {
+		ownerHost, err := normalizedRemoteHost(keyOwner.PublicKey.Owner)
+		if err != nil || ownerHost != actorHost {
+			return errors.New("public key owner does not match activity actor host")
+		}
+	}
+	return nil
+}
+
+func verifyActivityActorDocument(activityActor string, remoteActor models.Actor) error {
+	activityHost, err := normalizedRemoteHost(activityActor)
+	if err != nil {
+		return fmt.Errorf("invalid activity actor: %w", err)
+	}
+	remoteHost, err := normalizedRemoteHost(remoteActor.ID)
+	if err != nil || remoteHost != activityHost {
+		return errors.New("resolved actor document does not match activity actor host")
+	}
+	return nil
 }
 
 func fetchOriginalActivityFromURL(url string) (*models.Activity, *models.Actor, error) {

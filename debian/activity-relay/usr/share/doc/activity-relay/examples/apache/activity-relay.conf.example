@@ -1,0 +1,59 @@
+# Apache 2.4 template for Activity-Relay and its generated landing site.
+#
+# Required modules on Debian/Ubuntu:
+#   a2enmod headers http2 proxy proxy_http proxy_wstunnel rewrite ssl
+#
+# Replace the hostname, certificate paths, log paths, document root, and
+# backend address. Enabling this file is intentionally left to the operator.
+
+<VirtualHost *:80>
+    ServerName relay.example.org
+    RewriteEngine On
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName relay.example.org
+    Protocols h2 http/1.1
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/relay.example.org/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/relay.example.org/privkey.pem
+
+    DocumentRoot /var/www/activity-relay/public
+    DirectoryIndex index.html
+    LimitRequestBody 1048576
+
+    # Apache core does not provide request-count rate limiting equivalent to
+    # Nginx limit_req. Apply it with mod_evasive/mod_security or an upstream
+    # firewall/reverse proxy before advertising the relay publicly.
+
+    <Directory /var/www/activity-relay/public>
+        Options -Indexes -ExecCGI
+        AllowOverride None
+        Require all granted
+        FallbackResource disabled
+    </Directory>
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+    ProxyPassMatch "^/(inbox|actor|status\.json|nodeinfo/2\.1)$" "http://127.0.0.1:8080/$1" connectiontimeout=5 timeout=30
+    ProxyPassMatch "^/\.well-known/(nodeinfo|webfinger)$" "http://127.0.0.1:8080/.well-known/$1" connectiontimeout=5 timeout=30
+
+    RequestHeader set X-Forwarded-Proto "https"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+    Header always set X-Frame-Options "DENY"
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+
+    <Location "/status.json">
+        Header always set Cache-Control "public, max-age=30"
+    </Location>
+
+    <LocationMatch "^/assets/">
+        Header always set Cache-Control "public, max-age=3600"
+    </LocationMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/activity-relay.error.log
+    CustomLog ${APACHE_LOG_DIR}/activity-relay.access.log combined
+</VirtualHost>

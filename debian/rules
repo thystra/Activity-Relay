@@ -14,6 +14,9 @@ override_dh_auto_test:
 	# Redis-backed tests run in CI before package assembly.
 	true
 
+override_dh_installchangelogs:
+	dh_installchangelogs CHANGELOG.md
+
 override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start --no-stop-on-upgrade
 

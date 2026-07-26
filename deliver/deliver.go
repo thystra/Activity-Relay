@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"github.com/yukimochi/Activity-Relay/models"
+	"github.com/thystra/Activity-Relay/models"
 	"github.com/yukimochi/machinery-v1/v1"
 	"github.com/yukimochi/machinery-v1/v1/log"
 )
