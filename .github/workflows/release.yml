@@ -138,7 +138,9 @@ jobs:
         run: |
           version="${RELEASE_TAG#v}"
           if [[ "$version" == *-* ]]; then
-            version="${version/-/~}-1"
+            upstream_version="${version%%-*}"
+            prerelease_version="${version#*-}"
+            version="${upstream_version}~${prerelease_version}-1"
           else
             version="${version}-1"
           fi
