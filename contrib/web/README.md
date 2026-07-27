@@ -115,10 +115,26 @@ The optional `activitypub_contact` value displays a fediverse handle. Set
 `activitypub_contact_url` to its absolute HTTPS profile URL to make it
 clickable. These settings affect only generated website content.
 
-Build:
+Build to the package's default document root:
 
 ```bash
 sudo /etc/activity-relay-web/rebuild-site.sh
+```
+
+Build to a different document root:
+
+```bash
+sudo /etc/activity-relay-web/rebuild-site.sh   --output /srv/www/relay.example.org
+```
+
+The wrapper also accepts `--source` and `--config`. This supports source
+installs, user-owned web roots, and shared-hosting layouts where the operator
+can run Python but cannot write to `/var/www`.
+
+A completely non-root example is:
+
+```bash
+"$HOME/activity-relay-web/rebuild-site.sh"   --source "$HOME/activity-relay-web"   --config "$HOME/activity-relay-web/site.json"   --output "$HOME/public_html/relay"
 ```
 
 The expanded equivalent command is:
@@ -186,7 +202,8 @@ do not need restarting.
 
 ## Nginx and Apache
 
-Start with:
+Separate complete examples are included for both servers:
+
 
 ```text
 ../nginx/activity-relay.conf.example
@@ -194,8 +211,18 @@ Start with:
 ```
 
 Both templates use the bundled site by default and include comments describing
-how to disable or redirect the frontend. Neither template is enabled
+how to disable, redirect, or replace the frontend. Neither template is enabled
 automatically by the Debian package.
+
+For Apache on Debian or Ubuntu, enable the modules listed at the top of the
+example file before enabling the virtual host:
+
+```bash
+sudo a2enmod   headers   http2   proxy   proxy_http   proxy_wstunnel   rewrite   ssl
+```
+
+When changing the generated output path, update both Apache's `DocumentRoot`
+and its matching `<Directory>` path. For Nginx, update the `root` directive.
 
 ## Verification
 

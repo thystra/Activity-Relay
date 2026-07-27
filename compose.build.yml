@@ -5,6 +5,9 @@ services:
       context: .
       args:
         VERSION: ${ACTIVITY_RELAY_VERSION:-development}
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
+        GO_BUILD_PARALLELISM: ${GO_BUILD_PARALLELISM:-1}
+        GOMAXPROCS: ${GOMAXPROCS:-1}
 
   server:
     image: activity-relay:local

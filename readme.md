@@ -391,6 +391,27 @@ After editing the site:
 sudo /etc/activity-relay-web/rebuild-site.sh
 ```
 
+A different web root can be selected explicitly:
+
+```bash
+sudo /etc/activity-relay-web/rebuild-site.sh   --output /srv/www/relay.example.org
+```
+
+The same wrapper can run without root when its source, configuration, and output
+directories are user-owned.
+
+### Apache frontend choices
+
+A complete Apache 2.4 example is included at:
+
+```text
+contrib/apache/activity-relay.conf.example
+```
+
+The file lists required modules and includes bundled-site, no-frontend,
+redirected-root, and custom-document-root guidance. When changing the output
+directory, change both `DocumentRoot` and the corresponding `<Directory>` path.
+
 ### Build the bundled site from a container image
 
 Published images contain website sources at:
