@@ -152,6 +152,12 @@ edit files under `/var/www/activity-relay/public`; they are generated output.
 
 ## Container installation
 
+Before using the Compose deployment, create `.env`,
+`config.yml`, and the relay identity file `actor.pem`. Run
+`contrib/docker/compose-preflight.sh` from the repository root to confirm that
+the required bind mounts are regular files.
+
+
 The published relay image contains the editable website sources at:
 
 ```text

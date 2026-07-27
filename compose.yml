@@ -6,9 +6,21 @@ x-relay-service: &relay-service
   restart: unless-stopped
   init: true
   volumes:
-    - ./actor.pem:/var/lib/relay/actor.pem:ro
-    - ./config.yml:/var/lib/relay/config.yml:ro
-    - ${RELAY_CACHE_DIR:-./cache}:/var/cache/activity-relay
+    - type: bind
+      source: ./actor.pem
+      target: /var/lib/relay/actor.pem
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./config.yml
+      target: /var/lib/relay/config.yml
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${RELAY_CACHE_DIR:-./cache}
+      target: /var/cache/activity-relay
   logging: &bounded-logging
     driver: local
     options:

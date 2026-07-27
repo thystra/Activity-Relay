@@ -36,24 +36,25 @@ The package's internal Debian version remains `2.4.0~rc4-1`.
 3. Update `CHANGELOG.md`, `readme.md`, and affected deployment documentation.
 4. Confirm no local notes, generated packages, suspicious filenames, or
    machine-specific paths are tracked.
-5. Run `gofmt` on changed Go files.
-6. Run `go vet ./...`.
-7. Run Redis-backed `go test -count=1 -p 1 ./...`.
-8. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
-9. Run `git diff --check`.
-10. Build the local container and verify:
+5. Validate the Compose preflight behavior with missing, directory-valued,
+   and valid `actor.pem` files.
+6. Run `gofmt` on changed Go files.
+7. Run `go vet ./...`.
+8. Run Redis-backed `go test -count=1 -p 1 ./...`.
+9. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
+10. Run `git diff --check`.
+11. Build the local container and verify:
     - `/usr/bin/relay`;
     - `/usr/share/activity-relay/web/build-site.py`;
     - the compiled version string.
-11. Build the native Debian package and run Lintian on the `.changes` file.
-12. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
-13. For publisher/fan-out changes, verify a real accepted publisher activity
+12. Build the native Debian package and run Lintian on the `.changes` file.
+13. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
+14. For publisher/fan-out changes, verify a real accepted publisher activity
     reaches a receiving server.
-14. Commit and push the release preparation.
-15. Create and push the annotated tag.
-16. Verify the GitHub release, checksums, package metadata, and container
+15. Commit and push the release preparation.
+16. Create and push the annotated tag.
+17. Verify the GitHub release, checksums, package metadata, and container
     manifests.
-
 ## Local validation
 
 Use a disposable Redis instance:

@@ -10,6 +10,8 @@
   document generation with a temporary Python container.
 - Replace the stale upstream Compose defaults with a production-oriented
   GHCR deployment and an explicit local-build override.
+- Make required Compose file mounts fail when `actor.pem` or `config.yml` is
+  missing, add a preflight helper, and document the Redis overcommit setting.
 - Hide the successful `/status.json` loader diagnostic while retaining visible
   failure information.
 - Add a minimal custom `/status.json` frontend example.

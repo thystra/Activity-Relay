@@ -99,6 +99,21 @@ docker run \
 
 Back up `actor.pem`. Replacing it changes the relay's cryptographic identity.
 
+Before starting Compose, verify that both required bind mounts are regular
+files:
+
+```bash
+test -f actor.pem
+test -f config.yml
+contrib/docker/compose-preflight.sh "$PWD"
+```
+
+Do not run `docker compose up` with a missing `actor.pem`. Older Compose
+configurations may create a directory named `actor.pem`, which the relay cannot
+read as a private-key file. The included Compose file disables that automatic
+directory creation and fails early when either required file is absent.
+
+
 Validate the resolved configuration and start the relay:
 
 ```bash
@@ -110,6 +125,18 @@ The Compose deployment pulls the image selected by
 `ACTIVITY_RELAY_IMAGE`, runs Redis, two workers, and the API server, and
 publishes the API on `127.0.0.1:8080` by default for a host reverse proxy.
 Change `RELAY_PUBLISH_ADDRESS` or `RELAY_HTTP_PORT` in `.env` when needed.
+
+On Linux hosts running Redis in Docker, enable memory overcommit to avoid
+background-save failures under memory pressure:
+
+```bash
+sudo sysctl -w vm.overcommit_memory=1
+
+printf 'vm.overcommit_memory=1
+' |
+  sudo tee /etc/sysctl.d/99-activity-relay-redis.conf
+```
+
 
 Inspect the deployment:
 
