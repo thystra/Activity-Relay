@@ -2,6 +2,13 @@
 
 ## [2.4.0] - 2026-07-26
 
+### RC3
+
+- Add optional `activitypub_contact` and `activitypub_contact_url` website
+  settings for a public relay-operator fediverse account.
+- Add a one-command static-site rebuild wrapper and preserve operator-owned
+  copies during package upgrades.
+
 ### RC2
 
 - Count the unique union of relay receivers and accepted publishers in

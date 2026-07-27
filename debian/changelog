@@ -1,4 +1,4 @@
-activity-relay (2.4.0~rc2-1) noble; urgency=medium
+activity-relay (2.4.0~rc3-1) noble; urgency=medium
 
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
@@ -12,6 +12,9 @@ activity-relay (2.4.0~rc2-1) noble; urgency=medium
   * Fix Redis activity storage so accepted activities reach fan-out tasks.
   * Make the static dashboard tolerant of mixed asset versions.
   * Use cache-busted static assets and GitHub-safe release filenames.
+
+  * Add an optional ActivityPub operator contact to the static website.
+  * Add a one-command website rebuild wrapper and inline rebuild guidance.
 
  -- thystra <noreply@github.com>  Sun, 26 Jul 2026 14:30:00 -0400
 

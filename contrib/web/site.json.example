@@ -3,9 +3,12 @@
   "tagline": "A community-operated relay for the fediverse.",
   "operator_name": "Relay Operator",
   "contact_url": "mailto:relay@example.org",
+  "activitypub_contact": "@operator@social.example",
+  "activitypub_contact_url": "https://social.example/@operator",
   "source_url": "https://github.com/your-account/Activity-Relay",
   "status_url": "/status.json",
   "language": "en",
   "logo_url": "",
-  "logo_alt": "ActivityPub Relay logo"
+  "logo_alt": "ActivityPub Relay logo",
+  "_rebuild_command": "sudo /etc/activity-relay-web/rebuild-site.sh"
 }

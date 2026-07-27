@@ -15,6 +15,13 @@ if [ "$1" = "configure" ]; then
     install -d -o root -g root -m 0755 /etc/activity-relay-web
     install -d -o root -g root -m 0755 /var/www/activity-relay/public
 
+    if [ ! -e /etc/activity-relay-web/rebuild-site.sh ] && \
+       [ -x /usr/share/activity-relay/web/rebuild-site.sh ]; then
+        install -o root -g root -m 0755 \
+            /usr/share/activity-relay/web/rebuild-site.sh \
+            /etc/activity-relay-web/rebuild-site.sh
+    fi
+
     if [ ! -e /etc/activity-relay/actor.pem ]; then
         relay generate-key --output /etc/activity-relay/actor.pem
     fi

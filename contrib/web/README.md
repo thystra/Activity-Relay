@@ -64,6 +64,11 @@ Set `logo_url` to an HTTPS URL or a public path such as `/assets/logo.svg` and
 set `logo_alt` to meaningful alternative text. For a local logo, place the file
 under `assets/` before rebuilding. Set `logo_url` to an empty string to omit it.
 
+Set `activitypub_contact` to a display handle such as
+`@operator@social.example`. Set `activitypub_contact_url` to the operator's
+absolute HTTPS profile URL to make the handle clickable. Both settings are
+website-only and do not change relay delivery, moderation, or federation.
+
 Reusable HTML content is stored in:
 
 ```text
@@ -83,6 +88,16 @@ assets/relay.js
 ```
 
 ## Build
+
+After changing `site.json`, templates, content, CSS, or JavaScript, rebuild
+the public site with:
+
+```bash
+sudo /etc/activity-relay-web/rebuild-site.sh
+```
+
+The wrapper uses the standard source, config, and output paths. The expanded
+equivalent command is:
 
 ```bash
 sudo env PYTHONDONTWRITEBYTECODE=1 \

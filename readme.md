@@ -484,3 +484,8 @@ domains: servers that receive relay traffic, publish accepted activities, or do
 both. `receiving_instances` is the narrower operational set that receives
 fan-out. Publisher metadata remains available under `publishers`.
 
+The landing-site configuration also supports optional
+`activitypub_contact` and `activitypub_contact_url` values for a public
+operator account. These values are rendered only into the static website;
+they are not part of the relay runtime configuration or `/status.json`.
+

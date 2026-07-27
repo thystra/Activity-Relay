@@ -43,11 +43,12 @@ an editable copy without replacing existing files:
 
 Edit /etc/activity-relay-web/site.json and build the site:
 
-   env PYTHONDONTWRITEBYTECODE=1 \
-     python3 /etc/activity-relay-web/build-site.py \
-       --source /etc/activity-relay-web \
-       --config /etc/activity-relay-web/site.json \
-       --output /var/www/activity-relay/public
+   /etc/activity-relay-web/rebuild-site.sh
+
+The optional activitypub_contact and activitypub_contact_url settings add a
+public ActivityPub operator contact to the generated footer. They do not affect
+relay processing. Rerun rebuild-site.sh whenever website configuration or
+source content changes.
 
 Nginx and Apache examples are installed under:
 

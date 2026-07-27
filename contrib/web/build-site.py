@@ -10,6 +10,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 def load_config(path: Path) -> dict[str, str]:
@@ -29,6 +30,27 @@ def load_config(path: Path) -> dict[str, str]:
         raise SystemExit(f"Missing configuration keys: {', '.join(missing)}")
     data.setdefault("logo_url", "")
     data.setdefault("logo_alt", data["site_name"])
+    data.setdefault("activitypub_contact", "")
+    data.setdefault("activitypub_contact_url", "")
+
+    activitypub_contact = str(data["activitypub_contact"]).strip()
+    activitypub_contact_url = str(data["activitypub_contact_url"]).strip()
+    if activitypub_contact_url and not activitypub_contact:
+        raise SystemExit(
+            "activitypub_contact_url requires activitypub_contact"
+        )
+    if activitypub_contact_url:
+        parsed_contact_url = urlparse(activitypub_contact_url)
+        if (
+            parsed_contact_url.scheme != "https"
+            or not parsed_contact_url.netloc
+        ):
+            raise SystemExit(
+                "activitypub_contact_url must be an absolute HTTPS URL"
+            )
+
+    data["activitypub_contact"] = activitypub_contact
+    data["activitypub_contact_url"] = activitypub_contact_url
     return {key: str(value) for key, value in data.items()}
 
 
@@ -75,6 +97,28 @@ def main() -> int:
         "YEAR": str(datetime.now(timezone.utc).year),
         "ASSET_VERSION": asset_version(source),
     }
+
+    activitypub_contact = html.escape(config["activitypub_contact"])
+    activitypub_contact_url = html.escape(
+        config["activitypub_contact_url"],
+        quote=True,
+    )
+    if activitypub_contact:
+        activitypub_label = f"ActivityPub contact: {activitypub_contact}"
+        if activitypub_contact_url:
+            escaped["ACTIVITYPUB_CONTACT_HTML"] = (
+                ' · <a href="'
+                + activitypub_contact_url
+                + '">'
+                + activitypub_label
+                + "</a>"
+            )
+        else:
+            escaped["ACTIVITYPUB_CONTACT_HTML"] = (
+                " · <span>" + activitypub_label + "</span>"
+            )
+    else:
+        escaped["ACTIVITYPUB_CONTACT_HTML"] = ""
     logo_url = html.escape(config["logo_url"], quote=True)
     escaped["LOGO"] = (
         '<img class="site-logo" src="'
