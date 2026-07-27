@@ -4,7 +4,8 @@
 
 [![GitHub Actions](https://github.com/thystra/Activity-Relay/workflows/Test/badge.svg)](https://github.com/thystra/Activity-Relay/actions)
 
-![Powered by Ayame](docs/ayame.png)
+<img width="1672" height="941" alt="0f3f8ae2-a325-4a2e-9ace-b30fbc79230c" src="https://github.com/user-attachments/assets/bc4f95b0-bd69-4eb4-a2d2-b81ae07fd1ff" />
+
 
 > [!NOTE]
 > This repository is a maintained fork of
