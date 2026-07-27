@@ -565,3 +565,79 @@ also publishes its own tested release line.
 ## License
 
 GNU Affero General Public License version 3. See [`LICENCE`](LICENCE).
+
+## Upgrade-safe website customization
+
+The package separates current program files from operator-owned content:
+
+```text
+/usr/share/activity-relay/web/
+    Current package-managed builder, templates, JavaScript, CSS, and defaults.
+
+/etc/activity-relay/config.yml
+    Relay behavior and shared public metadata:
+    RELAY_ICON
+    RELAY_IMAGE
+    FEDIVERSE_OPERATOR_ID
+    FEDIVERSE_OPERATOR_URL
+
+/etc/activity-relay-web/site.json
+    Website name, tagline, email/contact URL, source URL, language, and optional
+    website-specific logo_url or banner_url overrides.
+
+/etc/activity-relay-web/content/
+    Optional operator replacements for:
+    home.html
+    about.html
+    rules.html
+    privacy.html
+    footer.html
+
+/etc/activity-relay-web/custom-assets/
+    Optional replacement or additional public assets.
+
+/var/www/activity-relay/public/
+    Generated output. Do not edit it directly.
+```
+
+To customize rules without copying the whole website source:
+
+```bash
+sudo install -d -o root -g root -m 0755 \
+  /etc/activity-relay-web/content
+
+sudo cp \
+  /usr/share/activity-relay/web/content/rules.html \
+  /etc/activity-relay-web/content/rules.html
+
+sudoedit /etc/activity-relay-web/content/rules.html
+```
+
+Use the same pattern for `home.html`, `about.html`, `privacy.html`, or
+`footer.html`. Files not present in the override directory come from the
+current package, so package fixes remain effective.
+
+Set shared branding and the public operator handle in
+`/etc/activity-relay/config.yml`:
+
+```yaml
+RELAY_ICON: "https://relay.example.org/images/relay-icon.png"
+RELAY_IMAGE: "https://relay.example.org/images/relay-banner.png"
+FEDIVERSE_OPERATOR_ID: "@operator@social.example"
+# Optional because profile URL patterns differ among fediverse applications:
+FEDIVERSE_OPERATOR_URL: "https://social.example/@operator"
+```
+
+The builder also accepts underscore aliases such as
+`FEDIVERSE_OPERATOR_ID`. The website-specific `logo_url` and `banner_url`
+values in `site.json` take precedence when non-empty.
+
+Rebuild with the current package source:
+
+```bash
+sudo activity-relay-rebuild-site
+```
+
+An older regular file at `/etc/activity-relay-web/rebuild-site.sh` may be
+preserved during upgrades. The package-managed command above is authoritative.
+

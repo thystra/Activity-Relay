@@ -10,5 +10,7 @@
   "language": "en",
   "logo_url": "",
   "logo_alt": "ActivityPub Relay logo",
-  "_rebuild_command": "sudo /etc/activity-relay-web/rebuild-site.sh"
+  "_rebuild_command": "sudo activity-relay-rebuild-site",
+  "banner_url": "",
+  "banner_alt": "ActivityPub Relay banner"
 }

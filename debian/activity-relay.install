@@ -8,6 +8,7 @@ debian/activity-relay-resource-guard.service usr/lib/systemd/system
 contrib/ops/activity-relay-resource-guard.timer usr/lib/systemd/system
 contrib/ops/resource-guard.py usr/lib/activity-relay
 contrib/web usr/share/activity-relay
+contrib/web/activity-relay-rebuild-site usr/bin
 contrib/web/site.json.example etc/activity-relay-web
 contrib/nginx/activity-relay.conf.example usr/share/doc/activity-relay/examples/nginx
 contrib/apache/activity-relay.conf.example usr/share/doc/activity-relay/examples/apache

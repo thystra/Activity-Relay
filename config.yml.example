@@ -50,5 +50,13 @@ SUMMARY_STATUS_URL: http://127.0.0.1:8080/status.json
 # Keep important icon content centered and use a public HTTPS URL.
 # RELAY_ICON: https://relay.example.org/assets/relay-icon.png
 # RELAY_IMAGE: wide header/banner; 1500x500 px (3:1) recommended.
+# Public fediverse contact shown in the optional website footer.
+# The underscore spelling is canonical. Hyphenated aliases are accepted
+# by the static-site builder only for backward compatibility.
+# FEDIVERSE_OPERATOR_ID: "@operator@social.example"
+# Optional explicit profile URL. This cannot be derived reliably from a handle
+# because profile URL layouts differ among fediverse server applications.
+# FEDIVERSE_OPERATOR_URL: "https://social.example/@operator"
+
 # Keep important banner content away from the outer edges.
 # RELAY_IMAGE: https://relay.example.org/assets/relay-banner.webp

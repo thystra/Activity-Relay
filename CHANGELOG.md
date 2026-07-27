@@ -2,6 +2,18 @@
 
 ## [2.4.0] - 2026-07-26
 
+### RC5
+
+- Build the optional website from current package-managed sources while keeping
+  operator rules and other content in upgrade-safe override directories.
+- Use `RELAY_ICON` and `RELAY_IMAGE` as default website logo and banner values.
+- Add `FEDIVERSE_OPERATOR_ID` and optional `FEDIVERSE_OPERATOR_URL` footer
+  metadata, with underscore aliases accepted by the static-site builder.
+- Remove successful `/status.json` loader text from the production dashboard
+  and add defensive hidden-element styling.
+- Add a package-managed `activity-relay-rebuild-site` command and document
+  every supported customization location.
+
 ### RC4
 
 - Make the bundled public frontend explicitly optional and document bundled,

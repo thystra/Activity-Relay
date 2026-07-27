@@ -1,4 +1,4 @@
-activity-relay (2.4.0~rc4-1) noble; urgency=medium
+activity-relay (2.4.0~rc5-1) noble; urgency=medium
 
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
@@ -21,6 +21,10 @@ activity-relay (2.4.0~rc4-1) noble; urgency=medium
   * Refresh Compose for GHCR deployment and local RC testing.
   * Hide successful dashboard loader diagnostics.
   * Add contributor guidance and remove accidental pager output.
+
+  * Add upgrade-safe website source and operator content separation.
+  * Apply relay icon, banner, and fediverse operator metadata to the site.
+  * Remove successful status-loader text from the production dashboard.
 
  -- thystra <noreply@github.com>  Sun, 26 Jul 2026 14:30:00 -0400
 

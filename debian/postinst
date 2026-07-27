@@ -13,13 +13,15 @@ if [ "$1" = "configure" ]; then
     install -d -o activity-relay -g activity-relay -m 0750 /var/cache/activity-relay
     install -d -o root -g root -m 0750 /var/lib/activity-relay-guard
     install -d -o root -g root -m 0755 /etc/activity-relay-web
+    install -d -o root -g root -m 0755 /etc/activity-relay-web/content
+    install -d -o root -g root -m 0755 /etc/activity-relay-web/custom-assets
     install -d -o root -g root -m 0755 /var/www/activity-relay/public
 
-    if [ ! -e /etc/activity-relay-web/rebuild-site.sh ] && \
-       [ -x /usr/share/activity-relay/web/rebuild-site.sh ]; then
-        install -o root -g root -m 0755 \
-            /usr/share/activity-relay/web/rebuild-site.sh \
-            /etc/activity-relay-web/rebuild-site.sh
+    if [ ! -e /etc/activity-relay-web/rebuild-site.sh ]; then
+        ln -s /usr/bin/activity-relay-rebuild-site             /etc/activity-relay-web/rebuild-site.sh
+    elif [ ! -L /etc/activity-relay-web/rebuild-site.sh ]; then
+        echo "Note: preserved legacy /etc/activity-relay-web/rebuild-site.sh."
+        echo "Use /usr/bin/activity-relay-rebuild-site for current package sources."
     fi
 
     if [ ! -e /etc/activity-relay/actor.pem ]; then

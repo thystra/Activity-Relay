@@ -1,0 +1,124 @@
+#!/bin/sh
+# /usr/bin/activity-relay-rebuild-site
+set -eu
+
+usage() {
+    cat <<'EOF'
+Usage: activity-relay-rebuild-site [OPTIONS]
+
+Generate the optional Activity-Relay static website.
+
+Options:
+  --source DIR              Package or checkout website source.
+  --config FILE             Website JSON configuration.
+  --relay-config FILE       Relay YAML configuration used for site metadata.
+  --content-overrides DIR   Operator home/about/rules/privacy/footer overrides.
+  --asset-overrides DIR     Additional or replacement public assets.
+  --output DIR              Generated-site output directory.
+  -h, --help                Show this help.
+
+Environment defaults:
+  ACTIVITY_RELAY_WEB_SOURCE
+  ACTIVITY_RELAY_WEB_CONFIG
+  ACTIVITY_RELAY_CONFIG
+  ACTIVITY_RELAY_WEB_CONTENT
+  ACTIVITY_RELAY_WEB_ASSETS
+  ACTIVITY_RELAY_WEB_OUTPUT
+EOF
+}
+
+source_dir="${ACTIVITY_RELAY_WEB_SOURCE:-/usr/share/activity-relay/web}"
+config_file="${ACTIVITY_RELAY_WEB_CONFIG:-/etc/activity-relay-web/site.json}"
+relay_config="${ACTIVITY_RELAY_CONFIG:-/etc/activity-relay/config.yml}"
+content_overrides="${ACTIVITY_RELAY_WEB_CONTENT:-/etc/activity-relay-web/content}"
+asset_overrides="${ACTIVITY_RELAY_WEB_ASSETS:-/etc/activity-relay-web/custom-assets}"
+output_dir="${ACTIVITY_RELAY_WEB_OUTPUT:-/var/www/activity-relay/public}"
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --source)
+            [ "$#" -ge 2 ] || exit 2
+            source_dir="$2"
+            shift 2
+            ;;
+        --source=*)
+            source_dir="${1#*=}"
+            shift
+            ;;
+        --config)
+            [ "$#" -ge 2 ] || exit 2
+            config_file="$2"
+            shift 2
+            ;;
+        --config=*)
+            config_file="${1#*=}"
+            shift
+            ;;
+        --relay-config)
+            [ "$#" -ge 2 ] || exit 2
+            relay_config="$2"
+            shift 2
+            ;;
+        --relay-config=*)
+            relay_config="${1#*=}"
+            shift
+            ;;
+        --content-overrides)
+            [ "$#" -ge 2 ] || exit 2
+            content_overrides="$2"
+            shift 2
+            ;;
+        --content-overrides=*)
+            content_overrides="${1#*=}"
+            shift
+            ;;
+        --asset-overrides)
+            [ "$#" -ge 2 ] || exit 2
+            asset_overrides="$2"
+            shift 2
+            ;;
+        --asset-overrides=*)
+            asset_overrides="${1#*=}"
+            shift
+            ;;
+        --output)
+            [ "$#" -ge 2 ] || exit 2
+            output_dir="$2"
+            shift 2
+            ;;
+        --output=*)
+            output_dir="${1#*=}"
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'ERROR: unknown option: %s\n\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+set -- \
+    --source "$source_dir" \
+    --config "$config_file" \
+    --output "$output_dir"
+
+if [ -f "$relay_config" ]; then
+    set -- "$@" --relay-config "$relay_config"
+fi
+
+if [ -d "$content_overrides" ]; then
+    set -- "$@" --content-overrides "$content_overrides"
+fi
+
+if [ -d "$asset_overrides" ]; then
+    set -- "$@" --asset-overrides "$asset_overrides"
+fi
+
+exec env PYTHONDONTWRITEBYTECODE=1 \
+    python3 "${source_dir}/build-site.py" \
+    "$@"

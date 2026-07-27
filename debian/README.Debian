@@ -93,3 +93,38 @@ Removal
 Package removal and purge retain actor.pem, config.yml, editable website files,
 and Redis data. This prevents package operations from destroying relay identity
 or state. Delete them manually only after testing backups.
+
+
+Upgrade-safe website customization
+----------------------------------
+
+Use the current package-managed builder:
+
+   activity-relay-rebuild-site
+
+Do not rebuild from an old copied builder under /etc/activity-relay-web.
+The command reads current source from /usr/share/activity-relay/web, website
+settings from /etc/activity-relay-web/site.json, relay branding/operator
+metadata from /etc/activity-relay/config.yml, and operator HTML overrides from
+/etc/activity-relay-web/content.
+
+Runtime and shared public metadata:
+
+   /etc/activity-relay/config.yml
+
+Website identity and contact settings:
+
+   /etc/activity-relay-web/site.json
+
+Optional content overrides:
+
+   /etc/activity-relay-web/content/home.html
+   /etc/activity-relay-web/content/about.html
+   /etc/activity-relay-web/content/rules.html
+   /etc/activity-relay-web/content/privacy.html
+   /etc/activity-relay-web/content/footer.html
+
+Copy only files that need customization from
+/usr/share/activity-relay/web/content. Generated files under
+/var/www/activity-relay/public are replaced on every rebuild.
+

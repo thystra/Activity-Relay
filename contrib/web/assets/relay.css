@@ -71,3 +71,20 @@ input[type="search"] { min-width: 16rem; padding: 0.65rem 0.75rem; border: 1px s
   .site-header { align-items: flex-start; flex-direction: column; }
   input[type="search"] { min-width: 0; width: 100%; }
 }
+
+[hidden] { display: none !important; }
+.site-banner {
+  margin: 0 0 1.5rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+}
+.site-banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 32rem;
+  object-fit: cover;
+}

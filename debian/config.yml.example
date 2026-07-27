@@ -41,3 +41,10 @@ SUMMARY_STATUS_URL: http://127.0.0.1:8080/status.json
 #   A community-operated ActivityPub relay.
 # RELAY_ICON: https://relay.example.org/assets/icon.png
 # RELAY_IMAGE: https://relay.example.org/assets/banner.png
+# Public fediverse contact shown in the optional website footer.
+# The underscore spelling is canonical. Hyphenated aliases are accepted
+# by the static-site builder only for backward compatibility.
+# FEDIVERSE_OPERATOR_ID: "@operator@social.example"
+# Optional explicit profile URL. This cannot be derived reliably from a handle
+# because profile URL layouts differ among fediverse server applications.
+# FEDIVERSE_OPERATOR_URL: "https://social.example/@operator"

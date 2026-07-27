@@ -66,7 +66,7 @@ class BuildSiteTest(unittest.TestCase):
             index,
         )
         self.assertIn(
-            "ActivityPub contact: @operator@social.example",
+            "@operator@social.example",
             index,
         )
         self.assertIn("receiving_instances", javascript)
@@ -90,7 +90,7 @@ class BuildSiteTest(unittest.TestCase):
             {"activitypub_contact": "@operator@social.example"}
         )
         self.assertIn(
-            "<span>ActivityPub contact: @operator@social.example</span>",
+            "<span>@operator@social.example</span>",
             index,
         )
 
