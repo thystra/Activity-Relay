@@ -200,7 +200,11 @@ jobs:
           package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
           test -n "$package"
           package_name="$(basename "$package")"
-          release_name="${package_name//~/-}"
+          release_name="$(printf '%s' "$package_name" | tr '~' '-')"
+          if [[ "$release_name" == *'~'* ]]; then
+            echo "Release filename still contains a tilde: $release_name" >&2
+            exit 1
+          fi
           cp "$package" "dist/$release_name"
           cd dist
           sha256sum ./*.deb > SHA256SUMS
