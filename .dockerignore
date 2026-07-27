@@ -13,3 +13,7 @@ actor.pem
 config.yml
 .env
 activity-relay-backups
+
+AGENTS.local.md
+.local
+activity-relay-local

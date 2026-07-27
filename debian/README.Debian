@@ -36,6 +36,11 @@ not enabled or started by an upgrade.
 Website and reverse proxy
 -------------------------
 
+The website is optional. The relay can operate with a custom page, a redirect,
+or no frontend. The reverse proxy must still forward the relay endpoints.
+See /usr/share/activity-relay/web/README.md for all frontend modes.
+
+
 Package-owned website sources are in /usr/share/activity-relay/web. Initialize
 an editable copy without replacing existing files:
 

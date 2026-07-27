@@ -71,6 +71,15 @@ class BuildSiteTest(unittest.TestCase):
         )
         self.assertIn("receiving_instances", javascript)
         self.assertIn("if (!publisherList) return;", javascript)
+        self.assertIn('setStatusMessage("", true);', javascript)
+        self.assertIn(
+            "Unable to load relay status:",
+            javascript,
+        )
+        self.assertNotIn(
+            "Status loaded from ${statusURL}.",
+            javascript,
+        )
 
     def test_activitypub_contact_is_optional(self) -> None:
         index, _ = self.build_site({})
@@ -112,6 +121,28 @@ class BuildSiteTest(unittest.TestCase):
             "activitypub_contact_url must be an absolute HTTPS URL",
             result.stderr,
         )
+
+    def test_container_includes_website_source(self) -> None:
+        source = Path(__file__).resolve().parent
+        dockerfile = source.parents[1] / "Dockerfile"
+        text = dockerfile.read_text(encoding="utf-8")
+        self.assertIn(
+            "/usr/share/activity-relay/web",
+            text,
+        )
+
+    def test_custom_status_example_uses_external_script(self) -> None:
+        source = Path(__file__).resolve().parent
+        html = (source / "examples/status-widget.html").read_text(
+            encoding="utf-8"
+        )
+        javascript = (source / "examples/status-widget.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('src="/status-widget.js"', html)
+        self.assertNotIn("<script>", html)
+        self.assertIn('fetch("/status.json"', javascript)
+        self.assertIn("receiving_instances", javascript)
 
     def run_invalid_config(
         self,

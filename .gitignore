@@ -45,3 +45,8 @@ cache/
 
 # Debian package build output.
 /debian/build/
+
+# Maintainer-local notes and agent configuration.
+/AGENTS.local.md
+/.local/
+/activity-relay-local/

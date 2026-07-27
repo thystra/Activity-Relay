@@ -1,42 +1,97 @@
-# Activity-Relay landing site
+# Activity-Relay optional landing site
 
-This directory provides a dependency-free generated landing site.
+The relay does not require a frontend. This directory provides an optional,
+dependency-free static site and examples for operators who want one.
 
-The deployment has two components:
+The public website and the relay runtime are separate:
 
-- The Python builder generates static HTML, CSS, and JavaScript.
-- The Go relay exposes live data at `/status.json`, which the generated JavaScript requests through Nginx.
+- The Go relay exposes ActivityPub endpoints and `/status.json`.
+- `build-site.py` generates static HTML, CSS, and JavaScript.
+- Nginx, Apache, or another reverse proxy serves the chosen frontend and
+  proxies the relay endpoints to the Go service.
 
-The Go relay does not write the public HTML files itself.
+## Frontend choices
 
-## Directory relationship
+An operator may use any of these arrangements:
 
-A recommended installation uses:
+1. Generate and serve the bundled website.
+2. Serve a completely custom website.
+3. Redirect `/` to another page.
+4. Return `404` for `/` and all non-relay paths.
+
+The reverse proxy must continue forwarding these routes to the relay:
 
 ```text
-/etc/activity-relay-web/          Editable source, configuration, and policy text
-/var/www/activity-relay/public/   Generated public files served by Nginx
+/inbox
+/actor
+/status.json
+/.well-known/nodeinfo
+/.well-known/webfinger
+/nodeinfo/2.1
 ```
 
-The build command connects those directories:
+### Disable the frontend with Nginx
+
+Replace the generated-site `location /` block with:
+
+```nginx
+location / {
+    return 404;
+}
+```
+
+The exact relay endpoint locations remain proxied.
+
+### Redirect the root page with Nginx
+
+```nginx
+location = / {
+    return 302 https://example.org/about-this-relay;
+}
+
+location / {
+    return 404;
+}
+```
+
+### Use a custom website
+
+Point the web server document root at the custom generated or hand-written
+files. A custom page may read `/status.json` from the same hostname without CORS
+configuration.
+
+A minimal CSP-compatible example is provided in:
 
 ```text
-/etc/activity-relay-web
-        |
-        | build-site.py --output /var/www/activity-relay/public
-        v
-/var/www/activity-relay/public
-        |
-        | Nginx root /var/www/activity-relay/public
-        v
-Public landing page
+examples/status-widget.html
+examples/status-widget.js
 ```
 
-The `--output` path and the Nginx `root` path must match.
+Copy both files to the chosen document root, or use them as a starting point.
 
-## Initial installation
+## Native or Debian installation
 
-Run from the repository root:
+A recommended native installation uses:
+
+```text
+/etc/activity-relay-web/          Editable source and configuration
+/var/www/activity-relay/public/   Generated public files
+```
+
+For the Debian package, initialize an editable copy without overwriting local
+files:
+
+```bash
+sudo cp -an \
+  /usr/share/activity-relay/web/. \
+  /etc/activity-relay-web/
+
+sudo cp --update=none \
+  /etc/activity-relay-web/site.json.example \
+  /etc/activity-relay-web/site.json
+```
+
+For a source checkout:
 
 ```bash
 sudo install -d -o root -g root -m 0755 \
@@ -50,54 +105,23 @@ sudo cp --update=none \
   /etc/activity-relay-web/site.json
 ```
 
-For upgrades, keep local content in `/etc/activity-relay-web` rather than editing a Git checkout used to compile the relay. Review new upstream templates before copying them over local policy text.
-
-## Customize
-
-Edit:
+Customize:
 
 ```bash
 sudoedit /etc/activity-relay-web/site.json
 ```
 
-Set `logo_url` to an HTTPS URL or a public path such as `/assets/logo.svg` and
-set `logo_alt` to meaningful alternative text. For a local logo, place the file
-under `assets/` before rebuilding. Set `logo_url` to an empty string to omit it.
+The optional `activitypub_contact` value displays a fediverse handle. Set
+`activitypub_contact_url` to its absolute HTTPS profile URL to make it
+clickable. These settings affect only generated website content.
 
-Set `activitypub_contact` to a display handle such as
-`@operator@social.example`. Set `activitypub_contact_url` to the operator's
-absolute HTTPS profile URL to make the handle clickable. Both settings are
-website-only and do not change relay delivery, moderation, or federation.
-
-Reusable HTML content is stored in:
-
-```text
-content/home.html
-content/about.html
-content/rules.html
-content/privacy.html
-content/footer.html
-```
-
-Shared presentation files are stored in:
-
-```text
-templates/page.html
-assets/relay.css
-assets/relay.js
-```
-
-## Build
-
-After changing `site.json`, templates, content, CSS, or JavaScript, rebuild
-the public site with:
+Build:
 
 ```bash
 sudo /etc/activity-relay-web/rebuild-site.sh
 ```
 
-The wrapper uses the standard source, config, and output paths. The expanded
-equivalent command is:
+The expanded equivalent command is:
 
 ```bash
 sudo env PYTHONDONTWRITEBYTECODE=1 \
@@ -107,73 +131,73 @@ python3 /etc/activity-relay-web/build-site.py \
   --output /var/www/activity-relay/public
 ```
 
-The generated tree contains only public files. The editable source and configuration remain outside the Nginx document root.
+The web-server document root must match the builder's `--output` path. Do not
+edit files under `/var/www/activity-relay/public`; they are generated output.
 
-Expected output:
+## Container installation
+
+The published relay image contains the editable website sources at:
 
 ```text
-index.html
-about/index.html
-rules/index.html
-privacy/index.html
-assets/relay.css
-assets/relay.js
+/usr/share/activity-relay/web
 ```
 
-Do not edit generated files under `/var/www/activity-relay/public`; rerun the builder after changing source content.
-
-Nginx does not need to be reloaded when only generated files change.
-
-## Nginx
-
-Start with `../nginx/activity-relay.conf.example`.
-
-The template uses:
-
-```nginx
-root /var/www/activity-relay/public;
-```
-
-That must match the builder's:
+The runtime image intentionally does not include Python. Extract the source and
+use a temporary Python container to build it:
 
 ```bash
---output /var/www/activity-relay/public
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
+
+mkdir -p \
+  activity-relay-web \
+  activity-relay-public
+
+container_id="$(docker create "$ACTIVITY_RELAY_IMAGE")"
+
+docker cp \
+  "$container_id:/usr/share/activity-relay/web/." \
+  ./activity-relay-web/
+
+docker rm "$container_id"
+
+cp -n \
+  ./activity-relay-web/site.json.example \
+  ./activity-relay-web/site.json
 ```
 
-The static catch-all serves generated files:
-
-```nginx
-location / {
-    try_files $uri $uri/ =404;
-}
-```
-
-The exact status route is proxied to the Go relay:
-
-```nginx
-location = /status.json {
-    proxy_pass http://activity_relay_backend;
-}
-```
-
-Because the status location is an exact match, it takes precedence over the static catch-all. The landing-page JavaScript can therefore request `/status.json` from the same public hostname without CORS configuration.
-
-Replace the hostname, certificate paths, document root, log paths, and backend address for the local installation, then run:
+Edit `activity-relay-web/site.json` and any templates or assets, then build:
 
 ```bash
-sudo nginx -t
-sudo systemctl reload nginx
+docker run \
+  --rm \
+  --user "$(id -u):$(id -g)" \
+  --volume "$PWD/activity-relay-web:/site:ro" \
+  --volume "$PWD/activity-relay-public:/output" \
+  python:3.13-alpine \
+  python3 /site/build-site.py \
+    --source /site \
+    --config /site/site.json \
+    --output /output
 ```
 
-## Apache
+Serve `activity-relay-public` from the host reverse proxy or a separate web
+container. Re-run the builder after changing source files; the relay containers
+do not need restarting.
 
-An Apache 2.4 alternative is provided at
-`../apache/activity-relay.conf.example`. It serves the same generated document
-root and proxies only the relay API endpoints. On Debian/Ubuntu, copy and edit
-the example, enable its listed modules, then explicitly enable the site. The
-package does not enable or reload Apache automatically.
+## Nginx and Apache
 
-## Verify
+Start with:
+
+```text
+../nginx/activity-relay.conf.example
+../apache/activity-relay.conf.example
+```
+
+Both templates use the bundled site by default and include comments describing
+how to disable or redirect the frontend. Neither template is enabled
+automatically by the Debian package.
+
+## Verification
 
 ```bash
 curl --fail --silent --show-error \
@@ -181,10 +205,10 @@ curl --fail --silent --show-error \
 python3 -m json.tool
 
 curl --fail --silent --show-error \
-  https://relay.example.org/ \
-  >/dev/null && echo 'Landing page OK'
-
-curl --fail --silent --show-error \
   https://relay.example.org/status.json |
 python3 -m json.tool
 ```
+
+When using a frontend, also verify its public root. When intentionally disabling
+the frontend, verify that `/` returns the chosen redirect or error status while
+the relay endpoints remain available.

@@ -1,14 +1,11 @@
 services:
   worker:
     image: activity-relay:local
-    build:
+    build: &relay-build
       context: .
       args:
         VERSION: ${ACTIVITY_RELAY_VERSION:-development}
 
   server:
     image: activity-relay:local
-    build:
-      context: .
-      args:
-        VERSION: ${ACTIVITY_RELAY_VERSION:-development}
+    build: *relay-build

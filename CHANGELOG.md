@@ -2,6 +2,21 @@
 
 ## [2.4.0] - 2026-07-26
 
+### RC4
+
+- Make the bundled public frontend explicitly optional and document bundled,
+  disabled, redirected, and custom-site deployments.
+- Include editable website sources in the published container image and
+  document generation with a temporary Python container.
+- Replace the stale upstream Compose defaults with a production-oriented
+  GHCR deployment and an explicit local-build override.
+- Hide the successful `/status.json` loader diagnostic while retaining visible
+  failure information.
+- Add a minimal custom `/status.json` frontend example.
+- Add public `AGENTS.md` contributor guidance, remove an accidental tracked
+  pager-output file, neutralize the root configuration example, and refresh
+  release documentation.
+
 ### RC3
 
 - Add optional `activitypub_contact` and `activitypub_contact_url` website
@@ -103,4 +118,4 @@ Based on upstream Activity-Relay `v2.0.10`.
 - Existing ActivityPub endpoints remain unchanged.
 - Existing YAML and environment-variable configuration remains compatible.
 - Existing Redis data and control commands remain compatible.
-- The Go module path remains `github.com/yukimochi/Activity-Relay` for compatibility.
+- At v2.1.0, the Go module path still matched upstream; the maintained fork later adopted `github.com/thystra/Activity-Relay` in v2.4.0.

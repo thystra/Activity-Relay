@@ -35,6 +35,12 @@
     element.classList.add(className);
   }
 
+  function setStatusMessage(value, hidden) {
+    if (!message) return;
+    message.textContent = value;
+    message.hidden = hidden;
+  }
+
   function renderDomains(filter = "") {
     if (!list) return;
     const needle = filter.trim().toLowerCase();
@@ -88,7 +94,10 @@
   }
 
   search?.addEventListener("input", () => renderDomains(search.value));
-  publisherSearch?.addEventListener("input", () => renderPublishers(publisherSearch.value));
+  publisherSearch?.addEventListener(
+    "input",
+    () => renderPublishers(publisherSearch.value)
+  );
 
   fetch(statusURL, {
     headers: { Accept: "application/json" },
@@ -99,18 +108,47 @@
       return response.json();
     })
     .then((data) => {
-      setText(health, data.status === "ok" ? "Online" : String(data.status ?? "Unknown"));
-      setStatusClass(health, data.status === "ok" ? "status-good" : "status-warning");
-      setText(registration, data.manual_approval ? "Approval required" : "Open");
-      setText(count, String(data.connected_instances?.count ?? 0));
-      setText(receivingCount, String(data.receiving_instances?.count ?? data.connected_instances?.count ?? 0));
-      setText(publisherCount, String(data.publishers?.count ?? 0));
-      setText(version, `${data.software?.name ?? "Activity-Relay"} ${data.software?.version ?? ""}`.trim());
+      setText(
+        health,
+        data.status === "ok"
+          ? "Online"
+          : String(data.status ?? "Unknown")
+      );
+      setStatusClass(
+        health,
+        data.status === "ok" ? "status-good" : "status-warning"
+      );
+      setText(
+        registration,
+        data.manual_approval ? "Approval required" : "Open"
+      );
+      setText(
+        count,
+        String(data.connected_instances?.count ?? 0)
+      );
+      setText(
+        receivingCount,
+        String(
+          data.receiving_instances?.count
+          ?? data.connected_instances?.count
+          ?? 0
+        )
+      );
+      setText(
+        publisherCount,
+        String(data.publishers?.count ?? 0)
+      );
+      setText(
+        version,
+        `${data.software?.name ?? "Activity-Relay"} ${data.software?.version ?? ""}`.trim()
+      );
       setText(inbox, data.endpoints?.inbox ?? "/inbox");
       setText(actor, data.endpoints?.actor ?? "/actor");
 
       domains = Array.isArray(data.connected_instances?.domains)
-        ? data.connected_instances.domains.map((domain) => String(domain).toLowerCase())
+        ? data.connected_instances.domains.map(
+          (domain) => String(domain).toLowerCase()
+        )
         : [];
       publishers = Array.isArray(data.publishers?.entries)
         ? data.publishers.entries
@@ -118,7 +156,7 @@
 
       renderDomains();
       renderPublishers();
-      setText(message, `Status loaded from ${statusURL}.`);
+      setStatusMessage("", true);
     })
     .catch((error) => {
       setText(health, "Unavailable");
@@ -135,6 +173,10 @@
       if (publisherList) {
         publisherList.innerHTML = '<li class="muted">The live publisher list is temporarily unavailable.</li>';
       }
-      setText(message, `Unable to load relay status: ${error.message}`);
+
+      setStatusMessage(
+        `Unable to load relay status: ${error.message}`,
+        false
+      );
     });
 })();

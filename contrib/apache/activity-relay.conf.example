@@ -1,4 +1,4 @@
-# Apache 2.4 template for Activity-Relay and its generated landing site.
+# Apache 2.4 template for Activity-Relay with an optional frontend.
 #
 # Required modules on Debian/Ubuntu:
 #   a2enmod headers http2 proxy proxy_http proxy_wstunnel rewrite ssl
@@ -20,8 +20,18 @@
     SSLCertificateFile /etc/letsencrypt/live/relay.example.org/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/relay.example.org/privkey.pem
 
+    # Frontend choice 1, enabled by default: bundled generated website.
     DocumentRoot /var/www/activity-relay/public
     DirectoryIndex index.html
+
+    # Frontend choice 2: no root page. Keep an empty document root and enable:
+    # RewriteRule ^/?$ - [R=404,L]
+    #
+    # Frontend choice 3: redirect the root page:
+    # RedirectMatch 302 "^/$" "https://example.org/about-this-relay"
+    #
+    # Frontend choice 4: custom site. Change DocumentRoot and the matching
+    # <Directory> path below. Keep the ProxyPassMatch relay routes unchanged.
     LimitRequestBody 1048576
 
     # Apache core does not provide request-count rate limiting equivalent to

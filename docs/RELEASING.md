@@ -1,75 +1,147 @@
 # Releasing the maintained fork
 
-This repository uses annotated Git tags and GitHub Releases. The relay binary receives its version through the existing `main.version` linker variable.
+This repository uses annotated Git tags and GitHub Releases. Tagged releases
+build a multi-architecture GHCR image and an Ubuntu 24.04 `amd64` Debian
+package.
 
-Pushing a `v*` tag builds both the multi-architecture GHCR container image and
-the native Ubuntu 24.04 `amd64` package. Stable tags publish the full semantic
-version, major/minor, major, and `latest` container tags. Prerelease tags publish
-only their full prerelease version and do not move `latest`. The release workflow
-runs the Redis-backed tests, derives a Debian version with revision `-1` from the
-tag (for example, `v2.4.0-rc1` becomes `2.4.0~rc1-1`), builds and lints the
-package, performs a clean installation/reinstall test, verifies actor identity
-preservation and disabled services, writes `SHA256SUMS`, and attaches the Debian
-package and checksums to the GitHub Release. Prerelease tags create GitHub
-prereleases. The container is published to GHCR by the parallel release job.
+## Version and tag policy
 
-## Version policy
+- Patch release: backward-compatible fixes, for example `2.4.1`.
+- Minor release: backward-compatible features, for example `2.5.0`.
+- Major release: incompatible configuration, API, storage, protocol, or
+  identity changes.
+- Release candidate: append `-rcN`, for example `v2.4.0-rc4`.
 
-- Patch release: backward-compatible fixes only, for example `2.1.1`.
-- Minor release: backward-compatible features, for example `2.2.0`.
-- Major release: incompatible configuration, API, storage, protocol, or identity changes.
-- Release candidate: append `-rcN` to the Git tag, for example `v2.4.0-rc1`.
-  Release candidates do not update container `latest`, major, or major/minor tags.
+Prerelease tags publish only their complete prerelease container tag. They do
+not move `latest`, major, or major/minor tags.
 
-The first maintained-fork release is `v2.1.0` because it adds backward-compatible public API and landing-site functionality beyond upstream `v2.0.10`.
+The Debian version derived from `v2.4.0-rc4` is:
+
+```text
+2.4.0~rc4-1
+```
+
+The uploaded filename replaces `~` with `-` so GitHub does not rewrite it:
+
+```text
+activity-relay_2.4.0-rc4-1_amd64.deb
+```
+
+The package's internal Debian version remains `2.4.0~rc4-1`.
 
 ## Release checklist
 
 1. Work from a clean `master` branch.
-2. Update `CHANGELOG.md` and `readme.md`.
-3. Run `gofmt` on changed Go files.
-4. Run `git diff --check`.
-5. Run the Redis-backed package tests using a disposable Redis instance.
-6. Build a release candidate with the intended version string.
-7. Build the local Docker image and native Debian package.
-8. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
-9. Commit and push the release preparation.
-10. Create and push the annotated tag.
-11. Publish a GitHub Release with notes and checksums.
+2. Review `AGENTS.md`.
+3. Update `CHANGELOG.md`, `readme.md`, and affected deployment documentation.
+4. Confirm no local notes, generated packages, suspicious filenames, or
+   machine-specific paths are tracked.
+5. Run `gofmt` on changed Go files.
+6. Run `go vet ./...`.
+7. Run Redis-backed `go test -count=1 -p 1 ./...`.
+8. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
+9. Run `git diff --check`.
+10. Build the local container and verify:
+    - `/usr/bin/relay`;
+    - `/usr/share/activity-relay/web/build-site.py`;
+    - the compiled version string.
+11. Build the native Debian package and run Lintian on the `.changes` file.
+12. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
+13. For publisher/fan-out changes, verify a real accepted publisher activity
+    reaches a receiving server.
+14. Commit and push the release preparation.
+15. Create and push the annotated tag.
+16. Verify the GitHub release, checksums, package metadata, and container
+    manifests.
 
-## Build the release candidate
+## Local validation
 
-For version `2.4.0`:
+Use a disposable Redis instance:
 
 ```bash
-mkdir -p build
+docker rm -f activity-relay-release-test-redis \
+  >/dev/null 2>&1 || true
 
-go build \
-  -trimpath \
-  -ldflags='-X main.version=2.4.0' \
-  -o build/relay-2.4.0 \
-  .
+docker run \
+  --detach \
+  --rm \
+  --name activity-relay-release-test-redis \
+  --publish 127.0.0.1:6381:6379 \
+  redis:7-alpine
 
-sha256sum build/relay-2.4.0 \
-  > build/relay-2.4.0.sha256
+until docker exec activity-relay-release-test-redis redis-cli ping |
+  grep -qx PONG
+do
+  sleep 1
+done
+
+REDIS_URL='redis://127.0.0.1:6381' \
+  go test -count=1 -p 1 ./...
+
+REDIS_URL='redis://127.0.0.1:6381' \
+  go test -race -count=1 -p 1 ./api ./models
+
+go vet ./...
+
+python3 -m unittest discover \
+  -s contrib/web \
+  -p 'test_*.py'
+
+docker rm -f activity-relay-release-test-redis
+```
+
+Build and inspect the container:
+
+```bash
+ACTIVITY_RELAY_VERSION='2.4.0-rc4' \
+docker compose \
+  -f compose.yml \
+  -f compose.build.yml \
+  build
+
+docker run \
+  --rm \
+  activity-relay:local \
+  --version
+
+docker run \
+  --rm \
+  --entrypoint /bin/sh \
+  activity-relay:local \
+  -c '
+    test -x /usr/bin/relay
+    test -f /usr/share/activity-relay/web/build-site.py
+    test -f /usr/share/activity-relay/web/site.json.example
+  '
+```
+
+Build and inspect the Debian package:
+
+```bash
+dpkg-parsechangelog --show-field Version
+
+dpkg-buildpackage \
+  --build=binary \
+  --no-sign
+
+lintian \
+  --fail-on error \
+  ../activity-relay_2.4.0~rc4-1_amd64.changes
 ```
 
 ## Tag the tested commit
-
-For a release candidate:
 
 ```bash
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.4.0-rc1 \
-  -m 'Activity-Relay v2.4.0-rc1 release candidate'
+git tag -a v2.4.0-rc4 \
+  -m 'Activity-Relay v2.4.0-rc4 release candidate'
 
-git push origin v2.4.0-rc1
+git push origin v2.4.0-rc4
 ```
 
-After the release candidate is validated, prepare the final Debian changelog
-version and tag the tested final commit:
+After final validation:
 
 ```bash
 git tag -a v2.4.0 \
@@ -78,7 +150,22 @@ git tag -a v2.4.0 \
 git push origin v2.4.0
 ```
 
-Do not move an already-published release tag. Correct mistakes with a new patch release.
+Do not move an already-published release tag. Correct mistakes with another
+release candidate or patch release.
+
+## Workflow behavior
+
+The release workflow:
+
+- derives the package version from the tag;
+- runs Redis-backed Go and static-site tests;
+- builds and lints the Debian package;
+- tests clean installation, reinstallation, actor identity preservation, and
+  inactive services;
+- writes `SHA256SUMS`;
+- creates a GitHub prerelease for RC tags;
+- publishes `linux/amd64` and `linux/arm64` images to GHCR;
+- updates stable semantic and `latest` tags only for stable releases.
 
 ## Smoke tests
 
@@ -95,5 +182,3 @@ curl --fail --silent --show-error \
   http://127.0.0.1:8080/status.json |
 python3 -m json.tool
 ```
-
-Release assets replace Debian's `~` prerelease separator with `-` in the uploaded filename so GitHub does not rewrite it. The package's internal Debian version remains unchanged.

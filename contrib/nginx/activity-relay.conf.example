@@ -1,12 +1,9 @@
-# Generic Nginx template for Activity-Relay plus the generated landing site.
+# Generic Nginx template for Activity-Relay with an optional frontend.
 #
-# build-site.py must use the same output directory configured by the root
-# directive below. With the example paths, build the site using:
+# When using the bundled site, its output directory must match the root
+# directive below. Build a native/package installation with:
 #
-#   python3 /etc/activity-relay-web/build-site.py \
-#     --source /etc/activity-relay-web \
-#     --config /etc/activity-relay-web/site.json \
-#     --output /var/www/activity-relay/public
+#   /etc/activity-relay-web/rebuild-site.sh
 #
 # Nginx serves those generated files. The landing-page JavaScript requests
 # /status.json, which Nginx proxies to the Go relay backend.
@@ -127,16 +124,38 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Frontend choice 1, enabled by default: bundled generated website.
     location /assets/ {
         try_files $uri =404;
         expires 1h;
         add_header Cache-Control "public, max-age=3600";
     }
 
-    # Generated landing page and content pages.
     location / {
         try_files $uri $uri/ =404;
     }
+
+    # Frontend choice 2: no public frontend. Comment out the two blocks above
+    # and enable this instead:
+    #
+    # location / {
+    #     return 404;
+    # }
+
+    # Frontend choice 3: redirect only the root page. Comment out the two
+    # bundled-site blocks above and enable both locations:
+    #
+    # location = / {
+    #     return 302 https://example.org/about-this-relay;
+    # }
+    #
+    # location / {
+    #     return 404;
+    # }
+
+    # Frontend choice 4: custom site. Change root to the custom document root
+    # and retain the active try_files location. Keep every exact relay endpoint
+    # location above proxied to activity_relay_backend.
 
     access_log /var/log/nginx/activity-relay.access.log combined;
     error_log  /var/log/nginx/activity-relay.error.log warn;

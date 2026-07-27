@@ -1,7 +1,27 @@
+name: activity-relay
+
+x-relay-service: &relay-service
+  image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:2.4.0-rc4}
+  working_dir: /var/lib/relay
+  restart: unless-stopped
+  init: true
+  volumes:
+    - ./actor.pem:/var/lib/relay/actor.pem:ro
+    - ./config.yml:/var/lib/relay/config.yml:ro
+    - ${RELAY_CACHE_DIR:-./cache}:/var/cache/activity-relay
+  logging: &bounded-logging
+    driver: local
+    options:
+      max-size: ${CONTAINER_LOG_MAX_SIZE:-10m}
+      max-file: ${CONTAINER_LOG_MAX_FILES:-5}
+  depends_on:
+    redis:
+      condition: service_healthy
+
 services:
   redis:
-    restart: always
-    image: redis:alpine
+    image: redis:7-alpine
+    restart: unless-stopped
     command:
       - redis-server
       - --maxmemory
@@ -14,45 +34,39 @@ services:
       - "no"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     volumes:
-      - "${RELAY_STORAGE_DIR:-./redisdata}:/data"
-    logging: &bounded-logging
-      driver: local
-      options:
-        max-size: ${CONTAINER_LOG_MAX_SIZE:-10m}
-        max-file: ${CONTAINER_LOG_MAX_FILES:-5}
+      - ${RELAY_STORAGE_DIR:-./redisdata}:/data
+    logging: *bounded-logging
     mem_limit: ${REDIS_CONTAINER_MEMORY:-768m}
     pids_limit: 128
 
   worker:
-    image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:latest}
-    working_dir: /var/lib/relay
-    restart: always
+    <<: *relay-service
     command: ["worker"]
-    volumes:
-      - "./actor.pem:/var/lib/relay/actor.pem:ro"
-      - "./config.yml:/var/lib/relay/config.yml:ro"
-      - "${RELAY_CACHE_DIR:-./cache}:/var/cache/activity-relay"
-    logging: *bounded-logging
     mem_limit: ${WORKER_MEMORY_LIMIT:-512m}
     pids_limit: 256
     deploy:
-      mode: replicated
-      replicas: 2
-    depends_on:
-      - redis
+      replicas: ${WORKER_REPLICAS:-2}
 
   server:
-    image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:latest}
-    working_dir: /var/lib/relay
-    restart: always
+    <<: *relay-service
     command: ["server"]
-    volumes:
-      - "./actor.pem:/var/lib/relay/actor.pem:ro"
-      - "./config.yml:/var/lib/relay/config.yml:ro"
-      - "${RELAY_CACHE_DIR:-./cache}:/var/cache/activity-relay"
-    logging: *bounded-logging
+    ports:
+      - "${RELAY_PUBLISH_ADDRESS:-127.0.0.1}:${RELAY_HTTP_PORT:-8080}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --output-document=/dev/null
+        - http://127.0.0.1:8080/status.json
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     mem_limit: ${SERVER_MEMORY_LIMIT:-512m}
     pids_limit: 256
-    depends_on:
-      - redis

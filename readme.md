@@ -1,6 +1,6 @@
 # Activity Relay Server
 
-## A customizable ActivityPub relay server written in Go
+## A maintained and deployable ActivityPub relay written in Go
 
 [![GitHub Actions](https://github.com/thystra/Activity-Relay/workflows/Test/badge.svg)](https://github.com/thystra/Activity-Relay/actions)
 
@@ -10,59 +10,186 @@
 > This repository is a maintained fork of
 > [`yukimochi/Activity-Relay`](https://github.com/yukimochi/Activity-Relay),
 > based on upstream release `v2.0.10`.
->
-> The first maintained-fork release is `v2.1.0`.
 
-## Fork features
+## Highlights
 
-Compared with upstream Activity-Relay `v2.0.10`, this fork includes:
+Compared with the upstream baseline, this fork includes:
 
-- Friendica server actors using the `/friendica` path may follow and unfollow the relay.
-- A public `GET /status.json` endpoint.
-- A sorted connected-instance count and domain list in the public status response.
-- An optional generated landing website with editable home, about, rules, privacy, and footer content.
-- A generic Nginx configuration template for serving the website and proxying ActivityPub endpoints.
-- Automated tests for Friendica follower paths and the status endpoint.
+- Friendica relay follow and unfollow compatibility, including `/friendica`
+  server-actor paths.
+- Acceptance of valid HTTP-signed public activities from unsubscribed
+  publishers, including WordPress ActivityPub sites.
+- Publisher first-seen, last-seen, activity-type, and accepted-activity
+  counters.
+- `/status.json` schema version 3 with:
+  - `connected_instances`: all unique participating domains;
+  - `receiving_instances`: domains that receive relay fan-out;
+  - `publishers`: observed sending domains and their roles.
+- A tested Redis-backed fan-out pipeline with bounded queue and response
+  controls.
+- Multi-architecture `linux/amd64` and `linux/arm64` container releases on GHCR.
+- Native Ubuntu 24.04 `amd64` Debian packages with systemd units, a dedicated
+  Redis instance, operational resource monitoring, and upgrade-safe identity
+  preservation.
+- An optional generated public website. Operators may use it, replace it,
+  redirect it, or serve no frontend at all.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for release details.
 
-## Compatibility and package paths
+## Module and compatibility
 
-The Go module and internal import paths intentionally remain compatible with upstream:
+The maintained fork uses:
 
-- `github.com/yukimochi/Activity-Relay`
-- `github.com/yukimochi/Activity-Relay/api`
-- `github.com/yukimochi/Activity-Relay/deliver`
-- `github.com/yukimochi/Activity-Relay/control`
-- `github.com/yukimochi/Activity-Relay/models`
+```text
+github.com/thystra/Activity-Relay
+```
 
-Keeping the original module path minimizes downstream breakage and makes future upstream synchronization easier. The public source URL reported by this fork's `/status.json` endpoint points to `https://github.com/thystra/Activity-Relay`.
+Existing ActivityPub endpoints, YAML settings, environment variables, Redis
+state, and control commands remain compatible unless a release explicitly
+documents otherwise. The `github.com/yukimochi/machinery-v1` module remains an
+external dependency inherited from the original project.
 
 ## Requirements
 
-- [Go](https://go.dev/) for source builds
-- [Redis](https://github.com/redis/redis)
-- Python 3 only when building the optional landing website
-- Nginx or another web server/reverse proxy for a public deployment
+Depending on the installation method:
 
-## Build
+- Docker and Docker Compose for container deployment;
+- Ubuntu 24.04 or a compatible Debian-based system for the native package;
+- Go and Redis for source builds;
+- Python 3 only when generating the optional bundled website;
+- Nginx, Apache, or another reverse proxy for a public deployment.
 
-For a tagged release build:
+## Installation
+
+### Container deployment
+
+Stable releases and release candidates are published to:
+
+```text
+ghcr.io/thystra/activity-relay
+```
+
+Copy the examples:
 
 ```bash
-git checkout v2.3.1
+cp .env.example .env
+cp config.yml.example config.yml
+```
+
+Set a release image in `.env`, for example:
+
+```dotenv
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
+```
+
+Release candidates use their complete tag, such as `2.4.0-rc4`; prereleases do
+not move `latest`.
+
+Generate the actor identity once:
+
+```bash
+docker run \
+  --rm \
+  --user "$(id -u):$(id -g)" \
+  --volume "$PWD:/work" \
+  "$ACTIVITY_RELAY_IMAGE" \
+  generate-key \
+  --output /work/actor.pem
+```
+
+Back up `actor.pem`. Replacing it changes the relay's cryptographic identity.
+
+Validate the resolved configuration and start the relay:
+
+```bash
+docker compose config
+docker compose up -d
+```
+
+The Compose deployment pulls the image selected by
+`ACTIVITY_RELAY_IMAGE`, runs Redis, two workers, and the API server, and
+publishes the API on `127.0.0.1:8080` by default for a host reverse proxy.
+Change `RELAY_PUBLISH_ADDRESS` or `RELAY_HTTP_PORT` in `.env` when needed.
+
+Inspect the deployment:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 server worker redis
+
+curl --fail --silent --show-error \
+  http://127.0.0.1:8080/status.json |
+python3 -m json.tool
+```
+
+To build from the current checkout instead of using a published image:
+
+```bash
+docker compose \
+  -f compose.yml \
+  -f compose.build.yml \
+  up -d --build
+```
+
+Verify an image:
+
+```bash
+docker run \
+  --rm \
+  ghcr.io/thystra/activity-relay:2.4.0 \
+  --version
+```
+
+The image uses `/usr/bin/relay` as its entrypoint.
+
+### Native Debian/Ubuntu package
+
+Tagged releases attach an Ubuntu 24.04 `amd64` package and `SHA256SUMS` to the
+GitHub Release.
+
+Install a downloaded package:
+
+```bash
+sudo apt install ./activity-relay_VERSION_amd64.deb
+```
+
+The package:
+
+- generates `/etc/activity-relay/actor.pem` without replacing an existing key;
+- installs an example configuration but does not create an active `config.yml`;
+- installs inactive-by-default server, worker, Redis, and resource-guard units;
+- does not enable a web-server configuration;
+- preserves actor identity, local configuration, website content, and Redis
+  data during upgrades and removal.
+
+Continue with:
+
+```text
+/usr/share/doc/activity-relay/README.Debian
+```
+
+### Source build
+
+For a tagged stable build:
+
+```bash
+VERSION=2.4.0
+
+git checkout "v${VERSION}"
 mkdir -p build
+
 go build \
   -trimpath \
-  -ldflags='-X main.version=2.3.1' \
+  -ldflags="-s -w -X main.version=${VERSION}" \
   -o build/relay \
   .
 ```
 
-For a development build whose version follows Git:
+For a development build:
 
 ```bash
 mkdir -p build
+
 go build \
   -trimpath \
   -ldflags="-X main.version=$(git describe --tags --always --dirty | sed 's/^v//')" \
@@ -70,151 +197,102 @@ go build \
   .
 ```
 
-### Native Debian/Ubuntu package
+## Running the relay
 
-Tagged releases build an `amd64` `.deb` for Ubuntu 24.04 and attach it, together
-with `SHA256SUMS`, to the GitHub Release. The package provides a dedicated Redis
-instance, inactive-by-default server and worker units, resource monitoring,
-website sources, and opt-in Nginx and Apache examples.
-
-Install a downloaded release with:
-
-```bash
-sudo apt install ./activity-relay_VERSION_amd64.deb
-```
-
-Installation generates `/etc/activity-relay/actor.pem` but does not create an
-active `config.yml`, enable services, or modify a web-server configuration.
-Continue with `/usr/share/doc/activity-relay/README.Debian` after installation.
-Package removal and purge retain the actor identity, operator configuration,
-website content, and Redis data.
-
-When upgrading an existing installation, the package restarts Activity-Relay
-services that are already active and prints the restart result at the end of
-the upgrade. Services that were inactive remain inactive.
-
-The Nginx example also contains commented HTTP/3/QUIC listeners and an
-`Alt-Svc` header. They can be enabled when Nginx includes
-`--with-http_v3_module` and both TCP and UDP port 443 are permitted. Nginx
-terminates HTTP/3 and continues proxying to the relay over local HTTP/1.1, so
-no separate HTTP/3 listener is required in the Go service.
-
-### Container deployment
-
-`compose.yml` uses the maintained published image by default:
-
-```text
-ghcr.io/thystra/activity-relay:latest
-```
-
-Copy `.env.example` to `.env` and set `ACTIVITY_RELAY_IMAGE` to pin a release,
-for example `ghcr.io/thystra/activity-relay:2.4.0`. To build the same services
-from the current checkout instead, use the local-build overlay:
-
-```bash
-docker compose -f compose.yml -f compose.build.yml up -d --build
-```
-
-The image uses `/usr/bin/relay` as its entrypoint. Standalone checks therefore
-pass relay arguments directly:
-
-```bash
-docker run --rm ghcr.io/thystra/activity-relay:latest --help
-docker run --rm ghcr.io/thystra/activity-relay:latest version
-```
-
-Tagged releases publish `linux/amd64` and `linux/arm64` images to GHCR and keep
-the native Ubuntu 24.04 `amd64` Debian package as a separate release asset.
-
-## Run
-
-### API server
+API server:
 
 ```bash
 relay --config /path/to/config.yml server
 ```
 
-### Job worker
+Worker:
 
 ```bash
 relay --config /path/to/config.yml worker
 ```
 
-### CLI management utility
+Management CLI:
 
 ```bash
 relay --config /path/to/config.yml control
 ```
 
+Version:
+
+```bash
+relay --version
+```
+
 ## Configuration
 
-### YAML format
+A minimal container-oriented YAML configuration:
 
 ```yaml
 ACTOR_PEM: /var/lib/relay/actor.pem
 REDIS_URL: redis://redis:6379
 
-RELAY_BIND: 127.0.0.1:8080
+RELAY_BIND: 0.0.0.0:8080
 RELAY_DOMAIN: relay.example.org
-RELAY_SERVICENAME: Example ActivityPub Relay
+RELAY_SERVICENAME: Community ActivityPub Relay
 JOB_CONCURRENCY: 10
+
+MAX_ACTIVITY_BYTES: 1048576
+MAX_FANOUT_TARGETS: 5000
+MAX_QUEUE_JOBS: 100000
+
 # RELAY_SUMMARY: |
-
-# RELAY_ICON: https://
-# RELAY_IMAGE: https://
+#   A community-operated ActivityPub relay.
+# RELAY_ICON: https://relay.example.org/assets/icon.png
+# RELAY_IMAGE: https://relay.example.org/assets/banner.png
 ```
 
-Binding the relay to `127.0.0.1` is recommended when Nginx runs on the same host.
+Use `127.0.0.1:8080` instead when the relay and reverse proxy run directly on
+the same host.
 
-Generate the relay identity key once before starting the service:
-
-```bash
-relay generate-key --output /var/lib/relay/actor.pem
-```
-
-The command creates a PKCS#1 RSA-3072 key with mode `0600` and refuses to
-replace an existing key. Back up this file: replacing it changes the relay's
-cryptographic identity.
-
-### Environment variables
-
-When the configuration file does not exist, the following environment variables may be used:
-
-- `ACTOR_PEM`
-- `REDIS_URL`
-- `MAX_ACTIVITY_BYTES` (default `1048576`)
-- `MAX_FANOUT_TARGETS` (default `5000`)
-- `MAX_QUEUE_JOBS` (default `100000`)
-- `RELAY_BIND`
-- `RELAY_DOMAIN`
-- `RELAY_SERVICENAME`
-- `JOB_CONCURRENCY`
-- `RELAY_SUMMARY`
-- `RELAY_ICON`
-- `RELAY_IMAGE`
-
-The example Compose deployment includes bounded container logs, Redis and
-process memory limits, PID limits, and configurable host storage/cache paths.
-Copy `.env.example` to `.env` and size it for the deployment host. Storage
-monitoring, warning/critical mail, Nginx log rotation, and operational guidance
-are documented in [`contrib/ops/README.md`](contrib/ops/README.md).
-
-## How participating servers subscribe
-
-### Mastodon, Misskey, and compatible software
-
-Subscribe to:
+When no configuration file exists, these runtime values may be supplied as
+environment variables:
 
 ```text
-https://<your-relay-server-address>/inbox
+ACTOR_PEM
+REDIS_URL
+RELAY_BIND
+RELAY_DOMAIN
+RELAY_SERVICENAME
+JOB_CONCURRENCY
+MAX_ACTIVITY_BYTES
+MAX_FANOUT_TARGETS
+MAX_QUEUE_JOBS
+RELAY_SUMMARY
+RELAY_ICON
+RELAY_IMAGE
 ```
 
-### Pleroma, Akkoma, Friendica, and compatible software
+Operational storage, cache, mail, and daily-summary settings are documented in
+[`contrib/ops/README.md`](contrib/ops/README.md).
 
-Follow:
+## Federation endpoints
+
+Mastodon, Misskey, and compatible software subscribe to:
 
 ```text
-https://<your-relay-server-address>/actor
+https://relay.example.org/inbox
+```
+
+Pleroma, Akkoma, Friendica, and compatible software follow:
+
+```text
+https://relay.example.org/actor
+```
+
+A public reverse proxy should forward these relay routes:
+
+```text
+/inbox
+/actor
+/status.json
+/.well-known/nodeinfo
+/.well-known/webfinger
+/nodeinfo/2.1
 ```
 
 ## Public status endpoint
@@ -225,9 +303,16 @@ The API server exposes:
 GET /status.json
 ```
 
-It reports the relay name, domain, registration policy, software version, subscription endpoints, and the sorted list of connected domains.
+Schema version 3 reports relay identity and policy, endpoints, software version,
+and three related domain views:
 
-Example local check:
+- `connected_instances`: the deduplicated set of domains that receive relay
+  traffic, publish accepted activities, or do both;
+- `receiving_instances`: the narrower set that receives fan-out;
+- `publishers`: observed sending domains, last-seen metadata, activity count,
+  and whether each domain also receives the relay.
+
+Example:
 
 ```bash
 curl --fail --silent --show-error \
@@ -235,257 +320,187 @@ curl --fail --silent --show-error \
 python3 -m json.tool
 ```
 
-The endpoint intentionally does not expose Redis keys, queue internals, blocked-domain lists, actor IDs, inbox URLs, or private configuration values.
+The endpoint does not expose Redis keys, queue internals, blocked-domain lists,
+actor IDs, inbox URLs, or private configuration.
 
-Schema version 2 also exposes a `publishers` section. A publisher is a domain
-that has sent a valid, HTTP-signed public activity accepted by the relay. A
-publisher may be send-only, or it may also be a subscriber/follower that
-receives relay traffic. Publisher observations are stored under
-`relay:publisher:<domain>` and include first-seen, last-seen, last activity type,
-and accepted-activity count metadata.
+Open publisher ingestion still enforces signature validation, actor/key-host
+matching, blocked and limited-domain policy, and person-only policy.
 
-Open publisher ingestion does not bypass relay policy. Blocked domains are
-rejected, limited domains and non-Person actors remain subject to the existing
-configuration, and the signature key host must match the activity actor host.
+## Optional public website
 
-## Optional landing website
+The bundled frontend is optional and has no effect on relay operation.
+Operators may:
 
-The landing website has two distinct parts:
+1. use the bundled generated site;
+2. serve a custom site that reads `/status.json`;
+3. redirect the root page elsewhere;
+4. return `404` for all non-relay paths.
 
-1. `contrib/web/build-site.py` generates static HTML, CSS, and JavaScript files.
-2. The generated browser JavaScript fetches live relay data from `/status.json` through Nginx.
+### Disable the frontend with Nginx
 
-The relay Go process does **not** write files into the Nginx document root. The site builder creates those files before Nginx serves them.
-
-### How the files connect
-
-```text
-Editable source and policy text
-/etc/activity-relay-web/
-        |
-        |  build-site.py --output /var/www/activity-relay/public
-        v
-Generated public website
-/var/www/activity-relay/public/
-        |
-        |  Nginx: root /var/www/activity-relay/public;
-        v
-https://relay.example.org/
-        |
-        |  browser fetches /status.json
-        v
-Nginx proxies /status.json to 127.0.0.1:8080
-```
-
-The critical rule is:
-
-> The path passed to `build-site.py --output` must be the same path used by the Nginx `root` directive.
-
-No symbolic link to the relay binary is required. Nginx serves the generated files directly and proxies only the relay API and ActivityPub routes.
-
-### 1. Install a deployment-owned copy of the editable site
-
-Run these commands from the repository root:
-
-```bash
-sudo install -d -o root -g root -m 0755 \
-  /etc/activity-relay-web \
-  /var/www/activity-relay/public
-
-sudo cp -a contrib/web/. /etc/activity-relay-web/
-
-sudo cp --update=none \
-  /etc/activity-relay-web/site.json.example \
-  /etc/activity-relay-web/site.json
-```
-
-Keep local policy and operator text in `/etc/activity-relay-web`, rather than editing a Git checkout used for compiling the relay.
-
-### 2. Customize the site
-
-Edit the site settings:
-
-```bash
-sudoedit /etc/activity-relay-web/site.json
-```
-
-Edit any of these reusable content files:
-
-```text
-/etc/activity-relay-web/content/home.html
-/etc/activity-relay-web/content/about.html
-/etc/activity-relay-web/content/rules.html
-/etc/activity-relay-web/content/privacy.html
-/etc/activity-relay-web/content/footer.html
-```
-
-The source directory also contains the shared page template and assets:
-
-```text
-/etc/activity-relay-web/templates/page.html
-/etc/activity-relay-web/assets/relay.css
-/etc/activity-relay-web/assets/relay.js
-```
-
-### 3. Generate the public files
-
-```bash
-sudo env PYTHONDONTWRITEBYTECODE=1 \
-python3 /etc/activity-relay-web/build-site.py \
-  --source /etc/activity-relay-web \
-  --config /etc/activity-relay-web/site.json \
-  --output /var/www/activity-relay/public
-```
-
-The output should contain:
-
-```text
-/var/www/activity-relay/public/index.html
-/var/www/activity-relay/public/about/index.html
-/var/www/activity-relay/public/rules/index.html
-/var/www/activity-relay/public/privacy/index.html
-/var/www/activity-relay/public/assets/relay.css
-/var/www/activity-relay/public/assets/relay.js
-```
-
-Make the generated tree readable by Nginx:
-
-```bash
-sudo find /var/www/activity-relay/public \
-  -type d -exec chmod 0755 {} +
-
-sudo find /var/www/activity-relay/public \
-  -type f -exec chmod 0644 {} +
-```
-
-Do not hand-edit files under `/var/www/activity-relay/public`; they are build output and will be replaced the next time the builder runs.
-
-### 4. Connect Nginx to the generated output
-
-Start with:
-
-```text
-contrib/nginx/activity-relay.conf.example
-```
-
-The important parts are:
+Keep the exact relay endpoint locations, and use:
 
 ```nginx
-root /var/www/activity-relay/public;
-index index.html;
+location / {
+    return 404;
+}
+```
+
+### Redirect the root page
+
+```nginx
+location = / {
+    return 302 https://example.org/about-this-relay;
+}
 
 location / {
-    try_files $uri $uri/ =404;
-}
-
-location = /status.json {
-    proxy_pass http://activity_relay_backend;
+    return 404;
 }
 ```
 
-The static `location /` serves the files made by `build-site.py`. The exact `/status.json` location takes precedence and proxies the dashboard's live-data request to the Go API server.
+### Custom status page
 
-For an Ubuntu/Debian-style Nginx installation:
+A same-origin custom page can request:
 
-```bash
-sudo cp \
-  contrib/nginx/activity-relay.conf.example \
-  /etc/nginx/sites-available/activity-relay.conf
-
-sudoedit /etc/nginx/sites-available/activity-relay.conf
-
-sudo ln -sfn \
-  /etc/nginx/sites-available/activity-relay.conf \
-  /etc/nginx/sites-enabled/activity-relay.conf
-
-sudo nginx -t
-sudo systemctl reload nginx
+```javascript
+fetch("/status.json")
+  .then((response) => response.json())
+  .then((status) => {
+    document.querySelector("#server-count").textContent =
+      status.connected_instances.count;
+  });
 ```
 
-Replace the example hostname, certificate paths, log paths, document root, and backend address before reloading. On distributions that do not use `sites-available` and `sites-enabled`, include the template from the local Nginx configuration layout instead.
+When using the sample Content Security Policy, place JavaScript in a separate
+same-origin file. A ready-to-copy example is included under:
 
-### 5. Verify the complete path
-
-Check the backend directly:
-
-```bash
-curl --fail --silent --show-error \
-  http://127.0.0.1:8080/status.json |
-python3 -m json.tool
+```text
+contrib/web/examples/
 ```
 
-Check the public routes through Nginx:
+### Build the bundled site on a native installation
+
+The Debian package installs website sources in
+`/usr/share/activity-relay/web`. Keep the operator-owned editable copy in
+`/etc/activity-relay-web` and generated output in
+`/var/www/activity-relay/public`.
+
+After editing the site:
 
 ```bash
-curl --fail --silent --show-error \
-  https://relay.example.org/ \
-  >/dev/null && echo 'Landing page OK'
-
-curl --fail --silent --show-error \
-  https://relay.example.org/status.json |
-python3 -m json.tool
+sudo /etc/activity-relay-web/rebuild-site.sh
 ```
 
-After editing `site.json`, a template, an include, CSS, or JavaScript, rerun the site-builder command. Nginx does not need to be reloaded when only generated website files change.
+### Build the bundled site from a container image
 
-Additional site-specific documentation is in [`contrib/web/README.md`](contrib/web/README.md).
-Equivalent, opt-in reverse-proxy examples are provided for Nginx and Apache 2.4
-under `contrib/nginx/` and `contrib/apache/`; neither should be enabled
-automatically by a native package.
+Published images contain website sources at:
+
+```text
+/usr/share/activity-relay/web
+```
+
+They intentionally do not include Python. Extract the sources:
+
+```bash
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
+
+mkdir -p \
+  activity-relay-web \
+  activity-relay-public
+
+container_id="$(docker create "$ACTIVITY_RELAY_IMAGE")"
+
+docker cp \
+  "$container_id:/usr/share/activity-relay/web/." \
+  ./activity-relay-web/
+
+docker rm "$container_id"
+
+cp -n \
+  ./activity-relay-web/site.json.example \
+  ./activity-relay-web/site.json
+```
+
+Customize the source and generate it with a temporary Python container:
+
+```bash
+docker run \
+  --rm \
+  --user "$(id -u):$(id -g)" \
+  --volume "$PWD/activity-relay-web:/site:ro" \
+  --volume "$PWD/activity-relay-public:/output" \
+  python:3.13-alpine \
+  python3 /site/build-site.py \
+    --source /site \
+    --config /site/site.json \
+    --output /output
+```
+
+Serve `activity-relay-public` with the host reverse proxy or a separate web
+container.
+
+Full website, Nginx, Apache, customization, and replacement instructions are in
+[`contrib/web/README.md`](contrib/web/README.md).
 
 ## Testing
 
-The package tests expect a Redis instance. Do not run them against production Redis. One disposable local example is:
+Do not run tests against production Redis. One disposable Docker-based test
+run is:
 
 ```bash
-test_redis_dir="$(mktemp -d)"
-test_redis_port=6381
+docker rm -f activity-relay-test-redis \
+  >/dev/null 2>&1 || true
 
-redis-server \
-  --bind 127.0.0.1 \
-  --port "$test_redis_port" \
-  --save '' \
-  --appendonly no \
-  --daemonize yes \
-  --pidfile "$test_redis_dir/redis.pid" \
-  --logfile "$test_redis_dir/redis.log" \
-  --dir "$test_redis_dir"
+docker run \
+  --detach \
+  --rm \
+  --name activity-relay-test-redis \
+  --publish 127.0.0.1:6381:6379 \
+  redis:7-alpine
 
-REDIS_URL="redis://127.0.0.1:${test_redis_port}" \
-go test -p 1 ./api ./deliver ./control ./models
+until docker exec activity-relay-test-redis redis-cli ping |
+  grep -qx PONG
+do
+  sleep 1
+done
 
-redis-cli -h 127.0.0.1 -p "$test_redis_port" shutdown nosave
-rm -rf "$test_redis_dir"
+REDIS_URL='redis://127.0.0.1:6381' \
+  go test -count=1 -p 1 ./...
+
+go vet ./...
+
+python3 -m unittest discover \
+  -s contrib/web \
+  -p 'test_*.py'
+
+docker rm -f activity-relay-test-redis
 ```
 
-## Release documentation
+Also run:
 
-Maintainer release steps are documented in [`docs/RELEASING.md`](docs/RELEASING.md).
+```bash
+git diff --check
+```
+
+Contributor and coding-agent expectations are documented in
+[`AGENTS.md`](AGENTS.md).
+
+## Releases
+
+Maintainer release steps are documented in
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Upstream and attribution
 
 This project is derived from:
 
-- Upstream repository: [`yukimochi/Activity-Relay`](https://github.com/yukimochi/Activity-Relay)
-- Fork baseline: upstream `v2.0.10`
+- [`yukimochi/Activity-Relay`](https://github.com/yukimochi/Activity-Relay)
+- upstream baseline `v2.0.10`
 
-Original authorship, commit history, license notices, and Go module paths are retained. Generally useful fixes may still be proposed upstream, while this fork can publish its own tested releases.
-
-The original upstream project and its sponsors are acknowledged in the upstream repository.
+Original authorship, commit history, license notices, and attribution are
+retained. Generally useful fixes may be proposed upstream; the maintained fork
+also publishes its own tested release line.
 
 ## License
 
 GNU Affero General Public License version 3. See [`LICENCE`](LICENCE).
-
-## Relay status counts
-
-`/status.json` reports `connected_instances` as the unique set of participating
-domains: servers that receive relay traffic, publish accepted activities, or do
-both. `receiving_instances` is the narrower operational set that receives
-fan-out. Publisher metadata remains available under `publishers`.
-
-The landing-site configuration also supports optional
-`activitypub_contact` and `activitypub_contact_url` values for a public
-operator account. These values are rendered only into the static website;
-they are not part of the relay runtime configuration or `/status.json`.
-
