@@ -44,6 +44,11 @@ SUMMARY_STATUS_URL: http://127.0.0.1:8080/status.json
 # STORAGE_MOUNT_POINT: /mnt/activity-relay-nas
 
 # RELAY_SUMMARY: |
-#   A community-operated ActivityPub relay.
-# RELAY_ICON: https://relay.example.org/assets/icon.png
-# RELAY_IMAGE: https://relay.example.org/assets/banner.png
+# Optional public relay branding. These are interoperability recommendations,
+# not protocol limits; clients may crop or rescale the supplied images.
+# RELAY_ICON: square logo/avatar; 512x512 px recommended (128x128 minimum).
+# Keep important icon content centered and use a public HTTPS URL.
+# RELAY_ICON: https://relay.example.org/assets/relay-icon.png
+# RELAY_IMAGE: wide header/banner; 1500x500 px (3:1) recommended.
+# Keep important banner content away from the outer edges.
+# RELAY_IMAGE: https://relay.example.org/assets/relay-banner.webp

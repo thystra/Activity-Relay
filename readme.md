@@ -269,12 +269,24 @@ MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
 
 # RELAY_SUMMARY: |
-#   A community-operated ActivityPub relay.
-# RELAY_ICON: https://relay.example.org/assets/icon.png
-# RELAY_IMAGE: https://relay.example.org/assets/banner.png
+# Optional public relay branding. These are interoperability recommendations,
+# not protocol limits; clients may crop or rescale the supplied images.
+# RELAY_ICON: square logo/avatar; 512x512 px recommended (128x128 minimum).
+# Keep important icon content centered and use a public HTTPS URL.
+# RELAY_ICON: https://relay.example.org/assets/relay-icon.png
+# RELAY_IMAGE: wide header/banner; 1500x500 px (3:1) recommended.
+# Keep important banner content away from the outer edges.
+# RELAY_IMAGE: https://relay.example.org/assets/relay-banner.webp
 ```
 
 Use `127.0.0.1:8080` instead when the relay and reverse proxy run directly on
+
+
+`RELAY_ICON` and `RELAY_IMAGE` are optional public metadata URLs. The suggested
+dimensions are compatibility-oriented recommendations rather than enforced
+limits. A square icon is least likely to be distorted by clients, while a 3:1
+banner matches common profile-header layouts. Clients may still resize or
+center-crop either image, so keep identifying content away from the edges.
 the same host.
 
 When no configuration file exists, these runtime values may be supplied as
