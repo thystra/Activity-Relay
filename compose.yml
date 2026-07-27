@@ -1,7 +1,7 @@
 name: activity-relay
 
 x-relay-service: &relay-service
-  image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:2.4.0-rc4}
+  image: ${ACTIVITY_RELAY_IMAGE:-ghcr.io/thystra/activity-relay:2.4.0-rc6}
   working_dir: /var/lib/relay
   restart: unless-stopped
   init: true

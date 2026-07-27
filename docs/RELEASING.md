@@ -10,12 +10,12 @@ package.
 - Minor release: backward-compatible features, for example `2.5.0`.
 - Major release: incompatible configuration, API, storage, protocol, or
   identity changes.
-- Release candidate: append `-rcN`, for example `v2.4.0-rc4`.
+- Release candidate: append `-rcN`, for example `v2.4.0-rc6`.
 
 Prerelease tags publish only their complete prerelease container tag. They do
 not move `latest`, major, or major/minor tags.
 
-The Debian version derived from `v2.4.0-rc4` is:
+The Debian version derived from `v2.4.0-rc6` is:
 
 ```text
 2.4.0~rc4-1
@@ -24,7 +24,7 @@ The Debian version derived from `v2.4.0-rc4` is:
 The uploaded filename replaces `~` with `-` so GitHub does not rewrite it:
 
 ```text
-activity-relay_2.4.0-rc4-1_amd64.deb
+activity-relay_2.4.0-rc6-1_amd64.deb
 ```
 
 The package's internal Debian version remains `2.4.0~rc4-1`.
@@ -42,7 +42,8 @@ The package's internal Debian version remains `2.4.0~rc4-1`.
 7. Run `go vet ./...`.
 8. Run Redis-backed `go test -count=1 -p 1 ./...`.
 9. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
-10. Run `git diff --check`.
+10. Run `python3 -m unittest discover -s contrib/ops -p 'test_*.py'`.
+11. Run `git diff --check`.
 11. Build the local container and verify:
     - `/usr/bin/relay`;
     - `/usr/share/activity-relay/web/build-site.py`;
@@ -88,13 +89,17 @@ python3 -m unittest discover \
   -s contrib/web \
   -p 'test_*.py'
 
+python3 -m unittest discover \
+  -s contrib/ops \
+  -p 'test_*.py'
+
 docker rm -f activity-relay-release-test-redis
 ```
 
 Build and inspect the container:
 
 ```bash
-ACTIVITY_RELAY_VERSION='2.4.0-rc4' \
+ACTIVITY_RELAY_VERSION='2.4.0-rc6' \
 docker compose \
   -f compose.yml \
   -f compose.build.yml \
@@ -113,6 +118,8 @@ docker run \
     test -x /usr/bin/relay
     test -f /usr/share/activity-relay/web/build-site.py
     test -f /usr/share/activity-relay/web/site.json.example
+    test -x /usr/bin/activity-relay-resource-guard
+    test -x /usr/lib/activity-relay/resource-guard.py
   '
 ```
 
@@ -136,10 +143,10 @@ lintian \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.4.0-rc4 \
-  -m 'Activity-Relay v2.4.0-rc4 release candidate'
+git tag -a v2.4.0-rc6 \
+  -m 'Activity-Relay v2.4.0-rc6 release candidate'
 
-git push origin v2.4.0-rc4
+git push origin v2.4.0-rc6
 ```
 
 After final validation:

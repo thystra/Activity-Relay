@@ -50,3 +50,13 @@ cache/
 /AGENTS.local.md
 /.local/
 /activity-relay-local/
+
+# Debhelper-generated package staging and metadata.
+/debian/.debhelper/
+/debian/debhelper-build-stamp
+/debian/files
+/debian/tmp/
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/*.substvars
+/debian/activity-relay/

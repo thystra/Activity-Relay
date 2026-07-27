@@ -35,8 +35,13 @@ FROM public.ecr.aws/docker/library/alpine:3.22.1
 
 COPY --from=build /rootfs/usr/bin/relay /usr/bin/relay
 COPY --from=build /Activity-Relay/contrib/web /usr/share/activity-relay/web
+COPY --from=build /Activity-Relay/contrib/ops/resource-guard.py /usr/lib/activity-relay/resource-guard.py
+COPY --from=build /Activity-Relay/contrib/ops/activity-relay-resource-guard /usr/bin/activity-relay-resource-guard
 
-RUN chmod 0755 /usr/bin/relay && \
-    apk add --no-cache ca-certificates
+RUN chmod 0755 \
+      /usr/bin/relay \
+      /usr/bin/activity-relay-resource-guard \
+      /usr/lib/activity-relay/resource-guard.py && \
+    apk add --no-cache ca-certificates python3
 
 ENTRYPOINT ["/usr/bin/relay"]

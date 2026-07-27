@@ -157,6 +157,7 @@ jobs:
         run: |
           go test -p 1 ./...
           python3 -m unittest discover -s contrib/web -p 'test_*.py'
+          python3 -m unittest discover -s contrib/ops -p 'test_*.py'
 
       - name: Build package
         run: dpkg-buildpackage --build=binary --no-sign
@@ -177,6 +178,11 @@ jobs:
           package="$(find .. -maxdepth 1 -name 'activity-relay_*_amd64.deb' -print -quit)"
           sudo apt-get install --yes --no-install-recommends "$package"
           test -x /usr/bin/relay
+          test -x /usr/bin/activity-relay-resource-guard
+          /usr/bin/activity-relay-resource-guard --help >/dev/null
+          grep --quiet '^NoNewPrivileges=false$' /usr/lib/systemd/system/activity-relay-resource-guard.service
+          grep --quiet '^TimeoutStartSec=120$' /usr/lib/systemd/system/activity-relay-resource-guard.service
+          grep --quiet '/var/spool/postfix/maildrop' /usr/lib/systemd/system/activity-relay-resource-guard.service
           test -f /etc/activity-relay/config.yml.example
           test ! -e /etc/activity-relay/config.yml
           test "$(stat --format='%a' /etc/activity-relay/actor.pem)" = 600

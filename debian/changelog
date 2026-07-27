@@ -1,4 +1,4 @@
-activity-relay (2.4.0~rc5-1) noble; urgency=medium
+activity-relay (2.4.0~rc6-1) noble; urgency=medium
 
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
@@ -25,6 +25,11 @@ activity-relay (2.4.0~rc5-1) noble; urgency=medium
   * Add upgrade-safe website source and operator content separation.
   * Apply relay icon, banner, and fediverse operator metadata to the site.
   * Remove successful status-loader text from the production dashboard.
+
+  * Add explicit server-local HH:MM summary slots and catch-up reporting.
+  * Add manual summary administration commands and archived report bodies.
+  * Add mail timeouts and Postfix-compatible systemd sandbox permissions.
+  * Add resource-guard unit tests to CI and release validation.
 
  -- thystra <noreply@github.com>  Sun, 26 Jul 2026 14:30:00 -0400
 

@@ -5,11 +5,17 @@ After=local-fs.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/lib/activity-relay/resource-guard.py --config /etc/activity-relay/config.yml
-SuccessExitStatus=1 2
 User=root
 Group=root
-NoNewPrivileges=true
+SuccessExitStatus=1 2
+# Postfix postdrop and similar local-MTA helpers may require setgid privileges.
+NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/activity-relay-guard
+ReadWritePaths=-/var/spool/postfix/maildrop
+ReadWritePaths=-/var/spool/exim4
+ReadWritePaths=-/var/spool/nullmailer
+TimeoutStartSec=120
+TimeoutStopSec=30

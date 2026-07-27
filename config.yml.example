@@ -26,14 +26,28 @@ RESOURCE_CRITICAL_PERCENT: 100
 ADMIN_EMAIL: root
 MAIL_BACKEND: mail
 MAIL_COMMAND: /usr/bin/mail
-# Alternative for an installed sendmail-compatible MTA:
+# Abort a blocked local mail submission instead of blocking future timer runs.
+MAIL_TIMEOUT_SECONDS: 60
 # MAIL_BACKEND: sendmail
 # MAIL_COMMAND: /usr/sbin/sendmail
 
-# Optional daily operational summary, sent once after the configured local hour.
-# It reports participating, added, and removed servers plus storage/cache usage.
+# Optional scheduled operational summaries.
+#
+# Times use the server's local timezone and zero-padded 24-hour HH:MM format.
+# Each configured time is an independent daily slot and sends at most once.
+# The five-minute resource-guard timer processes a due slot on its first run at
+# or after the configured time, so delivery may be several minutes later.
+#
+# If several slots were missed during downtime, only the most recent due slot
+# is mailed. The catch-up email records the skipped slots and explains how to
+# inspect or reset them. Successful report bodies are archived in the guard
+# state directory.
 DAILY_SUMMARY_EMAIL: false
-DAILY_SUMMARY_HOUR: 8
+DAILY_SUMMARY_TIMES:
+  - "08:00"
+# Deprecated single-time settings. Ignored when DAILY_SUMMARY_TIMES is present.
+# DAILY_SUMMARY_HOUR: 8
+# DAILY_SUMMARY_MINUTE: 0
 SUMMARY_STATUS_URL: http://127.0.0.1:8080/status.json
 
 # Optional split-storage example. STORAGE_MOUNT_POINT lets the monitor validate

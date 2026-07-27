@@ -74,6 +74,47 @@ Resource alerts default to /usr/bin/mail from mailutils. Configure an MTA and
 root forwarding, or set ADMIN_EMAIL. A sendmail-compatible backend can instead
 be selected in config.yml.
 
+Scheduled summaries use server-local `HH:MM` values:
+
+   DAILY_SUMMARY_EMAIL: true
+   DAILY_SUMMARY_TIMES:
+     - "08:00"
+     - "14:30"
+
+The five-minute timer processes each slot on its first run at or after the
+configured time, so delivery may be several minutes late. Each slot sends at
+most once per local calendar day. Changing or adding a time creates another
+eligible slot that day.
+
+After downtime, only the most recent due slot is sent. The catch-up email lists
+earlier skipped slots. View the persistent state and archived sent reports at:
+
+   /var/lib/activity-relay-guard/summary-slots.json
+   /var/lib/activity-relay-guard/summaries/YYYY-MM-DD/
+
+Skipped slots have no historical report body because no snapshot existed at
+that time. Administrative commands are:
+
+   activity-relay-resource-guard --show-summary-state
+   activity-relay-resource-guard --preview-summary
+   activity-relay-resource-guard --send-summary-now
+   activity-relay-resource-guard --reset-summary-slot "14:30" --force
+   activity-relay-resource-guard --reset-summary-state --force
+
+A reset slot produces a current report when the guard runs again; it cannot
+reconstruct the historical state. `--send-summary-now` does not consume a
+scheduled slot. `--preview-summary` and `--no-mail` do not record a summary
+slot.
+
+`DAILY_SUMMARY_HOUR` remains as a deprecated single-slot `HH:00` setting.
+`DAILY_SUMMARY_TIMES` takes precedence. Confirm the server timezone with
+`timedatectl`.
+
+`MAIL_TIMEOUT_SECONDS` limits the local mail command. The systemd unit also has
+a two-minute oneshot timeout and permits common local-MTA spool paths. A custom
+MTA that writes elsewhere may require a local systemd drop-in.
+
+
 Storage placement
 -----------------
 
@@ -127,4 +168,3 @@ Optional content overrides:
 Copy only files that need customization from
 /usr/share/activity-relay/web/content. Generated files under
 /var/www/activity-relay/public are replaced on every rebuild.
-

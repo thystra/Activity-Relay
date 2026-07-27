@@ -2,6 +2,20 @@
 
 ## [2.4.0] - 2026-07-26
 
+### RC6
+- Replace the ambiguous once-per-day summary hour with one or more explicit
+  server-local `HH:MM` delivery slots.
+- Send only the most recent due slot after downtime, list skipped slots in the
+  catch-up email, retain skipped-slot history, and archive successful reports.
+- Add summary preview, immediate-send, state-inspection, per-slot reset, and
+  daily-reset administrative commands.
+- Preserve deprecated `DAILY_SUMMARY_HOUR` compatibility while allowing a new
+  configured time to send after another slot has already completed that day.
+- Add Python and systemd mail timeouts, preserve scheduled state after failures,
+  and permit tested local-MTA queue access from the hardened systemd unit.
+- Include resource-guard tests and the administrative CLI in Debian and
+  container release validation.
+
 ### RC5
 
 - Build the optional website from current package-managed sources while keeping

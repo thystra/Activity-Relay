@@ -1,0 +1,5 @@
+#!/bin/sh
+# /usr/bin/activity-relay-resource-guard
+set -eu
+
+exec python3 /usr/lib/activity-relay/resource-guard.py "$@"

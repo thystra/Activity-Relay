@@ -83,12 +83,79 @@ For the native package, `mailutils` should be the default recommendation along
 with `default-mta | mail-transport-agent`; neither a particular MTA nor Nginx
 configuration should be selected automatically.
 
-Set `DAILY_SUMMARY_EMAIL: true` to send one summary per local calendar day after
-`DAILY_SUMMARY_HOUR` (0–23). The summary reads `SUMMARY_STATUS_URL`, reports the
-connected-server count, added and removed domains since the previous successful
-status read, and storage/cache usage versus each cap. The first summary creates
-the comparison baseline. Domain lists are truncated after 100 entries per
-change type, while retaining the complete baseline on disk.
+## Scheduled summaries
+
+Enable summaries and configure one or more server-local times:
+
+```yaml
+DAILY_SUMMARY_EMAIL: true
+DAILY_SUMMARY_TIMES:
+  - "08:00"
+  - "14:30"
+MAIL_TIMEOUT_SECONDS: 60
+```
+
+Times must use zero-padded 24-hour `HH:MM` notation. The service uses the
+server's local timezone. Confirm it with `timedatectl`. The resource guard runs
+approximately every five minutes, so `08:30` means the first timer invocation
+at or after 08:30 rather than exact-to-the-second delivery.
+
+Each configured time is an independent daily slot. A slot sends at most once
+per local calendar day. Changing or adding a time creates a newly eligible slot
+even if another summary was already sent that day.
+
+After downtime, the guard sends only the most recent due unsent slot to avoid a
+burst of stale mail. The catch-up email lists earlier skipped slots. Skipped
+slots are recorded in:
+
+```text
+/var/lib/activity-relay-guard/summary-slots.json
+```
+
+Successful report bodies are archived under:
+
+```text
+/var/lib/activity-relay-guard/summaries/YYYY-MM-DD/
+```
+
+A skipped report has no historical body because no point-in-time snapshot was
+captured. Inspect state, send a current report, or make a skipped slot eligible
+again with:
+
+```bash
+sudo activity-relay-resource-guard --show-summary-state
+sudo activity-relay-resource-guard --preview-summary
+sudo activity-relay-resource-guard --send-summary-now
+sudo activity-relay-resource-guard   --reset-summary-slot "14:30"   --force
+sudo systemctl start activity-relay-resource-guard.service
+```
+
+`--send-summary-now` does not consume a scheduled slot.
+`--preview-summary` and `--no-mail` do not record a slot or alter the summary
+baseline. A reset resend reflects current state; it cannot reconstruct the
+historical state at the skipped time.
+
+Reset every slot for the current local day only when deliberately retesting:
+
+```bash
+sudo activity-relay-resource-guard   --reset-summary-state   --force
+```
+
+The deprecated `DAILY_SUMMARY_HOUR` setting remains supported as an `HH:00`
+single-slot schedule. `DAILY_SUMMARY_MINUTE` may accompany it during migration.
+`DAILY_SUMMARY_TIMES` takes precedence when both forms are present.
+
+The systemd unit permits common local-MTA queue paths and limits a complete
+oneshot run to two minutes. The Python mail subprocess has its own
+`MAIL_TIMEOUT_SECONDS` limit and does not consume a slot after failure or
+timeout.
+
+The container image includes `activity-relay-resource-guard` and Python for
+manual preview/state administration. The default Compose deployment does not
+schedule the guard or include an MTA. Container operators must persist
+`/var/lib/activity-relay-guard`, provide a working mail command for actual
+delivery, and invoke the guard from a host scheduler or dedicated sidecar.
+
 
 Install `activity-relay.logrotate` under `/etc/logrotate.d/activity-relay` to
 bound the Nginx or Apache logs. The Nginx template also limits request bodies,

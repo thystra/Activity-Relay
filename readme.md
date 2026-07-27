@@ -57,7 +57,7 @@ Depending on the installation method:
 - Docker and Docker Compose for container deployment;
 - Ubuntu 24.04 or a compatible Debian-based system for the native package;
 - Go and Redis for source builds;
-- Python 3 only when generating the optional bundled website;
+- Python 3 for resource-guard tooling and optional website generation;
 - Nginx, Apache, or another reverse proxy for a public deployment.
 
 ## Installation
@@ -83,7 +83,7 @@ Set a release image in `.env`, for example:
 ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
 ```
 
-Release candidates use their complete tag, such as `2.4.0-rc4`; prereleases do
+Release candidates use their complete tag, such as `2.4.0-rc6`; prereleases do
 not move `latest`.
 
 Generate the actor identity once:
@@ -310,6 +310,52 @@ RELAY_IMAGE
 Operational storage, cache, mail, and daily-summary settings are documented in
 [`contrib/ops/README.md`](contrib/ops/README.md).
 
+## Operational summary scheduling
+
+The native resource guard can send one or more reports per local day:
+
+```yaml
+DAILY_SUMMARY_EMAIL: true
+DAILY_SUMMARY_TIMES:
+  - "08:00"
+  - "14:30"
+MAIL_TIMEOUT_SECONDS: 60
+```
+
+The values are server-local, zero-padded 24-hour `HH:MM` times. The guard timer
+runs approximately every five minutes, so mail is processed on the first timer
+run at or after the configured time and may not arrive at the exact minute.
+
+Each time is an independent daily slot. Changing or adding a time allows that
+new slot to send even when another report was already sent that day. If
+multiple slots were missed during downtime, only the most recent due slot is
+sent. Its catch-up email lists skipped slots and the commands used to inspect
+or reset them.
+
+```bash
+sudo activity-relay-resource-guard --show-summary-state
+sudo activity-relay-resource-guard --preview-summary
+sudo activity-relay-resource-guard --send-summary-now
+sudo activity-relay-resource-guard   --reset-summary-slot "14:30"   --force
+```
+
+Successful report bodies are archived below
+`/var/lib/activity-relay-guard/summaries/`. Skipped slots are recorded in
+`/var/lib/activity-relay-guard/summary-slots.json`, but no historical report
+body exists for a skipped time because no snapshot was captured. Resetting a
+slot and running the guard sends current state rather than reconstructing past
+state.
+
+`--send-summary-now` does not consume a scheduled slot. Preview and `--no-mail`
+runs do not consume slots. The deprecated `DAILY_SUMMARY_HOUR` remains
+compatible as a single `HH:00` schedule.
+
+The container image includes the administrative CLI, but Compose does not
+schedule it or provide an MTA. Persist the guard state directory and provide a
+mail transport when using it from a host scheduler or sidecar. Full native and
+container notes are in
+[`contrib/ops/README.md`](contrib/ops/README.md).
+
 ## Federation endpoints
 
 Mastodon, Misskey, and compatible software subscribe to:
@@ -460,7 +506,7 @@ Published images contain website sources at:
 /usr/share/activity-relay/web
 ```
 
-They intentionally do not include Python. Extract the sources:
+RC6 images include Python for resource-guard tooling. To customize the website outside the running relay, extract the sources:
 
 ```bash
 export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
@@ -532,6 +578,10 @@ go vet ./...
 
 python3 -m unittest discover \
   -s contrib/web \
+  -p 'test_*.py'
+
+python3 -m unittest discover \
+  -s contrib/ops \
   -p 'test_*.py'
 
 docker rm -f activity-relay-test-redis
@@ -640,4 +690,3 @@ sudo activity-relay-rebuild-site
 
 An older regular file at `/etc/activity-relay-web/rebuild-site.sh` may be
 preserved during upgrades. The package-managed command above is authoritative.
-
