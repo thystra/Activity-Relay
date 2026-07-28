@@ -402,6 +402,25 @@ wire, including a non-default port. Bounded non-success response text is
 included in worker errors to make remote signature-verification failures
 diagnosable without logging unbounded response bodies.
 
+## Public Announce interoperability
+
+Some ActivityPub servers, including NodeBB category actors, publish locally
+created content as a public `Announce` containing an embedded `Article` or
+`Note`. The relay fans out these same-domain embedded announcements through the
+same bounded delivery pipeline used for public `Create` activities: the
+original activity is sent to traditional relay subscribers, and a relay-signed
+`Announce` referencing the embedded object ID is sent to follower-style
+subscribers.
+
+Public `Announce` activities whose object is only a URL, or whose embedded
+object belongs to another domain, remain publisher-accounting events and are
+not fanned out. This preserves relay-to-relay loop protection and avoids
+amplifying ordinary boosts.
+
+Inbound request failures are logged with the HTTP method, path, remote address,
+user agent, and the bounded verification or decoding error. Request bodies,
+signatures, and key material are not logged.
+
 ## Relay public-key encoding
 
 The relay actor publishes its RSA public key as X.509 SubjectPublicKeyInfo PEM,

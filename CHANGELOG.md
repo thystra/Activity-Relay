@@ -3,6 +3,13 @@
 ## [2.4.0] - 2026-07-26
 
 ### RC6
+- Fan out public same-domain `Announce` activities with embedded objects, as
+  emitted by NodeBB categories, through both traditional-subscriber and
+  follower-style delivery paths.
+- Keep string-object and cross-domain public `Announce` activities publisher-only
+  to avoid relay-to-relay loops and unintended boost amplification.
+- Log inbound ActivityPub decode, actor-resolution, signature, digest, and JSON
+  failures with bounded request metadata before returning `400 Bad Request`.
 - Publish the relay actor RSA key as X.509 SubjectPublicKeyInfo PEM
   (`BEGIN PUBLIC KEY`) for broader ActivityPub HTTP-signature interoperability.
 - Continue accepting both SubjectPublicKeyInfo and legacy PKCS#1

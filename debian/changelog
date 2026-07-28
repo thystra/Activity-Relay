@@ -1,4 +1,4 @@
-activity-relay (2.4.0~rc6-4) noble; urgency=medium
+activity-relay (2.4.0~rc6-5) noble; urgency=medium
 
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
@@ -42,7 +42,11 @@ activity-relay (2.4.0~rc6-4) noble; urgency=medium
   * Accept both SubjectPublicKeyInfo and legacy PKCS#1 actor public keys.
   * Preserve actor.pem, the relay actor ID, and the existing key ID.
 
- -- thystra <noreply@github.com>  Tue, 28 Jul 2026 10:21:29 -0400
+  * Fan out NodeBB-style public embedded Announce activities.
+  * Preserve loop protection for string-object and cross-domain Announce traffic.
+  * Log inbound ActivityPub verification and decoding failures.
+
+ -- thystra <noreply@github.com>  Tue, 28 Jul 2026 11:39:35 -0400
 
 activity-relay (2.3.1) noble; urgency=medium
 

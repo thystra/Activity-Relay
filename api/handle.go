@@ -86,6 +86,53 @@ func handleRelayActor(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
+
+func boundedLogValue(value string, maximum int) string {
+	if maximum < 1 || len(value) <= maximum {
+		return value
+	}
+	return value[:maximum] + "..."
+}
+
+func logInboxDecodeFailure(request *http.Request, err error) {
+	logrus.WithFields(logrus.Fields{
+		"error":       boundedLogValue(err.Error(), 512),
+		"method":      request.Method,
+		"path":        request.URL.Path,
+		"remote_addr": boundedLogValue(request.RemoteAddr, 256),
+		"user_agent":  boundedLogValue(request.UserAgent(), 256),
+	}).Warn("Rejected inbox activity")
+}
+
+func shouldFanOutPublicAnnounce(activity *models.Activity) bool {
+	if activity == nil || activity.Type != "Announce" {
+		return false
+	}
+	if _, ok := activity.Object.(map[string]interface{}); !ok {
+		return false
+	}
+	objectID, err := activity.UnwrapInnerObjectId()
+	if err != nil {
+		return false
+	}
+	actorURL, err := url.Parse(activity.Actor)
+	if err != nil {
+		return false
+	}
+	objectURL, err := url.Parse(objectID)
+	if err != nil {
+		return false
+	}
+	actorDomain := normalizedActorDomain(actorURL)
+	return actorDomain != "" && actorDomain == normalizedActorDomain(objectURL)
+}
+
+func executePublicAnnounce(activity *models.Activity, actor *models.Actor, body []byte) error {
+	if shouldFanOutPublicAnnounce(activity) {
+		return executeRelayActivity(activity, actor, body)
+	}
+	return recordPublisherActivity(activity, actor)
+}
 func handleInbox(writer http.ResponseWriter, request *http.Request, activityDecoder func(*http.Request) (*models.Activity, *models.Actor, []byte, error)) {
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
@@ -93,7 +140,8 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 	case http.MethodPost:
 		activity, actor, body, err := activityDecoder(request)
 		if err != nil {
-			writer.WriteHeader(400)
+			logInboxDecodeFailure(request, err)
+			writer.WriteHeader(http.StatusBadRequest)
 			writer.Write(nil)
 		} else {
 			actorID, _ := url.Parse(activity.Actor)
@@ -112,7 +160,7 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 					writer.WriteHeader(202)
 					writer.Write(nil)
 				case "Announce":
-					err = recordPublisherActivity(activity, actor)
+					err = executePublicAnnounce(activity, actor, body)
 					if err != nil {
 						writer.WriteHeader(401)
 						writer.Write([]byte(err.Error()))
