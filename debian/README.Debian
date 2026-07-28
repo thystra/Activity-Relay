@@ -117,6 +117,19 @@ a two-minute oneshot timeout and permits common local-MTA spool paths. A custom
 MTA that writes elsewhere may require a local systemd drop-in.
 
 
+NodeBB and server-actor interoperability
+------------------------------------
+
+Application and Service actors may follow the relay actor from any valid actor
+URL path, including `/actor`. Legacy `/relay` and `/friendica` server actors
+remain supported. Outbound HTTP signatures bind the signed Host value to the
+exact destination authority sent on the wire, including non-default ports.
+
+For a failed outbound Accept, Reject, Follow, or relay delivery, worker errors
+include up to 4096 bytes of compacted remote response text. This commonly
+surfaces errors such as HTTP signature verification failures without allowing
+an unbounded response to enter the journal.
+
 Storage placement
 -----------------
 

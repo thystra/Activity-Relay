@@ -1,4 +1,4 @@
-activity-relay (2.4.0~rc6-2) noble; urgency=medium
+activity-relay (2.4.0~rc6-3) noble; urgency=medium
 
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
@@ -34,7 +34,11 @@ activity-relay (2.4.0~rc6-2) noble; urgency=medium
   * Serve privacy-filtered ActivityPub OrderedCollection endpoints.
   * Update reverse-proxy examples for the actor collection routes.
 
- -- thystra <noreply@github.com>  Mon, 27 Jul 2026 21:46:09 -0400
+  * Fix outbound HTTP Host signing for strict ActivityPub verifiers.
+  * Accept NodeBB-style Application and Service actors at arbitrary paths.
+  * Include bounded remote response text in delivery failure diagnostics.
+
+ -- thystra <noreply@github.com>  Mon, 27 Jul 2026 23:45:00 -0400
 
 activity-relay (2.3.1) noble; urgency=medium
 

@@ -252,7 +252,24 @@ func isActorSubscribersOrFollowers(actorID *url.URL) bool {
 	return RelayState.IsSubscriberOrFollower(normalizedActorDomain(actorID))
 }
 
-func isActorAbleToBeFollower(actorID *url.URL) bool {
+func isActorAbleToBeFollower(actor *models.Actor) bool {
+	if actor == nil {
+		return false
+	}
+	actorID, err := url.Parse(actor.ID)
+	if err != nil || normalizedActorDomain(actorID) == "" {
+		return false
+	}
+
+	// Modern server software commonly publishes an Application or Service
+	// actor at /actor or another implementation-defined path.
+	switch actor.Type {
+	case "Application", "Service":
+		return true
+	}
+
+	// Preserve compatibility with older LitePub and Friendica actors that may
+	// omit or mislabel their server actor type.
 	switch strings.TrimSuffix(actorID.Path, "/") {
 	case "/relay", "/friendica":
 		return true
@@ -318,7 +335,7 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 			logrus.Info("Accepted Follow Request : ", activity.Actor)
 		}
 	case contains(activity.Object, RelayActor.ID):
-		if isActorAbleToBeFollower(actorID) {
+		if isActorAbleToBeFollower(actor) {
 			if RelayState.ManualApprovalRequired() {
 				RelayState.RedisClient.HMSet(context.TODO(), "relay:pending:"+actorID.Host, map[string]interface{}{
 					"inbox_url":   actor.Endpoints.SharedInbox,
@@ -348,7 +365,7 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 		}
 		fallthrough
 	default:
-		err := errors.New("only https://www.w3.org/ns/activitystreams#Public is allowed to follow")
+		err := errors.New("only Public or the relay actor is allowed to be followed")
 		return err
 	}
 	return nil
@@ -362,14 +379,14 @@ func executeUnfollowing(activity *models.Activity, actor *models.Actor) error {
 		logrus.Info("Accepted Unfollow Request : ", activity.Actor)
 		return nil
 	case contains(activity.Object, RelayActor.ID):
-		if isActorAbleToBeFollower(actorID) {
+		if isActorAbleToBeFollower(actor) {
 			RelayState.DelFollower(actorID.Host)
 			logrus.Info("Accepted Unfollow Request : ", activity.Actor)
 			return nil
 		}
 		fallthrough
 	default:
-		err := errors.New("only https://www.w3.org/ns/activitystreams#Public is allowed to unfollow")
+		err := errors.New("only Public or the relay actor is allowed to be unfollowed")
 		return err
 	}
 }

@@ -3,6 +3,12 @@
 ## [2.4.0] - 2026-07-26
 
 ### RC6
+- Fix outbound HTTP signatures so the signed `Host` exactly matches the
+  authority transmitted on the wire, including non-default ports.
+- Accept `Application` and `Service` server actors at implementation-defined
+  paths, including NodeBB `/actor`, when they follow the relay actor.
+- Preserve bounded remote error-response text in worker diagnostics so
+  signature and interoperability failures are actionable.
 - Advertise the required ActivityPub actor outbox, recommended followers and
   following collections, and `endpoints.sharedInbox`.
 - Serve privacy-filtered empty `OrderedCollection` documents for the actor

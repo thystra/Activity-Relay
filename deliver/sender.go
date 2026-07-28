@@ -9,12 +9,15 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Songmu/go-httpdate"
 	"github.com/go-fed/httpsig"
 	"github.com/sirupsen/logrus"
 )
+
+const maxDeliveryResponseBodyBytes int64 = 4096
 
 var hs2019Pattern = regexp.MustCompile(`algorithm="hs2019"`)
 
@@ -25,6 +28,13 @@ func compatibilityForHTTPSignature11(request *http.Request, algorithm httpsig.Al
 }
 
 func appendSignature(request *http.Request, body *[]byte, KeyID string, privateKey *rsa.PrivateKey) error {
+	if request == nil || request.URL == nil || request.URL.Host == "" {
+		return errors.New("delivery request has no URL host")
+	}
+	// net/http treats Host specially. Set Request.Host to the exact authority
+	// placed on the wire, including a non-default port, and expose the same
+	// value to the HTTP-signature library before signing.
+	request.Host = request.URL.Host
 	request.Header.Set("Host", request.Host)
 
 	signer, _, err := httpsig.NewSigner([]httpsig.Algorithm{httpsig.RSA_SHA256}, httpsig.DigestSha256, []string{httpsig.RequestTarget, "Host", "Date", "Digest", "Content-Type"}, httpsig.Signature, 60*60)
@@ -65,10 +75,36 @@ func sendActivity(inboxURL string, KeyID string, body []byte, privateKey *rsa.Pr
 		return errors.New(inboxURL + ": " + errMsg)
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+	responseBody, readErr := io.ReadAll(
+		io.LimitReader(resp.Body, maxDeliveryResponseBodyBytes+1),
+	)
+	responseTruncated := int64(len(responseBody)) > maxDeliveryResponseBodyBytes
+	if responseTruncated {
+		responseBody = responseBody[:maxDeliveryResponseBodyBytes]
+	}
+	responseText := strings.Join(strings.Fields(string(responseBody)), " ")
 
 	logrus.Debug(inboxURL, " ", resp.StatusCode)
 	if resp.StatusCode/100 != 2 {
+		if readErr != nil {
+			return fmt.Errorf(
+				"%s: %s: unable to read response body: %w",
+				inboxURL,
+				resp.Status,
+				readErr,
+			)
+		}
+		if responseTruncated && responseText != "" {
+			responseText += " [truncated]"
+		}
+		if responseText != "" {
+			return fmt.Errorf(
+				"%s: %s: %s",
+				inboxURL,
+				resp.Status,
+				responseText,
+			)
+		}
 		return errors.New(inboxURL + ": " + resp.Status)
 	}
 

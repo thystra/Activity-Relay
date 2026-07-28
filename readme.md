@@ -16,8 +16,9 @@
 
 Compared with the upstream baseline, this fork includes:
 
-- Friendica relay follow and unfollow compatibility, including `/friendica`
-  server-actor paths.
+- Server-actor follow and unfollow compatibility for NodeBB, Friendica,
+  LitePub, and other `Application` or `Service` actors, while preserving
+  `/relay` and `/friendica` legacy paths.
 - Acceptance of valid HTTP-signed public activities from unsubscribed
   publishers, including WordPress ActivityPub sites.
 - Publisher first-seen, last-seen, activity-type, and accepted-activity
@@ -389,6 +390,17 @@ The actor advertises `inbox`, `outbox`, `followers`, `following`, and
 privacy-filtered empty `OrderedCollection` documents. The relay does not expose
 subscriber identities or historical relayed activities, and it does not
 implement ActivityPub client-to-server POSTs to the outbox.
+
+The relay accepts standards-style server actors of type `Application` or
+`Service` following the relay actor, regardless of whether their actor URL ends
+in `/actor`, `/relay`, `/friendica`, or another implementation-defined path.
+Legacy `/relay` and `/friendica` actors with incomplete type metadata remain
+supported.
+
+Outbound deliveries sign the same `Host` authority that is transmitted on the
+wire, including a non-default port. Bounded non-success response text is
+included in worker errors to make remote signature-verification failures
+diagnosable without logging unbounded response bodies.
 
 ## Public status endpoint
 
