@@ -122,26 +122,33 @@ The optional `activitypub_contact` value displays a fediverse handle. Set
 `activitypub_contact_url` to its absolute HTTPS profile URL to make it
 clickable. These settings affect only generated website content.
 
-Build to the package's default document root:
+Build to the package's default document root with the current
+package-managed source:
 
 ```bash
-sudo /etc/activity-relay-web/rebuild-site.sh
+sudo activity-relay-rebuild-site
 ```
 
 Build to a different document root:
 
 ```bash
-sudo /etc/activity-relay-web/rebuild-site.sh   --output /srv/www/relay.example.org
+sudo activity-relay-rebuild-site \
+  --output /srv/www/relay.example.org
 ```
 
-The wrapper also accepts `--source` and `--config`. This supports source
-installs, user-owned web roots, and shared-hosting layouts where the operator
-can run Python but cannot write to `/var/www`.
+The package-managed command also accepts `--source`, `--config`,
+`--relay-config`, `--content-overrides`, and `--asset-overrides`. An older
+regular file at `/etc/activity-relay-web/rebuild-site.sh` may remain after an
+upgrade, but it is not authoritative.
 
-A completely non-root example is:
+For a source checkout or completely user-owned directories, invoke the checkout
+wrapper directly:
 
 ```bash
-"$HOME/activity-relay-web/rebuild-site.sh"   --source "$HOME/activity-relay-web"   --config "$HOME/activity-relay-web/site.json"   --output "$HOME/public_html/relay"
+"$HOME/activity-relay-web/activity-relay-rebuild-site" \
+  --source "$HOME/activity-relay-web" \
+  --config "$HOME/activity-relay-web/site.json" \
+  --output "$HOME/public_html/relay"
 ```
 
 The expanded equivalent command is:
@@ -171,11 +178,11 @@ The published relay image contains the editable website sources at:
 /usr/share/activity-relay/web
 ```
 
-The runtime image intentionally does not include Python. Extract the source and
-use a temporary Python container to build it:
+The runtime image includes Python 3 for resource-guard tooling and website
+generation. Extract the source before customizing it:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0-rc6'
 
 mkdir -p \
   activity-relay-web \
@@ -194,16 +201,18 @@ cp -n \
   ./activity-relay-web/site.json
 ```
 
-Edit `activity-relay-web/site.json` and any templates or assets, then build:
+Edit `activity-relay-web/site.json` and any templates or assets, then build
+with the same release image:
 
 ```bash
 docker run \
   --rm \
   --user "$(id -u):$(id -g)" \
+  --entrypoint python3 \
   --volume "$PWD/activity-relay-web:/site:ro" \
   --volume "$PWD/activity-relay-public:/output" \
-  python:3.13-alpine \
-  python3 /site/build-site.py \
+  "$ACTIVITY_RELAY_IMAGE" \
+  /site/build-site.py \
     --source /site \
     --config /site/site.json \
     --output /output
@@ -315,8 +324,9 @@ FEDIVERSE_OPERATOR_ID: "@operator@social.example"
 FEDIVERSE_OPERATOR_URL: "https://social.example/@operator"
 ```
 
-The builder also accepts underscore aliases such as
-`FEDIVERSE_OPERATOR_ID`. The website-specific `logo_url` and `banner_url`
+The canonical configuration names use underscores. The builder also accepts
+the legacy hyphenated aliases `FEDIVERSE-OPERATOR-ID` and
+`FEDIVERSE-OPERATOR-URL`. The website-specific `logo_url` and `banner_url`
 values in `site.json` take precedence when non-empty.
 
 Rebuild with the current package source:

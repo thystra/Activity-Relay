@@ -81,7 +81,7 @@ cp config.yml.example config.yml
 Set a release image in `.env`, for example:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0-rc6
 ```
 
 Release candidates use their complete tag, such as `2.4.0-rc6`; prereleases do
@@ -165,7 +165,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:2.4.0 \
+  ghcr.io/thystra/activity-relay:2.4.0-rc6 \
   --version
 ```
 
@@ -281,14 +281,13 @@ MAX_QUEUE_JOBS: 100000
 ```
 
 Use `127.0.0.1:8080` instead when the relay and reverse proxy run directly on
-
+the same host.
 
 `RELAY_ICON` and `RELAY_IMAGE` are optional public metadata URLs. The suggested
 dimensions are compatibility-oriented recommendations rather than enforced
 limits. A square icon is least likely to be distorted by clients, while a 3:1
 banner matches common profile-header layouts. Clients may still resize or
 center-crop either image, so keep identifying content away from the edges.
-the same host.
 
 When no configuration file exists, these runtime values may be supplied as
 environment variables:
@@ -422,6 +421,9 @@ Inbound request failures are logged with the HTTP method, path, remote address,
 user agent, and the bounded verification or decoding error. Request bodies,
 signatures, and key material are not logged.
 
+See [`docs/INTEROPERABILITY.md`](docs/INTEROPERABILITY.md) for the validated
+server matrix, NodeBB-specific behavior, and troubleshooting guidance.
+
 ## Relay public-key encoding
 
 The relay actor publishes its RSA public key as X.509 SubjectPublicKeyInfo PEM,
@@ -524,20 +526,23 @@ The Debian package installs website sources in
 `/etc/activity-relay-web` and generated output in
 `/var/www/activity-relay/public`.
 
-After editing the site:
+After editing operator-owned settings or overrides, rebuild with the current
+package-managed source:
 
 ```bash
-sudo /etc/activity-relay-web/rebuild-site.sh
+sudo activity-relay-rebuild-site
 ```
 
 A different web root can be selected explicitly:
 
 ```bash
-sudo /etc/activity-relay-web/rebuild-site.sh   --output /srv/www/relay.example.org
+sudo activity-relay-rebuild-site \
+  --output /srv/www/relay.example.org
 ```
 
-The same wrapper can run without root when its source, configuration, and output
-directories are user-owned.
+The package-managed command is authoritative for Debian installations. For a
+source checkout or fully user-owned directories, use
+`contrib/web/activity-relay-rebuild-site` with explicit paths.
 
 ### Apache frontend choices
 
@@ -559,10 +564,11 @@ Published images contain website sources at:
 /usr/share/activity-relay/web
 ```
 
-RC6 images include Python for resource-guard tooling. To customize the website outside the running relay, extract the sources:
+RC6 images include Python 3 for resource-guard tooling and website generation.
+To customize the website outside the running relay, extract the sources:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0-rc6'
 
 mkdir -p \
   activity-relay-web \
@@ -581,16 +587,17 @@ cp -n \
   ./activity-relay-web/site.json
 ```
 
-Customize the source and generate it with a temporary Python container:
+Customize the source and generate it with the same release image:
 
 ```bash
 docker run \
   --rm \
   --user "$(id -u):$(id -g)" \
+  --entrypoint python3 \
   --volume "$PWD/activity-relay-web:/site:ro" \
   --volume "$PWD/activity-relay-public:/output" \
-  python:3.13-alpine \
-  python3 /site/build-site.py \
+  "$ACTIVITY_RELAY_IMAGE" \
+  /site/build-site.py \
     --source /site \
     --config /site/site.json \
     --output /output
@@ -652,7 +659,9 @@ Contributor and coding-agent expectations are documented in
 ## Releases
 
 Maintainer release steps are documented in
-[`docs/RELEASING.md`](docs/RELEASING.md).
+[`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
+[`docs/releases/`](docs/releases/), including
+[`v2.4.0-rc6`](docs/releases/v2.4.0-rc6.md).
 
 ## Upstream and attribution
 
@@ -663,7 +672,9 @@ This project is derived from:
 
 Original authorship, commit history, license notices, and attribution are
 retained. Generally useful fixes may be proposed upstream; the maintained fork
-also publishes its own tested release line.
+also publishes its own tested release line. Maintainers should follow
+[`docs/UPSTREAM.md`](docs/UPSTREAM.md) when reviewing or porting future upstream
+changes.
 
 ## License
 
@@ -731,8 +742,9 @@ FEDIVERSE_OPERATOR_ID: "@operator@social.example"
 FEDIVERSE_OPERATOR_URL: "https://social.example/@operator"
 ```
 
-The builder also accepts underscore aliases such as
-`FEDIVERSE_OPERATOR_ID`. The website-specific `logo_url` and `banner_url`
+The canonical configuration names use underscores. The builder also accepts
+the legacy hyphenated aliases `FEDIVERSE-OPERATOR-ID` and
+`FEDIVERSE-OPERATOR-URL`. The website-specific `logo_url` and `banner_url`
 values in `site.json` take precedence when non-empty.
 
 Rebuild with the current package source:

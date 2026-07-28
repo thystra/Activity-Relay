@@ -38,7 +38,8 @@ The package's internal Debian version remains `2.4.0~rc6-5`.
 
 1. Work from a clean `master` branch.
 2. Review `AGENTS.md`.
-3. Update `CHANGELOG.md`, `readme.md`, and affected deployment documentation.
+3. Update `CHANGELOG.md`, `readme.md`, affected deployment documentation, and
+   the versioned release notes under `docs/releases/`.
 4. Confirm no local notes, generated packages, suspicious filenames, or
    machine-specific paths are tracked.
 5. Validate the Compose preflight behavior with missing, directory-valued,
@@ -46,21 +47,24 @@ The package's internal Debian version remains `2.4.0~rc6-5`.
 6. Run `gofmt` on changed Go files.
 7. Run `go vet ./...`.
 8. Run Redis-backed `go test -count=1 -p 1 ./...`.
-9. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
-10. Run `python3 -m unittest discover -s contrib/ops -p 'test_*.py'`.
-11. Run `git diff --check`.
-11. Build the local container and verify:
+9. Run Redis-backed `go test -race -count=1 -p 1 ./api ./models`.
+10. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
+11. Run `python3 -m unittest discover -s contrib/ops -p 'test_*.py'`.
+12. Run `git diff --check`.
+13. Build the local container and verify:
     - `/usr/bin/relay`;
     - `/usr/share/activity-relay/web/build-site.py`;
     - the compiled version string.
-12. Build the native Debian package and run Lintian on the `.changes` file.
-13. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
-14. For publisher/fan-out changes, verify a real accepted publisher activity
+14. Build the native Debian package and run Lintian on the `.changes` file.
+15. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
+16. For publisher/fan-out changes, verify a real accepted publisher activity
     reaches a receiving server.
-15. Commit and push the release preparation.
-16. Create and push the annotated tag.
-17. Verify the GitHub release, checksums, package metadata, and container
+17. Commit and push the release preparation.
+18. Create and push the annotated tag.
+19. Verify the GitHub release, checksums, package metadata, and container
     manifests.
+20. Replace generated release notes with the reviewed versioned release notes.
+
 ## Local validation
 
 Use a disposable Redis instance:
@@ -152,6 +156,14 @@ git tag -a v2.4.0-rc6 \
   -m 'Activity-Relay v2.4.0-rc6 release candidate'
 
 git push origin v2.4.0-rc6
+```
+
+After the release workflow creates the GitHub prerelease, apply the reviewed
+notes stored in the repository:
+
+```bash
+gh release edit v2.4.0-rc6 \
+  --notes-file docs/releases/v2.4.0-rc6.md
 ```
 
 After final validation:

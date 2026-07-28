@@ -46,14 +46,17 @@ an editable copy without replacing existing files:
 
    cp -an /usr/share/activity-relay/web/. /etc/activity-relay-web/
 
-Edit /etc/activity-relay-web/site.json and build the site:
+Edit /etc/activity-relay-web/site.json and build the site with the current
+package-managed source:
 
-   /etc/activity-relay-web/rebuild-site.sh
+   activity-relay-rebuild-site
 
 The optional activitypub_contact and activitypub_contact_url settings add a
 public ActivityPub operator contact to the generated footer. They do not affect
-relay processing. Rerun rebuild-site.sh whenever website configuration or
-source content changes.
+relay processing. Rerun activity-relay-rebuild-site whenever website settings,
+operator overrides, or package-managed source content changes. An older copied
+/etc/activity-relay-web/rebuild-site.sh may remain after an upgrade, but it is
+not authoritative.
 
 Nginx and Apache examples are installed under:
 

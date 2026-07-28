@@ -1,6 +1,14 @@
 # Changelog
 
-## [2.4.0] - 2026-07-26
+## [Unreleased]
+
+### Documentation
+
+- Align container, native website rebuild, release, interoperability, and
+  upstream-maintenance documentation with the published RC6 behavior.
+- Add versioned `v2.4.0-rc6` release notes suitable for the GitHub prerelease.
+
+## [2.4.0-rc6] - 2026-07-28
 
 ### RC6
 - Preserve a tested matching Debian changelog revision during tagged release builds, so an RC tag cannot publish an older package revision.
@@ -50,7 +58,7 @@
   operator rules and other content in upgrade-safe override directories.
 - Use `RELAY_ICON` and `RELAY_IMAGE` as default website logo and banner values.
 - Add `FEDIVERSE_OPERATOR_ID` and optional `FEDIVERSE_OPERATOR_URL` footer
-  metadata, with underscore aliases accepted by the static-site builder.
+  metadata, with legacy hyphenated aliases accepted by the static-site builder.
 - Remove successful `/status.json` loader text from the production dashboard
   and add defensive hidden-element styling.
 - Add a package-managed `activity-relay-rebuild-site` command and document
