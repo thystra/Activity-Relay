@@ -444,6 +444,46 @@ func recordPublisherActivity(activity *models.Activity, actor *models.Actor) err
 	})
 }
 
+func executeEmbeddedAnnounceActivity(activity *models.Activity, actor *models.Actor) error {
+	actorID, err := url.Parse(actor.ID)
+	if err != nil || normalizedActorDomain(actorID) == "" {
+		return errors.New("activity actor has an invalid ID")
+	}
+	sourceDomain := normalizedActorDomain(actorID)
+	if isActorBlocked(actorID) {
+		return errors.New(sourceDomain + " is blocked")
+	}
+	if !isActorAbleToRelay(actor) {
+		logrus.Debug("Skipped embedded Announce Activity : ", activity.Actor)
+		return nil
+	}
+
+	objectID, err := activity.UnwrapInnerObjectId()
+	if err != nil {
+		return err
+	}
+	if err := recordPublisherActivity(activity, actor); err != nil {
+		return err
+	}
+
+	announce := models.NewActivityPubActivity(
+		RelayActor,
+		[]string{RelayActor.Followers()},
+		objectID,
+		"Announce",
+	)
+	jsonData, err := json.Marshal(&announce)
+	if err != nil {
+		return err
+	}
+	go enqueueActivityForAll(sourceDomain, jsonData)
+	logrus.WithFields(logrus.Fields{
+		"actor":  activity.Actor,
+		"object": objectID,
+	}).Info("Accepted public embedded Announce for fan-out")
+	return nil
+}
+
 func executeRelayActivity(activity *models.Activity, actor *models.Actor, body []byte) error {
 	actorID, err := url.Parse(actor.ID)
 	if err != nil || normalizedActorDomain(actorID) == "" {

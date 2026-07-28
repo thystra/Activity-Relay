@@ -127,9 +127,9 @@ func shouldFanOutPublicAnnounce(activity *models.Activity) bool {
 	return actorDomain != "" && actorDomain == normalizedActorDomain(objectURL)
 }
 
-func executePublicAnnounce(activity *models.Activity, actor *models.Actor, body []byte) error {
+func executePublicAnnounce(activity *models.Activity, actor *models.Actor) error {
 	if shouldFanOutPublicAnnounce(activity) {
-		return executeRelayActivity(activity, actor, body)
+		return executeEmbeddedAnnounceActivity(activity, actor)
 	}
 	return recordPublisherActivity(activity, actor)
 }
@@ -160,7 +160,7 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 					writer.WriteHeader(202)
 					writer.Write(nil)
 				case "Announce":
-					err = executePublicAnnounce(activity, actor, body)
+					err = executePublicAnnounce(activity, actor)
 					if err != nil {
 						writer.WriteHeader(401)
 						writer.Write([]byte(err.Error()))

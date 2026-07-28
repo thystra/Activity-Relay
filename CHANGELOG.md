@@ -4,8 +4,9 @@
 
 ### RC6
 - Fan out public same-domain `Announce` activities with embedded objects, as
-  emitted by NodeBB categories, through both traditional-subscriber and
-  follower-style delivery paths.
+  emitted by NodeBB categories, by sending one relay-signed `Announce` wrapper
+  to both traditional and follower-style receivers. This keeps the authenticated
+  HTTP signer aligned with the activity actor for strict Mastodon processing.
 - Keep string-object and cross-domain public `Announce` activities publisher-only
   to avoid relay-to-relay loops and unintended boost amplification.
 - Log inbound ActivityPub decode, actor-resolution, signature, digest, and JSON

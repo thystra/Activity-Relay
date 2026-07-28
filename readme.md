@@ -406,11 +406,12 @@ diagnosable without logging unbounded response bodies.
 
 Some ActivityPub servers, including NodeBB category actors, publish locally
 created content as a public `Announce` containing an embedded `Article` or
-`Note`. The relay fans out these same-domain embedded announcements through the
-same bounded delivery pipeline used for public `Create` activities: the
-original activity is sent to traditional relay subscribers, and a relay-signed
-`Announce` referencing the embedded object ID is sent to follower-style
-subscribers.
+`Note`. The relay replaces that transport wrapper with one relay-signed
+`Announce` referencing the embedded object ID, then sends the same authenticated
+wrapper to both traditional relay subscribers and follower-style subscribers.
+This keeps the HTTP signer and JSON activity actor aligned for strict receivers
+such as Mastodon while preserving the original NodeBB object and author when the
+receiver fetches the referenced object.
 
 Public `Announce` activities whose object is only a URL, or whose embedded
 object belongs to another domain, remain publisher-accounting events and are

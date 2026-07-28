@@ -89,12 +89,12 @@ func removeRelayActivityTestKeys(t *testing.T) {
 	}
 }
 
-func TestExecutePublicAnnounceFansOutNodeBBEmbeddedObject(t *testing.T) {
+func TestExecutePublicAnnounceFansOutRelaySignedWrapperToAllReceivers(t *testing.T) {
 	const (
 		sourceDomain      = "nodebb.example"
 		traditionalDomain = "traditional.example"
 		followerDomain    = "follower.example"
-		objectID          = "https://nodebb.example/post/rc6-5-regression"
+		objectID          = "https://nodebb.example/post/rc6-5-r2-regression"
 	)
 
 	ctx := context.Background()
@@ -129,17 +129,19 @@ func TestExecutePublicAnnounceFansOutNodeBBEmbeddedObject(t *testing.T) {
 			SharedInbox: "https://nodebb.example/inbox",
 		},
 	}
-	body, err := json.Marshal(activity)
+	originalBody, err := json.Marshal(activity)
 	if err != nil {
 		t.Fatalf("marshal NodeBB Announce: %v", err)
 	}
-	if err := executePublicAnnounce(activity, actor, body); err != nil {
+	if err := executePublicAnnounce(activity, actor); err != nil {
 		t.Fatalf("executePublicAnnounce returned an error: %v", err)
 	}
 
 	deadline := time.Now().Add(3 * time.Second)
+	settleDeadline := time.Time{}
 	foundOriginal := false
 	foundRelayAnnounce := false
+	targetCount := 0
 	for time.Now().Before(deadline) {
 		keys, err := models.ScanKeys(ctx, RelayState.RedisClient, "relay:activity:*")
 		if err != nil {
@@ -150,7 +152,7 @@ func TestExecutePublicAnnounceFansOutNodeBBEmbeddedObject(t *testing.T) {
 			if err != nil {
 				continue
 			}
-			if bytes.Equal(storedBody, body) {
+			if bytes.Equal(storedBody, originalBody) {
 				foundOriginal = true
 				continue
 			}
@@ -163,19 +165,26 @@ func TestExecutePublicAnnounceFansOutNodeBBEmbeddedObject(t *testing.T) {
 				relayed.Object == objectID &&
 				contains(relayed.To, RelayActor.Followers()) {
 				foundRelayAnnounce = true
+				targetCount, _ = RelayState.RedisClient.HGet(ctx, key, "remain_count").Int()
 			}
 		}
-		if foundOriginal && foundRelayAnnounce {
+		if foundRelayAnnounce && settleDeadline.IsZero() {
+			settleDeadline = time.Now().Add(250 * time.Millisecond)
+		}
+		if !settleDeadline.IsZero() && time.Now().After(settleDeadline) {
 			break
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
 
-	if !foundOriginal {
-		t.Fatal("original NodeBB Announce was not queued for traditional subscribers")
+	if foundOriginal {
+		t.Fatal("original NodeBB Announce must not be queued for traditional subscribers")
 	}
 	if !foundRelayAnnounce {
-		t.Fatal("relay-signed Announce was not queued for follower-style subscribers")
+		t.Fatal("relay-signed Announce was not queued for all receiver styles")
+	}
+	if targetCount != 2 {
+		t.Fatalf("relay-signed Announce target count = %d; want 2", targetCount)
 	}
 	publisher := RelayState.SelectPublisher(sourceDomain)
 	if publisher == nil {
