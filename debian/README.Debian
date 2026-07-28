@@ -130,6 +130,17 @@ include up to 4096 bytes of compacted remote response text. This commonly
 surfaces errors such as HTTP signature verification failures without allowing
 an unbounded response to enter the journal.
 
+Relay public-key compatibility
+------------------------------
+
+The relay actor publishes `publicKeyPem` as X.509 SubjectPublicKeyInfo PEM
+(`BEGIN PUBLIC KEY`). Inbound verification accepts both that form and legacy
+PKCS#1 RSA public keys (`BEGIN RSA PUBLIC KEY`).
+
+Package upgrades do not replace /etc/activity-relay/actor.pem. RC6-4 changes
+only the public serialization of the existing key and retains the relay actor
+ID and `#main-key` key ID.
+
 Storage placement
 -----------------
 

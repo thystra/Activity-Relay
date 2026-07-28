@@ -3,6 +3,12 @@
 ## [2.4.0] - 2026-07-26
 
 ### RC6
+- Publish the relay actor RSA key as X.509 SubjectPublicKeyInfo PEM
+  (`BEGIN PUBLIC KEY`) for broader ActivityPub HTTP-signature interoperability.
+- Continue accepting both SubjectPublicKeyInfo and legacy PKCS#1
+  (`BEGIN RSA PUBLIC KEY`) actor public keys during inbound verification.
+- Preserve the existing `actor.pem`, relay actor ID, and `#main-key` key ID;
+  this changes only the public serialization of the same RSA key.
 - Fix outbound HTTP signatures so the signed `Host` exactly matches the
   authority transmitted on the wire, including non-default ports.
 - Accept `Application` and `Service` server actors at implementation-defined

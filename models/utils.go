@@ -6,25 +6,40 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 )
 
 func ReadPublicKeyRSAFromString(pemString string) (*rsa.PublicKey, error) {
-	pemByte := []byte(pemString)
-	decoded, _ := pem.Decode(pemByte)
-	defer func() {
-		recover()
-	}()
-	keyInterface, err := x509.ParsePKIXPublicKey(decoded.Bytes)
-	if err != nil {
-		logrus.Error(err)
-		return nil, err
+	decoded, _ := pem.Decode([]byte(pemString))
+	if decoded == nil {
+		return nil, errors.New("public key PEM is invalid")
 	}
-	pub := keyInterface.(*rsa.PublicKey)
-	return pub, nil
+
+	keyInterface, pkixErr := x509.ParsePKIXPublicKey(decoded.Bytes)
+	if pkixErr == nil {
+		publicKey, ok := keyInterface.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf(
+				"public key is %T, not RSA",
+				keyInterface,
+			)
+		}
+		return publicKey, nil
+	}
+
+	publicKey, pkcs1Err := x509.ParsePKCS1PublicKey(decoded.Bytes)
+	if pkcs1Err == nil {
+		return publicKey, nil
+	}
+
+	return nil, fmt.Errorf(
+		"parse RSA public key: PKIX: %v; PKCS#1: %v",
+		pkixErr,
+		pkcs1Err,
+	)
 }
 
 func redisHGetOrCreateWithDefault(redisClient *redis.Client, key string, field string, defaultValue string) (string, error) {
@@ -64,12 +79,18 @@ func readPrivateKeyRSA(keyPath string) (*rsa.PrivateKey, error) {
 }
 
 func generatePublicKeyPEMString(publicKey *rsa.PublicKey) string {
-	publicKeyByte := x509.MarshalPKCS1PublicKey(publicKey)
-	publicKeyPem := pem.EncodeToMemory(
+	if publicKey == nil {
+		return ""
+	}
+	publicKeyByte, err := x509.MarshalPKIXPublicKey(publicKey)
+	if err != nil {
+		return ""
+	}
+	publicKeyPEM := pem.EncodeToMemory(
 		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
+			Type:  "PUBLIC KEY",
 			Bytes: publicKeyByte,
 		},
 	)
-	return string(publicKeyPem)
+	return string(publicKeyPEM)
 }

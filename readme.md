@@ -402,6 +402,18 @@ wire, including a non-default port. Bounded non-success response text is
 included in worker errors to make remote signature-verification failures
 diagnosable without logging unbounded response bodies.
 
+## Relay public-key encoding
+
+The relay actor publishes its RSA public key as X.509 SubjectPublicKeyInfo PEM,
+using `-----BEGIN PUBLIC KEY-----`. This is the common interoperable form used
+by ActivityPub implementations for `publicKeyPem`. Inbound signature
+verification accepts both SubjectPublicKeyInfo and legacy PKCS#1
+`-----BEGIN RSA PUBLIC KEY-----` actor keys.
+
+Changing the public encoding does not rotate `actor.pem`, change the relay
+actor ID, or change the `#main-key` key ID. Existing subscribers continue to
+reference the same cryptographic identity.
+
 ## Public status endpoint
 
 The API server exposes:
