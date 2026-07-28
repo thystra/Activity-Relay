@@ -3,6 +3,7 @@
 ## [2.4.0] - 2026-07-26
 
 ### RC6
+- Preserve a tested matching Debian changelog revision during tagged release builds, so an RC tag cannot publish an older package revision.
 - Fan out public same-domain `Announce` activities with embedded objects, as
   emitted by NodeBB categories, by sending one relay-signed `Announce` wrapper
   to both traditional and follower-style receivers. This keeps the authenticated

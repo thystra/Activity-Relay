@@ -136,20 +136,31 @@ jobs:
           DEBFULLNAME: thystra
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          version="${RELEASE_TAG#v}"
-          if [[ "$version" == *-* ]]; then
-            upstream_version="${version%%-*}"
-            prerelease_version="${version#*-}"
-            version="${upstream_version}~${prerelease_version}-1"
+          tag_version="${RELEASE_TAG#v}"
+
+          if [[ "$tag_version" == *-* ]]; then
+            upstream_version="${tag_version%%-*}"
+            prerelease_version="${tag_version#*-}"
+            version_series="${upstream_version}~${prerelease_version}"
           else
-            version="${version}-1"
+            version_series="$tag_version"
           fi
-          dpkg --validate-version "$version"
+
           current_version="$(dpkg-parsechangelog --show-field Version)"
-          if [ "$current_version" != "$version" ]; then
-            dch --newversion "$version" --distribution noble \
-              "Release ${RELEASE_TAG}."
-          fi
+
+          case "$current_version" in
+            "${version_series}"-[0-9]*)
+              version="$current_version"
+              ;;
+            *)
+              version="${version_series}-1"
+              dch --newversion "$version" --distribution noble \
+                "Release ${RELEASE_TAG}."
+              ;;
+          esac
+
+          dpkg --validate-version "$version"
+          echo "Debian package version: $version"
 
       - name: Run application tests
         env:

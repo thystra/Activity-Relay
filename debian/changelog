@@ -1,5 +1,6 @@
 activity-relay (2.4.0~rc6-5) noble; urgency=medium
 
+  * Preserve a matching tested Debian revision in tagged release builds.
   * Accept valid signed public activities from unsubscribed publishers.
   * Track observed publishers and expose publisher status metadata.
   * Publish maintained multi-architecture containers from tagged releases.

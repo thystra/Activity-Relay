@@ -15,19 +15,24 @@ package.
 Prerelease tags publish only their complete prerelease container tag. They do
 not move `latest`, major, or major/minor tags.
 
-The Debian version derived from `v2.4.0-rc6` is:
+The workflow derives the Debian version series from the tag, but preserves
+the top changelog version when it already belongs to that series. For
+`v2.4.0-rc6` and the tested RC6 changelog, the internal Debian version is:
 
 ```text
-2.4.0~rc4-1
+2.4.0~rc6-5
 ```
+
+If the top changelog entry does not match the tag series, the workflow starts
+that series at Debian revision `-1`.
 
 The uploaded filename replaces `~` with `-` so GitHub does not rewrite it:
 
 ```text
-activity-relay_2.4.0-rc6-1_amd64.deb
+activity-relay_2.4.0-rc6-5_amd64.deb
 ```
 
-The package's internal Debian version remains `2.4.0~rc4-1`.
+The package's internal Debian version remains `2.4.0~rc6-5`.
 
 ## Release checklist
 
@@ -134,7 +139,7 @@ dpkg-buildpackage \
 
 lintian \
   --fail-on error \
-  ../activity-relay_2.4.0~rc4-1_amd64.changes
+  ../activity-relay_2.4.0~rc6-5_amd64.changes
 ```
 
 ## Tag the tested commit
