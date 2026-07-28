@@ -84,6 +84,9 @@ type Actor struct {
 	PreferredUsername string      `json:"preferredUsername,omitempty"`
 	Summary           string      `json:"summary,omitempty"`
 	Inbox             string      `json:"inbox,omitempty"`
+	Outbox            string      `json:"outbox,omitempty"`
+	FollowingURL      string      `json:"following,omitempty"`
+	FollowersURL      string      `json:"followers,omitempty"`
 	Endpoints         *Endpoints  `json:"endpoints,omitempty"`
 	PublicKey         PublicKey   `json:"publicKey,omitempty"`
 	Icon              *Image      `json:"icon,omitempty"`
@@ -92,6 +95,9 @@ type Actor struct {
 
 // Followers : ActivityPub Terms for Actor's Followers.
 func (actor *Actor) Followers() string {
+	if actor.FollowersURL != "" {
+		return actor.FollowersURL
+	}
 	return actor.ID + "/followers"
 }
 
@@ -109,6 +115,12 @@ func NewActivityPubActorFromRelayConfig(globalConfig *RelayConfig) Actor {
 		PreferredUsername: "relay",
 		Summary:           globalConfig.serviceSummary,
 		Inbox:             hostname + "/inbox",
+		Outbox:            hostname + "/actor/outbox",
+		FollowingURL:      hostname + "/actor/following",
+		FollowersURL:      hostname + "/actor/followers",
+		Endpoints: &Endpoints{
+			SharedInbox: hostname + "/inbox",
+		},
 		PublicKey: PublicKey{
 			ID:           hostname + "/actor#main-key",
 			Owner:        hostname + "/actor",

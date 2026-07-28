@@ -61,7 +61,9 @@ Nginx and Apache examples are installed under:
    /usr/share/doc/activity-relay/examples/apache/
 
 Neither example is installed into sites-available, enabled, or reloaded by the
-package. Both expect /var/www/activity-relay/public as the document root.
+package. Both expect /var/www/activity-relay/public as the document root. The
+reverse proxy must forward /inbox, /actor, /actor/outbox, /actor/followers, and
+/actor/following to the Go service.
 
 The Nginx example includes commented HTTP/3/QUIC directives. Enable them only
 when nginx -V reports --with-http_v3_module and UDP port 443 is open. Keep the

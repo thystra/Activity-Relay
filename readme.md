@@ -375,11 +375,20 @@ A public reverse proxy should forward these relay routes:
 ```text
 /inbox
 /actor
+/actor/outbox
+/actor/followers
+/actor/following
 /status.json
 /.well-known/nodeinfo
 /.well-known/webfinger
 /nodeinfo/2.1
 ```
+
+The actor advertises `inbox`, `outbox`, `followers`, `following`, and
+`endpoints.sharedInbox`. Public GET requests to the collection endpoints return
+privacy-filtered empty `OrderedCollection` documents. The relay does not expose
+subscriber identities or historical relayed activities, and it does not
+implement ActivityPub client-to-server POSTs to the outbox.
 
 ## Public status endpoint
 

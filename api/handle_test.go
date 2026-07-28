@@ -213,8 +213,11 @@ func TestHandleActorInvalidMethod(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected request to succeed, but got error: %v", err)
 	}
-	if r.StatusCode != 400 {
-		t.Fatalf("Expected StatusCode to be 400, but got %d", r.StatusCode)
+	if r.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("Expected StatusCode to be 405, but got %d", r.StatusCode)
+	}
+	if allow := r.Header.Get("Allow"); allow != "GET, HEAD" {
+		t.Fatalf("Expected Allow header GET, HEAD, got %q", allow)
 	}
 }
 
@@ -410,7 +413,7 @@ func TestHandleInboxInvalidMethod(t *testing.T) {
 	}))
 	defer s.Close()
 
-	req, _ := http.NewRequest("GET", s.URL, nil)
+	req, _ := http.NewRequest("PUT", s.URL, nil)
 	client := new(http.Client)
 	r, err := client.Do(req)
 	if err != nil {

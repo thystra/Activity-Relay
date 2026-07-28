@@ -3,6 +3,13 @@
 ## [2.4.0] - 2026-07-26
 
 ### RC6
+- Advertise the required ActivityPub actor outbox, recommended followers and
+  following collections, and `endpoints.sharedInbox`.
+- Serve privacy-filtered empty `OrderedCollection` documents for the actor
+  inbox, outbox, followers, and following endpoints, including HEAD and proper
+  method handling.
+- Update Nginx, Apache, and endpoint documentation for the actor collection
+  routes.
 - Replace the ambiguous once-per-day summary hour with one or more explicit
   server-local `HH:MM` delivery slots.
 - Send only the most recent due slot after downtime, list skipped slots in the

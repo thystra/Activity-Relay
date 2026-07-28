@@ -47,7 +47,7 @@
 
     ProxyRequests Off
     ProxyPreserveHost On
-    ProxyPassMatch "^/(inbox|actor|status\.json|nodeinfo/2\.1)$" "http://127.0.0.1:8080/$1" connectiontimeout=5 timeout=30
+    ProxyPassMatch "^/(inbox|actor|actor/outbox|actor/followers|actor/following|status\.json|nodeinfo/2\.1)$" "http://127.0.0.1:8080/$1" connectiontimeout=5 timeout=30
     ProxyPassMatch "^/\.well-known/(nodeinfo|webfinger)$" "http://127.0.0.1:8080/.well-known/$1" connectiontimeout=5 timeout=30
 
     RequestHeader set X-Forwarded-Proto "https"

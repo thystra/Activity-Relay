@@ -78,26 +78,19 @@ func handleNodeinfo(writer http.ResponseWriter, request *http.Request) {
 }
 
 func handleRelayActor(writer http.ResponseWriter, request *http.Request) {
-	if request.Method == "GET" {
-		relayActor, err := json.Marshal(&RelayActor)
-		if err != nil {
-			logrus.Fatal("Failed to marshal relay actor : ", err.Error())
-			writer.WriteHeader(500)
-			writer.Write(nil)
-			return
-		}
-		writer.Header().Add("Content-Type", "application/activity+json")
-		writer.WriteHeader(200)
-		writer.Write(relayActor)
-	} else {
-		writer.WriteHeader(400)
-		writer.Write(nil)
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		writeActivityPubJSON(writer, request, &RelayActor)
+	default:
+		writer.Header().Set("Allow", "GET, HEAD")
+		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
-
 func handleInbox(writer http.ResponseWriter, request *http.Request, activityDecoder func(*http.Request) (*models.Activity, *models.Actor, []byte, error)) {
 	switch request.Method {
-	case "POST":
+	case http.MethodGet, http.MethodHead:
+		handleReadOnlyOrderedCollection(writer, request, RelayActor.Inbox, "GET, HEAD, POST")
+	case http.MethodPost:
 		activity, actor, body, err := activityDecoder(request)
 		if err != nil {
 			writer.WriteHeader(400)
@@ -263,7 +256,7 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 			}
 		}
 	default:
-		writer.WriteHeader(405)
-		writer.Write(nil)
+		writer.Header().Set("Allow", "GET, HEAD, POST")
+		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }

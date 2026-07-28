@@ -24,11 +24,18 @@ The reverse proxy must continue forwarding these routes to the relay:
 ```text
 /inbox
 /actor
+/actor/outbox
+/actor/followers
+/actor/following
 /status.json
 /.well-known/nodeinfo
 /.well-known/webfinger
 /nodeinfo/2.1
 ```
+
+The actor collection routes return privacy-filtered empty ActivityPub
+`OrderedCollection` documents. They must remain proxied even when the optional
+frontend is disabled, redirected, or replaced.
 
 ### Disable the frontend with Nginx
 

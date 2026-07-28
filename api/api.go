@@ -85,6 +85,9 @@ func handlersRegister(mux *http.ServeMux) {
 	mux.HandleFunc("/nodeinfo/2.1", handleNodeinfo)
 	mux.HandleFunc("/status.json", handleRelayStatus)
 	mux.HandleFunc("/actor", handleRelayActor)
+	mux.HandleFunc("/actor/outbox", handleRelayOutbox)
+	mux.HandleFunc("/actor/followers", handleRelayFollowers)
+	mux.HandleFunc("/actor/following", handleRelayFollowing)
 	mux.HandleFunc("/inbox", func(w http.ResponseWriter, r *http.Request) {
 		handleInbox(w, r, decodeActivity)
 	})
