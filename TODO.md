@@ -10,10 +10,16 @@ Apache, and Caddy deployment examples.
 
 ### Signed authorized fetch
 
-- Add relay-signed remote actor and object GET requests for Mastodon authorized-
-  fetch and secure-mode interoperability.
-- Preserve bounded response handling and actor/key-host validation.
-- Add focused tests plus real secure-mode federation validation.
+- Implemented in the v2.5.0 development line:
+  - relay-signed remote actor and object `GET` requests for Mastodon authorized-
+    fetch and secure-mode interoperability;
+  - a shared signer that preserves exact on-wire `Host` authority behavior for
+    both authorized fetch and outbound delivery;
+  - bounded success and non-success response handling; and
+  - focused signature, redirect, actor-fetch, object-fetch, and error-bound
+    regression tests.
+- Remaining release gate: validate end-to-end federation with a real Mastodon
+  instance running authorized fetch or secure mode.
 - Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/94>
 
 ### Receiver delivery health

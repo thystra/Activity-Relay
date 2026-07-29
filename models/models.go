@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,12 @@ import (
 )
 
 const maxRemoteJSONBytes int64 = 2 * 1024 * 1024
+const maxRemoteErrorBodyBytes int64 = 4096
+
+// RemoteRequestSigner signs relay-authenticated remote GET requests.
+type RemoteRequestSigner interface {
+	SignGET(*http.Request) error
+}
 
 var remoteHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
@@ -27,7 +34,7 @@ var remoteHTTPClient = &http.Client{
 	}(),
 }
 
-func fetchRemoteJSON(address string, uaString string, destination interface{}) ([]byte, error) {
+func fetchRemoteJSON(address string, uaString string, destination interface{}, signer RemoteRequestSigner) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, address, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create remote request: %w", err)
@@ -37,12 +44,48 @@ func fetchRemoteJSON(address string, uaString string, destination interface{}) (
 	}
 	req.Header.Set("Accept", "application/activity+json")
 	req.Header.Set("User-Agent", uaString)
-	resp, err := remoteHTTPClient.Do(req)
+	if signer == nil {
+		return nil, errors.New("remote request signer is not configured")
+	}
+	if err := signer.SignGET(req); err != nil {
+		return nil, fmt.Errorf("sign remote request: %w", err)
+	}
+	client := *remoteHTTPClient
+	client.CheckRedirect = func(redirect *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		redirect.Header.Del("Date")
+		redirect.Header.Del("Digest")
+		redirect.Header.Del("Signature")
+		if err := signer.SignGET(redirect); err != nil {
+			return fmt.Errorf("sign redirected remote request: %w", err)
+		}
+		return nil
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		responseBody, readErr := io.ReadAll(
+			io.LimitReader(resp.Body, maxRemoteErrorBodyBytes+1),
+		)
+		if readErr != nil {
+			return nil, fmt.Errorf("%s: unable to read response body: %w", resp.Status, readErr)
+		}
+		responseTruncated := int64(len(responseBody)) > maxRemoteErrorBodyBytes
+		if responseTruncated {
+			responseBody = responseBody[:maxRemoteErrorBodyBytes]
+		}
+		responseText := strings.Join(strings.Fields(string(responseBody)), " ")
+		if responseTruncated && responseText != "" {
+			responseText += " [truncated]"
+		}
+		if responseText != "" {
+			return nil, fmt.Errorf("%s: %s", resp.Status, responseText)
+		}
 		return nil, errors.New(resp.Status)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxRemoteJSONBytes+1))
@@ -143,7 +186,7 @@ func NewActivityPubActorFromRelayConfig(globalConfig *RelayConfig) Actor {
 }
 
 // NewActivityPubActorFromRemoteActor : Retrieve Actor from remote instance.
-func NewActivityPubActorFromRemoteActor(url string, uaString string, cache *cache.Cache) (Actor, error) {
+func NewActivityPubActorFromRemoteActor(url string, uaString string, cache *cache.Cache, signer RemoteRequestSigner) (Actor, error) {
 	var actor = new(Actor)
 	var err error
 	cacheData, found := cache.Get(url)
@@ -160,7 +203,7 @@ func NewActivityPubActorFromRemoteActor(url string, uaString string, cache *cach
 			return *actor, nil
 		}
 	}
-	data, err := fetchRemoteJSON(url, uaString, actor)
+	data, err := fetchRemoteJSON(url, uaString, actor, signer)
 	if err != nil {
 		return *actor, err
 	}
@@ -251,10 +294,10 @@ func NewActivityPubActivity(actor Actor, to []string, object interface{}, activi
 }
 
 // NewActivityPubActivityFromRemoteActivity : Retrieve Activity from remote instance.
-func NewActivityPubActivityFromRemoteActivity(url string, uaString string) (Activity, error) {
+func NewActivityPubActivityFromRemoteActivity(url string, uaString string, signer RemoteRequestSigner) (Activity, error) {
 	var activity = new(Activity)
 	var err error
-	if _, err = fetchRemoteJSON(url, uaString, activity); err != nil {
+	if _, err = fetchRemoteJSON(url, uaString, activity, signer); err != nil {
 		return *activity, err
 	}
 	return *activity, nil
