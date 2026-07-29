@@ -1,10 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/sirupsen/logrus"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 type relayStatusEndpoints struct {
@@ -21,6 +25,19 @@ type relayStatusSoftware struct {
 type relayStatusInstances struct {
 	Count   int      `json:"count"`
 	Domains []string `json:"domains"`
+}
+type relayStatusReceiver struct {
+	Domain              string `json:"domain"`
+	LastSuccessAt       string `json:"last_success_at,omitempty"`
+	LastFailureAt       string `json:"last_failure_at,omitempty"`
+	ConsecutiveFailures int64  `json:"consecutive_failures"`
+	TotalSuccesses      int64  `json:"total_successes"`
+	TotalFailures       int64  `json:"total_failures"`
+}
+type relayStatusReceivingInstances struct {
+	Count   int                   `json:"count"`
+	Domains []string              `json:"domains"`
+	Entries []relayStatusReceiver `json:"entries"`
 }
 
 type relayStatusPublisher struct {
@@ -39,18 +56,18 @@ type relayStatusPublishers struct {
 }
 
 type relayStatusResponse struct {
-	SchemaVersion      int                   `json:"schema_version"`
-	Status             string                `json:"status"`
-	Name               string                `json:"name"`
-	Domain             string                `json:"domain"`
-	Registration       string                `json:"registration"`
-	ManualApproval     bool                  `json:"manual_approval"`
-	PersonOnly         bool                  `json:"person_only"`
-	Endpoints          relayStatusEndpoints  `json:"endpoints"`
-	ConnectedInstances relayStatusInstances  `json:"connected_instances"`
-	ReceivingInstances relayStatusInstances  `json:"receiving_instances"`
-	Publishers         relayStatusPublishers `json:"publishers"`
-	Software           relayStatusSoftware   `json:"software"`
+	SchemaVersion      int                           `json:"schema_version"`
+	Status             string                        `json:"status"`
+	Name               string                        `json:"name"`
+	Domain             string                        `json:"domain"`
+	Registration       string                        `json:"registration"`
+	ManualApproval     bool                          `json:"manual_approval"`
+	PersonOnly         bool                          `json:"person_only"`
+	Endpoints          relayStatusEndpoints          `json:"endpoints"`
+	ConnectedInstances relayStatusInstances          `json:"connected_instances"`
+	ReceivingInstances relayStatusReceivingInstances `json:"receiving_instances"`
+	Publishers         relayStatusPublishers         `json:"publishers"`
+	Software           relayStatusSoftware           `json:"software"`
 }
 
 func normalizedStatusDomain(domain string) string {
@@ -129,9 +146,34 @@ func buildRelayStatus() relayStatusResponse {
 
 	participatingDomains := sortedStatusDomains(participatingSeen)
 	receivingDomains := sortedStatusDomains(receivingSeen)
+	healthByDomain := make(map[string]models.ReceiverDeliveryHealth)
+	if RelayState.RedisClient != nil {
+		loadedHealth, err := models.LoadReceiverDeliveryHealth(
+			context.Background(),
+			RelayState.RedisClient,
+			receivingDomains,
+		)
+		if err != nil {
+			logrus.WithError(err).Warn("Unable to load receiver delivery health for public status")
+		} else {
+			healthByDomain = loadedHealth
+		}
+	}
+	receiverEntries := make([]relayStatusReceiver, 0, len(receivingDomains))
+	for _, domain := range receivingDomains {
+		health := healthByDomain[domain]
+		receiverEntries = append(receiverEntries, relayStatusReceiver{
+			Domain:              domain,
+			LastSuccessAt:       health.LastSuccessAt,
+			LastFailureAt:       health.LastFailureAt,
+			ConsecutiveFailures: health.ConsecutiveFailures,
+			TotalSuccesses:      health.TotalSuccesses,
+			TotalFailures:       health.TotalFailures,
+		})
+	}
 
 	return relayStatusResponse{
-		SchemaVersion:  3,
+		SchemaVersion:  4,
 		Status:         "ok",
 		Name:           name,
 		Domain:         strings.TrimPrefix(baseURL, "https://"),
@@ -146,9 +188,10 @@ func buildRelayStatus() relayStatusResponse {
 			Count:   len(participatingDomains),
 			Domains: participatingDomains,
 		},
-		ReceivingInstances: relayStatusInstances{
+		ReceivingInstances: relayStatusReceivingInstances{
 			Count:   len(receivingDomains),
 			Domains: receivingDomains,
+			Entries: receiverEntries,
 		},
 		Publishers: relayStatusPublishers{
 			Count:   len(publishers),

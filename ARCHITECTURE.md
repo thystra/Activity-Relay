@@ -30,6 +30,7 @@ Redis is the authoritative runtime store for:
 - follower-style server actors and mutual-follow state;
 - blocked and limited domains;
 - observed publishers and accepted-activity counters;
+- durable per-receiver delivery timestamps and counters;
 - queued activities and task state; and
 - queue-capacity reservations.
 
@@ -47,7 +48,10 @@ and ActivityPub object resolution also uses the relay actor identity. Authorized
 fetch `GET` requests sign `(request-target)`, `Host`, and `Date`; redirected
 fetches are re-signed for the new request target and authority. Delivery `POST`
 requests additionally sign `Digest` and `Content-Type`. Both paths sign the exact
-`Host` authority transmitted on the wire.
+`Host` authority transmitted on the wire. Each `relay-v2` fan-out attempt also
+atomically records the receiver domain's last success or failure time, total
+successes and failures, and consecutive failure count. Registration traffic does
+not affect these delivery-health observations.
 
 ### Resource guard
 
@@ -131,9 +135,11 @@ metadata. Public collection GETs return privacy-filtered empty
 identities or historical relayed activities.
 
 `/status.json` exposes relay identity, policy, software version, connected and
-receiving domain counts, and bounded publisher metadata. It excludes Redis
-keys, queue internals, private configuration, inbox URLs, actor IDs, and blocked
-lists.
+receiving domain counts, bounded publisher metadata, and delivery-health
+timestamps and counters for currently registered receivers. Historical health
+keys for departed receivers are retained for future policy analysis but are not
+returned publicly. The endpoint excludes Redis keys, queue internals, private
+configuration, inbox URLs, actor IDs, error text, and blocked lists.
 
 ## Failure behavior
 
@@ -144,6 +150,8 @@ lists.
   and object fetch responses.
 - Worker failures include actionable bounded response text and are retried by
   the task backend.
+- A receiver-health recording failure is logged but does not change the delivery
+  result or retry decision.
 - Website-generation failure does not stop relay operation.
 - Debian packages remain inactive after first installation and restart only
   already-active Activity-Relay services during upgrades.

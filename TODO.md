@@ -24,9 +24,18 @@ Apache, and Caddy deployment examples.
 
 ### Receiver delivery health
 
-- Record per-receiver last successful and failed delivery times.
-- Track consecutive and total successes and failures without exposing private
-  inbox URLs through `/status.json`.
+- Implemented in the v2.5.0 development line:
+  - atomic per-receiver last-success and last-failure timestamps;
+  - consecutive-failure, total-success, and total-failure counters;
+  - `/status.json` schema version 4 entries for current receivers only; and
+  - focused atomicity, success-reset, failure, privacy, and registration-exclusion
+    regression tests.
+- Existing short-lived `relay:statistics:<domain>` error diagnostics remain
+  compatible.
+- Historical health keys are retained but are not publicly listed after a receiver
+  unsubscribes.
+- Remaining release gate: observe health updates during the consolidated v2.5.0
+  end-to-end federation and production validation pass.
 - Define stale-receiver and cleanup policy only after observation data exists.
 - Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/83>
 

@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/thystra/Activity-Relay/models"
 )
@@ -20,6 +23,7 @@ func TestHandleRelayStatus(t *testing.T) {
 		version = originalVersion
 	}()
 
+	RelayState.RedisClient.FlushAll(context.Background())
 	RelayActor.Name = "Test Relay"
 	version = "test-version"
 	RelayState.RelayConfig.ManuallyAccept = false
@@ -40,6 +44,17 @@ func TestHandleRelayStatus(t *testing.T) {
 			ActivityCount:    2,
 		},
 		{Domain: "a.example", ActivityCount: 1},
+	}
+	failureAt := time.Date(2026, 7, 29, 18, 0, 0, 0, time.UTC)
+	successAt := failureAt.Add(time.Minute)
+	if err := models.RecordReceiverDelivery(context.Background(), RelayState.RedisClient, "a.example", false, failureAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := models.RecordReceiverDelivery(context.Background(), RelayState.RedisClient, "a.example", true, successAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := models.RecordReceiverDelivery(context.Background(), RelayState.RedisClient, "stale.example", false, failureAt); err != nil {
+		t.Fatal(err)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/status.json", nil)
@@ -62,8 +77,8 @@ func TestHandleRelayStatus(t *testing.T) {
 	if got.Registration != "open" || got.ManualApproval {
 		t.Errorf("registration = %q, manual_approval = %v", got.Registration, got.ManualApproval)
 	}
-	if got.SchemaVersion != 3 {
-		t.Errorf("schema version = %d; want 3", got.SchemaVersion)
+	if got.SchemaVersion != 4 {
+		t.Errorf("schema version = %d; want 4", got.SchemaVersion)
 	}
 
 	wantParticipating := []string{"a.example", "publisher.example", "z.example"}
@@ -80,6 +95,26 @@ func TestHandleRelayStatus(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.ReceivingInstances.Domains, wantReceiving) {
 		t.Errorf("receiving domains = %#v; want %#v", got.ReceivingInstances.Domains, wantReceiving)
+	}
+	if len(got.ReceivingInstances.Entries) != 2 {
+		t.Fatalf("receiving entries = %d; want 2", len(got.ReceivingInstances.Entries))
+	}
+	aHealth := got.ReceivingInstances.Entries[0]
+	if aHealth.Domain != "a.example" || aHealth.LastFailureAt != failureAt.Format(time.RFC3339) ||
+		aHealth.LastSuccessAt != successAt.Format(time.RFC3339) ||
+		aHealth.ConsecutiveFailures != 0 || aHealth.TotalFailures != 1 || aHealth.TotalSuccesses != 1 {
+		t.Errorf("unexpected a.example receiver health: %+v", aHealth)
+	}
+	zHealth := got.ReceivingInstances.Entries[1]
+	if zHealth.Domain != "z.example" || zHealth.LastFailureAt != "" || zHealth.LastSuccessAt != "" ||
+		zHealth.ConsecutiveFailures != 0 || zHealth.TotalFailures != 0 || zHealth.TotalSuccesses != 0 {
+		t.Errorf("unexpected zero-state receiver health: %+v", zHealth)
+	}
+	body := rec.Body.String()
+	for _, forbidden := range []string{"stale.example", "inbox_url", "actor_id"} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("status body unexpectedly contains %q", forbidden)
+		}
 	}
 
 	if got.Publishers.Count != 2 {

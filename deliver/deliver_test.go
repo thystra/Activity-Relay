@@ -44,6 +44,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRelayActivity(t *testing.T) {
+	RedisClient.FlushAll(context.Background()).Result()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, _ := io.ReadAll(r.Body)
 		if string(data) != "ExampleData" || r.Header.Get("Content-Type") != "application/activity+json" {
@@ -66,9 +67,22 @@ func TestRelayActivity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	domain, err := models.ReceiverDomainFromInboxURL(s.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	health, err := models.LoadReceiverDeliveryHealth(context.Background(), RedisClient, []string{domain})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := health[domain]
+	if got.TotalSuccesses != 1 || got.TotalFailures != 0 || got.ConsecutiveFailures != 0 || got.LastSuccessAt == "" {
+		t.Fatalf("unexpected successful delivery health: %+v", got)
+	}
 }
 
 func TestRelayActivityNoHost(t *testing.T) {
+	RedisClient.FlushAll(context.Background()).Result()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 	}))
@@ -89,9 +103,18 @@ func TestRelayActivityNoHost(t *testing.T) {
 	if data == "" {
 		t.Fatalf("Expected last_error to be saved for domain %s, but got empty string", domain.Host)
 	}
+	health, healthErr := models.LoadReceiverDeliveryHealth(context.Background(), RedisClient, []string{domain.Host})
+	if healthErr != nil {
+		t.Fatal(healthErr)
+	}
+	got := health[domain.Host]
+	if got.TotalFailures != 1 || got.ConsecutiveFailures != 1 || got.TotalSuccesses != 0 || got.LastFailureAt == "" {
+		t.Fatalf("unexpected failed delivery health: %+v", got)
+	}
 }
 
 func TestRelayActivityResp500(t *testing.T) {
+	RedisClient.FlushAll(context.Background()).Result()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		w.Write(nil)
@@ -113,9 +136,18 @@ func TestRelayActivityResp500(t *testing.T) {
 	if data == "" {
 		t.Fatalf("Expected last_error to be saved for domain %s, but got empty string", domain.Host)
 	}
+	health, healthErr := models.LoadReceiverDeliveryHealth(context.Background(), RedisClient, []string{domain.Host})
+	if healthErr != nil {
+		t.Fatal(healthErr)
+	}
+	got := health[domain.Host]
+	if got.TotalFailures != 1 || got.ConsecutiveFailures != 1 || got.TotalSuccesses != 0 || got.LastFailureAt == "" {
+		t.Fatalf("unexpected 500 delivery health: %+v", got)
+	}
 }
 
 func TestRegisterActivity(t *testing.T) {
+	RedisClient.FlushAll(context.Background()).Result()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, _ := io.ReadAll(r.Body)
 		if string(data) != "data" || r.Header.Get("Content-Type") != "application/activity+json" {
@@ -131,6 +163,17 @@ func TestRegisterActivity(t *testing.T) {
 	err := registerActivity(s.URL, "data")
 	if err != nil {
 		t.Fatalf("Expected registerActivity to succeed, but got error: %v", err)
+	}
+	domain, err := models.ReceiverDomainFromInboxURL(s.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exists, err := RedisClient.Exists(context.Background(), "relay:receiver-health:"+domain).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists != 0 {
+		t.Fatal("registration delivery must not create receiver fan-out health")
 	}
 }
 
