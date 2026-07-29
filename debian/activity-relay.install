@@ -13,3 +13,5 @@ contrib/web/activity-relay-rebuild-site usr/bin
 contrib/web/site.json.example etc/activity-relay-web
 contrib/nginx/activity-relay.conf.example usr/share/doc/activity-relay/examples/nginx
 contrib/apache/activity-relay.conf.example usr/share/doc/activity-relay/examples/apache
+contrib/caddy/Caddyfile.example usr/share/doc/activity-relay/examples/caddy
+contrib/caddy/README.md usr/share/doc/activity-relay/examples/caddy

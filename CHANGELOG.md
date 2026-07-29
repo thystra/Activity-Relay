@@ -2,13 +2,18 @@
 
 ## [Unreleased]
 
-### Documentation
+## [2.4.0] - 2026-07-29
 
-- Align container, native website rebuild, release, interoperability, and
-  upstream-maintenance documentation with the published RC6 behavior.
-- Add versioned `v2.4.0-rc6` release notes suitable for the GitHub prerelease.
+### Stable release
 
-## [2.4.0-rc6] - 2026-07-28
+- Promote the production-validated RC6 application code to stable `v2.4.0`
+  after its soak period, without changing relay identity or stored Redis data.
+- Publish stable container, source-build, Debian-package, interoperability, and
+  release-note references.
+- Add an optional Caddy 2 reverse-proxy and static-site example alongside the
+  existing Nginx and Apache examples, without adding a runtime dependency.
+- Add `ARCHITECTURE.md` and `TODO.md`, and strengthen `AGENTS.md` with staged,
+  transactional, rollback-safe development and release practices.
 
 ### RC6
 - Preserve a tested matching Debian changelog revision during tagged release builds, so an RC tag cannot publish an older package revision.
@@ -117,6 +122,11 @@
   separate `compose.build.yml` overlay for local source builds.
 - Continue building, linting, installing, and attaching the native Ubuntu 24.04
   `amd64` Debian package for tagged releases.
+
+## [2.4.0-rc6] - 2026-07-28
+
+- Published the application release candidate later promoted to stable
+  `v2.4.0` after production interoperability and operational soak validation.
 
 ## [2.3.1] - 2026-07-22
 

@@ -75,3 +75,14 @@ A fix that is generally useful and does not depend on maintained-fork-specific
 architecture may be proposed upstream. Keep the upstream submission focused,
 retain project-neutral examples, and do not include private infrastructure,
 operator data, deployment transcripts, or maintained-fork release metadata.
+
+## Reviewed upstream proposals
+
+- PR 60 proposed Caddy-focused deployment tooling. Version 2.4.0 adopts the
+  generally useful part as an optional, project-neutral Caddy example beside
+  Nginx and Apache; it does not adopt a generator, Makefile workflow, web-root
+  ownership, or runtime dependency.
+- PR 100 proposes initial Prometheus HTTP metrics and health endpoints. It is a
+  design input for the v2.5.0 observability work in `TODO.md`; porting should
+  include queue, delivery, receiver, publisher, Redis, and readiness semantics
+  appropriate to this fork.

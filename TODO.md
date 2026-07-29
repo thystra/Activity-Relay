@@ -1,0 +1,83 @@
+# Activity-Relay roadmap
+
+## Current stable release
+
+`v2.4.0` is the current stable maintained-fork release. It promotes the RC6
+application code after production soak validation and includes optional Nginx,
+Apache, and Caddy deployment examples.
+
+## Planned v2.5.0 work
+
+### Signed authorized fetch
+
+- Add relay-signed remote actor and object GET requests for Mastodon authorized-
+  fetch and secure-mode interoperability.
+- Preserve bounded response handling and actor/key-host validation.
+- Add focused tests plus real secure-mode federation validation.
+- Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/94>
+
+### Receiver delivery health
+
+- Record per-receiver last successful and failed delivery times.
+- Track consecutive and total successes and failures without exposing private
+  inbox URLs through `/status.json`.
+- Define stale-receiver and cleanup policy only after observation data exists.
+- Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/83>
+
+### Prometheus and health endpoints
+
+- Review and port the useful design from upstream PR 100 rather than
+  cherry-picking it unchanged.
+- Add opt-in or separately bound `/metrics`, liveness, and readiness endpoints.
+- Use normalized route labels and bounded error categories.
+- Include HTTP, accepted/rejected activity, queue, fan-out, delivery, receiver,
+  publisher, Redis-health, and readiness metrics.
+- Related upstream PR: <https://github.com/yukimochi/Activity-Relay/pull/100>
+
+### Redis transport and durability
+
+- Add integration tests for `rediss://` through both direct state access and the
+  Machinery broker/result backend.
+- Add integration tests for Redis Unix-socket URLs through the same paths.
+- Document backup, export, restore, and persistence verification procedures.
+- Evaluate durable storage or replicated-state options without breaking current
+  Redis data.
+- Related upstream issues:
+  - <https://github.com/yukimochi/Activity-Relay/issues/59>
+  - <https://github.com/yukimochi/Activity-Relay/issues/88>
+  - <https://github.com/yukimochi/Activity-Relay/issues/67>
+
+## Completed in v2.4.0
+
+- Standard actor outbox, followers, following, and shared-inbox metadata.
+- Friendica and standards-style server-actor follow compatibility.
+- NodeBB reciprocal follow, public-key, HTTP `Host` signing, and embedded
+  `Announce` interoperability.
+- Public connected, receiving, and publisher status information.
+- Open signed publisher ingestion with policy enforcement.
+- Bounded queue, fan-out, remote response, and concurrency controls.
+- Multiple explicit daily-summary slots and resilient mail handling.
+- Upgrade-safe optional website customization.
+- Native package identity preservation and inactive-by-default services.
+- Optional Caddy example reviewed from the idea in upstream PR 60, implemented
+  as documentation rather than a runtime dependency.
+
+## Release gates for future versions
+
+Before any release:
+
+1. update `CHANGELOG.md`, `readme.md`, affected documentation, and versioned
+   release notes;
+2. run all validation required by `AGENTS.md` and `docs/RELEASING.md`;
+3. preserve actor identity, configuration, Redis compatibility, and operator
+   website content;
+4. validate package installation, upgrade/reinstallation, checksums, metadata,
+   and container manifests; and
+5. for federation changes, demonstrate a real signed publisher-to-receiver path
+   and distinguish transport acceptance, object import, and local presentation.
+
+## Upstream review
+
+Continue monitoring upstream commits, issues, and pull requests under the policy
+in `docs/UPSTREAM.md`. Record upstream commit, issue, or pull-request references
+when a change is ported.

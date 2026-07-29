@@ -169,6 +169,12 @@ jobs:
           go test -p 1 ./...
           python3 -m unittest discover -s contrib/web -p 'test_*.py'
           python3 -m unittest discover -s contrib/ops -p 'test_*.py'
+          docker run --rm \
+            --volume "$PWD/contrib/caddy/Caddyfile.example:/etc/caddy/Caddyfile:ro" \
+            caddy:2.11.2-alpine \
+            caddy validate \
+              --config /etc/caddy/Caddyfile \
+              --adapter caddyfile
 
       - name: Build package
         run: dpkg-buildpackage --build=binary --no-sign
@@ -195,6 +201,8 @@ jobs:
           grep --quiet '^TimeoutStartSec=120$' /usr/lib/systemd/system/activity-relay-resource-guard.service
           grep --quiet '/var/spool/postfix/maildrop' /usr/lib/systemd/system/activity-relay-resource-guard.service
           test -f /etc/activity-relay/config.yml.example
+          test -f /usr/share/doc/activity-relay/examples/caddy/Caddyfile.example
+          test -f /usr/share/doc/activity-relay/examples/caddy/README.md
           test ! -e /etc/activity-relay/config.yml
           test "$(stat --format='%a' /etc/activity-relay/actor.pem)" = 600
           test "$(stat --format='%U:%G' /etc/activity-relay/actor.pem)" = activity-relay:activity-relay

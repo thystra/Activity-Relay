@@ -10,34 +10,30 @@ package.
 - Minor release: backward-compatible features, for example `2.5.0`.
 - Major release: incompatible configuration, API, storage, protocol, or
   identity changes.
-- Release candidate: append `-rcN`, for example `v2.4.0-rc6`.
+- Release candidate: append `-rcN`, for example `v2.5.0-rc1`.
 
 Prerelease tags publish only their complete prerelease container tag. They do
 not move `latest`, major, or major/minor tags.
 
-The workflow derives the Debian version series from the tag, but preserves
-the top changelog version when it already belongs to that series. For
-`v2.4.0-rc6` and the tested RC6 changelog, the internal Debian version is:
+The workflow derives the Debian version series from the tag and preserves the
+top changelog version when it already belongs to that series. The stable
+`v2.4.0` release uses:
 
 ```text
-2.4.0~rc6-5
+2.4.0-1
 ```
 
-If the top changelog entry does not match the tag series, the workflow starts
-that series at Debian revision `-1`.
+A future prerelease such as `v2.5.0-rc1` uses a Debian series such as
+`2.5.0~rc1-1`. If the top changelog entry does not match the tag series, the
+workflow starts that series at Debian revision `-1`.
 
-The uploaded filename replaces `~` with `-` so GitHub does not rewrite it:
-
-```text
-activity-relay_2.4.0-rc6-5_amd64.deb
-```
-
-The package's internal Debian version remains `2.4.0~rc6-5`.
+Release filenames replace `~` with `-` only when necessary for GitHub asset
+compatibility; the package's internal Debian version is unchanged.
 
 ## Release checklist
 
 1. Work from a clean `master` branch.
-2. Review `AGENTS.md`.
+2. Review `AGENTS.md`, `ARCHITECTURE.md`, and `TODO.md`.
 3. Update `CHANGELOG.md`, `readme.md`, affected deployment documentation, and
    the versioned release notes under `docs/releases/`.
 4. Confirm no local notes, generated packages, suspicious filenames, or
@@ -50,20 +46,21 @@ The package's internal Debian version remains `2.4.0~rc6-5`.
 9. Run Redis-backed `go test -race -count=1 -p 1 ./api ./models`.
 10. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
 11. Run `python3 -m unittest discover -s contrib/ops -p 'test_*.py'`.
-12. Run `git diff --check`.
-13. Build the local container and verify:
+12. Validate the Caddy example when it changes.
+13. Run `git diff --check`.
+14. Build the local container and verify:
     - `/usr/bin/relay`;
     - `/usr/share/activity-relay/web/build-site.py`;
     - the compiled version string.
-14. Build the native Debian package and run Lintian on the `.changes` file.
-15. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
-16. For publisher/fan-out changes, verify a real accepted publisher activity
+15. Build the native Debian package and run Lintian on the `.changes` file.
+16. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
+17. For publisher/fan-out changes, verify a real accepted publisher activity
     reaches a receiving server.
-17. Commit and push the release preparation.
-18. Create and push the annotated tag.
-19. Verify the GitHub release, checksums, package metadata, and container
-    manifests.
-20. Replace generated release notes with the reviewed versioned release notes.
+18. Commit and push the release preparation.
+19. Create and push the annotated tag.
+20. Verify the GitHub release, checksums, package metadata, packaged examples,
+    and container manifests.
+21. Replace generated release notes with the reviewed versioned release notes.
 
 ## Local validation
 
@@ -102,13 +99,20 @@ python3 -m unittest discover \
   -s contrib/ops \
   -p 'test_*.py'
 
+docker run --rm \
+  --volume "$PWD/contrib/caddy/Caddyfile.example:/etc/caddy/Caddyfile:ro" \
+  caddy:2.11.2-alpine \
+  caddy validate \
+    --config /etc/caddy/Caddyfile \
+    --adapter caddyfile
+
 docker rm -f activity-relay-release-test-redis
 ```
 
 Build and inspect the container:
 
 ```bash
-ACTIVITY_RELAY_VERSION='2.4.0-rc6' \
+ACTIVITY_RELAY_VERSION='2.4.0' \
 docker compose \
   -f compose.yml \
   -f compose.build.yml \
@@ -143,7 +147,7 @@ dpkg-buildpackage \
 
 lintian \
   --fail-on error \
-  ../activity-relay_2.4.0~rc6-5_amd64.changes
+  ../activity-relay_2.4.0-1_amd64.changes
 ```
 
 ## Tag the tested commit
@@ -152,28 +156,19 @@ lintian \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.4.0-rc6 \
-  -m 'Activity-Relay v2.4.0-rc6 release candidate'
-
-git push origin v2.4.0-rc6
-```
-
-After the release workflow creates the GitHub prerelease, apply the reviewed
-notes stored in the repository:
-
-```bash
-gh release edit v2.4.0-rc6 \
-  --notes-file docs/releases/v2.4.0-rc6.md
-```
-
-After final validation:
-
-```bash
-git tag -a v2.4.0 \
-  -m 'Activity-Relay v2.4.0 maintained fork release'
-
+git tag -a v2.4.0 -m 'Activity-Relay v2.4.0 maintained fork release'
 git push origin v2.4.0
 ```
+
+After the release workflow creates the GitHub release, apply the reviewed notes
+stored in the repository:
+
+```bash
+gh release edit v2.4.0 --notes-file docs/releases/v2.4.0.md
+```
+
+For a future release candidate, use its complete `vX.Y.Z-rcN` tag and matching
+versioned release-notes file. Do not promote a prerelease by moving its tag.
 
 Do not move an already-published release tag. Correct mistakes with another
 release candidate or patch release.

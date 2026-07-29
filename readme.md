@@ -59,7 +59,7 @@ Depending on the installation method:
 - Ubuntu 24.04 or a compatible Debian-based system for the native package;
 - Go and Redis for source builds;
 - Python 3 for resource-guard tooling and optional website generation;
-- Nginx, Apache, or another reverse proxy for a public deployment.
+- Nginx, Apache, Caddy, or another reverse proxy for a public deployment.
 
 ## Installation
 
@@ -78,14 +78,14 @@ cp .env.example .env
 cp config.yml.example config.yml
 ```
 
-Set a release image in `.env`, for example:
+Set the stable release image in `.env`:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0-rc6
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
 ```
 
-Release candidates use their complete tag, such as `2.4.0-rc6`; prereleases do
-not move `latest`.
+Release candidates use their complete `-rcN` tag; prereleases do not move
+`latest`, major, or major/minor stable tags.
 
 Generate the actor identity once:
 
@@ -165,7 +165,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:2.4.0-rc6 \
+  ghcr.io/thystra/activity-relay:2.4.0 \
   --version
 ```
 
@@ -556,6 +556,20 @@ The file lists required modules and includes bundled-site, no-frontend,
 redirected-root, and custom-document-root guidance. When changing the output
 directory, change both `DocumentRoot` and the corresponding `<Directory>` path.
 
+### Caddy frontend choices
+
+A complete optional Caddy 2 example and operator notes are included at:
+
+```text
+contrib/caddy/Caddyfile.example
+contrib/caddy/README.md
+```
+
+The example uses Caddy's automatic HTTPS, serves the bundled static site, and
+proxies only the required relay endpoints to `127.0.0.1:8080`. It is an
+operator example only; Activity-Relay does not install, enable, or depend on
+Caddy.
+
 ### Build the bundled site from a container image
 
 Published images contain website sources at:
@@ -564,11 +578,11 @@ Published images contain website sources at:
 /usr/share/activity-relay/web
 ```
 
-RC6 images include Python 3 for resource-guard tooling and website generation.
+The `2.4.0` image includes Python 3 for resource-guard tooling and website generation.
 To customize the website outside the running relay, extract the sources:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0-rc6'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
 
 mkdir -p \
   activity-relay-web \
@@ -606,7 +620,7 @@ docker run \
 Serve `activity-relay-public` with the host reverse proxy or a separate web
 container.
 
-Full website, Nginx, Apache, customization, and replacement instructions are in
+Full website, Nginx, Apache, Caddy, customization, and replacement instructions are in
 [`contrib/web/README.md`](contrib/web/README.md).
 
 ## Testing
@@ -654,14 +668,16 @@ git diff --check
 ```
 
 Contributor and coding-agent expectations are documented in
-[`AGENTS.md`](AGENTS.md).
+[`AGENTS.md`](AGENTS.md). See [`ARCHITECTURE.md`](ARCHITECTURE.md) for component
+and data-flow design, and [`TODO.md`](TODO.md) for the maintained roadmap and
+release gates.
 
 ## Releases
 
 Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
 [`docs/releases/`](docs/releases/), including
-[`v2.4.0-rc6`](docs/releases/v2.4.0-rc6.md).
+[`v2.4.0`](docs/releases/v2.4.0.md). Historical RC notes remain under the same directory.
 
 ## Upstream and attribution
 

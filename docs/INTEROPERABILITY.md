@@ -1,8 +1,8 @@
 # ActivityPub interoperability
 
 This document describes interoperability behavior implemented and production-
-validated for Activity-Relay `v2.4.0-rc6`. It records the tested behavior of
-that release candidate; it is not a guarantee that every version or
+validated for Activity-Relay `v2.4.0`. It records the tested behavior of
+that stable release; it is not a guarantee that every version or
 configuration of every ActivityPub server behaves identically.
 
 ## Subscription models
@@ -18,10 +18,10 @@ The relay actor may be followed by standards-style `Application` or `Service`
 actors at implementation-defined actor paths. Legacy `/relay` and `/friendica`
 server actors remain supported.
 
-## RC6 validation matrix
+## v2.4.0 validation matrix
 
-The following paths were validated with real signed activities during the RC6
-release process:
+The following paths were validated with real signed activities before the stable `v2.4.0`
+release:
 
 | Publisher path | Relay behavior | Receiving software | Result |
 | --- | --- | --- | --- |
@@ -84,7 +84,7 @@ Start with the public relay request status:
 
 - `202 Accepted` means the relay accepted the signed activity for processing.
 - `400 Bad Request` commonly indicates actor resolution, signature or digest
-  verification, or JSON decoding failed. RC6 logs the bounded failure reason
+  verification, or JSON decoding failed. Version 2.4.0 logs the bounded failure reason
   with request metadata, but never logs request bodies, signatures, or key
   material.
 
@@ -96,7 +96,7 @@ For NodeBB specifically, verify that:
 4. the canonical post URL returns the expected `Article` or `Note`; and
 5. retry records identify the relay inbox as their destination.
 
-During RC6 validation, NodeBB 4.14.2 exposed two useful failure signatures:
+During pre-release validation, NodeBB 4.14.2 exposed two useful failure signatures:
 
 - Uncategorized topics could serialize a numeric audience such as
   `"to": [-1]`, which is not a valid string-valued ActivityPub audience.

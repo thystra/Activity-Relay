@@ -7,7 +7,7 @@ The public website and the relay runtime are separate:
 
 - The Go relay exposes ActivityPub endpoints and `/status.json`.
 - `build-site.py` generates static HTML, CSS, and JavaScript.
-- Nginx, Apache, or another reverse proxy serves the chosen frontend and
+- Nginx, Apache, Caddy, or another reverse proxy serves the chosen frontend and
   proxies the relay endpoints to the Go service.
 
 ## Frontend choices
@@ -182,7 +182,7 @@ The runtime image includes Python 3 for resource-guard tooling and website
 generation. Extract the source before customizing it:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0-rc6'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
 
 mkdir -p \
   activity-relay-web \
@@ -222,19 +222,21 @@ Serve `activity-relay-public` from the host reverse proxy or a separate web
 container. Re-run the builder after changing source files; the relay containers
 do not need restarting.
 
-## Nginx and Apache
+## Nginx, Apache, and Caddy
 
-Separate complete examples are included for both servers:
+Separate complete examples are included for all three servers:
 
 
 ```text
 ../nginx/activity-relay.conf.example
 ../apache/activity-relay.conf.example
+../caddy/Caddyfile.example
+../caddy/README.md
 ```
 
-Both templates use the bundled site by default and include comments describing
-how to disable, redirect, or replace the frontend. Neither template is enabled
-automatically by the Debian package.
+All examples use the bundled site by default and document how to disable,
+redirect, or replace the frontend. None is enabled automatically by the Debian
+package, and Caddy is not an Activity-Relay runtime dependency.
 
 For Apache on Debian or Ubuntu, enable the modules listed at the top of the
 example file before enabling the virtual host:
@@ -244,7 +246,8 @@ sudo a2enmod   headers   http2   proxy   proxy_http   proxy_wstunnel   rewrite  
 ```
 
 When changing the generated output path, update both Apache's `DocumentRoot`
-and its matching `<Directory>` path. For Nginx, update the `root` directive.
+and its matching `<Directory>` path. For Nginx or Caddy, update the `root`
+directive. See `../caddy/README.md` for validation and automatic-HTTPS notes.
 
 ## Verification
 

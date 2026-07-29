@@ -1,4 +1,8 @@
-activity-relay (2.4.0~rc6-5) noble; urgency=medium
+activity-relay (2.4.0-1) noble; urgency=medium
+
+  * Promote the production-validated RC6 application code to stable 2.4.0.
+  * Add an optional packaged Caddy reverse-proxy and static-site example.
+  * Publish stable documentation, architecture, roadmap, and release notes.
 
   * Preserve a matching tested Debian revision in tagged release builds.
   * Accept valid signed public activities from unsubscribed publishers.
@@ -48,7 +52,7 @@ activity-relay (2.4.0~rc6-5) noble; urgency=medium
   * Preserve loop protection for string-object and cross-domain Announce traffic.
   * Log inbound ActivityPub verification and decoding failures.
 
- -- thystra <noreply@github.com>  Tue, 28 Jul 2026 12:03:02 -0400
+ -- thystra <noreply@github.com>  Wed, 29 Jul 2026 16:01:00 -0400
 
 activity-relay (2.3.1) noble; urgency=medium
 

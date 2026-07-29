@@ -14,6 +14,14 @@ jobs:
         run: python3 -m unittest discover -s contrib/web -p 'test_*.py'
       - name: Test resource guard
         run: python3 -m unittest discover -s contrib/ops -p 'test_*.py'
+      - name: Validate Caddy example
+        run: |
+          docker run --rm \
+            --volume "$PWD/contrib/caddy/Caddyfile.example:/etc/caddy/Caddyfile:ro" \
+            caddy:2.11.2-alpine \
+            caddy validate \
+              --config /etc/caddy/Caddyfile \
+              --adapter caddyfile
       - name: Execute test and upload coverage
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

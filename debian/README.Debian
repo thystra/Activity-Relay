@@ -140,9 +140,9 @@ The relay actor publishes `publicKeyPem` as X.509 SubjectPublicKeyInfo PEM
 (`BEGIN PUBLIC KEY`). Inbound verification accepts both that form and legacy
 PKCS#1 RSA public keys (`BEGIN RSA PUBLIC KEY`).
 
-Package upgrades do not replace /etc/activity-relay/actor.pem. RC6-4 changes
-only the public serialization of the existing key and retains the relay actor
-ID and `#main-key` key ID.
+Package upgrades do not replace /etc/activity-relay/actor.pem. The `2.4.0`
+public-key compatibility change alters only the public serialization of the
+existing key and retains the relay actor ID and `#main-key` key ID.
 
 Storage placement
 -----------------

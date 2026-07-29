@@ -1,0 +1,40 @@
+# File: contrib/caddy/Caddyfile.example
+#
+# Optional Caddy 2 example for Activity-Relay.
+# Replace relay.example.org before use. The Go API is expected on
+# 127.0.0.1:8080 and the generated static site on
+# /var/www/activity-relay/public.
+
+relay.example.org {
+    encode zstd gzip
+
+    @relay_endpoints {
+        path             /inbox             /actor             /actor/outbox             /actor/followers             /actor/following             /status.json             /.well-known/nodeinfo             /.well-known/webfinger             /nodeinfo/2.1
+    }
+
+    handle @relay_endpoints {
+        reverse_proxy 127.0.0.1:8080
+    }
+
+    handle {
+        root * /var/www/activity-relay/public
+        file_server
+    }
+
+    header {
+        Content-Security-Policy "default-src 'self'; img-src 'self' https: data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+
+    log {
+        output file /var/log/caddy/activity-relay-access.log {
+            roll_size 10MiB
+            roll_keep 5
+            roll_keep_for 720h
+        }
+    }
+}
+
+# EOF: contrib/caddy/Caddyfile.example
