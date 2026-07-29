@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,10 +35,22 @@ func relayActivityV2(args ...string) error {
 	}
 
 	err = sendActivity(inboxURL, RelayActor.PublicKey.ID, []byte(body), GlobalConfig.ActorKey())
-	if err != nil {
-		domain, _ := url.Parse(inboxURL)
+	receiverDomain, domainErr := models.ReceiverDomainFromInboxURL(inboxURL)
+	if domainErr == nil {
+		healthErr := models.RecordReceiverDelivery(
+			context.Background(),
+			RedisClient,
+			receiverDomain,
+			err == nil,
+			time.Now().UTC(),
+		)
+		if healthErr != nil {
+			logrus.WithError(healthErr).WithField("receiver", receiverDomain).Warn("Unable to record receiver delivery health")
+		}
+	}
+	if err != nil && domainErr == nil {
 		pushErrorLogScript := "local change = redis.call('HSETNX', KEYS[1], 'last_error', ARGV[1]); if change == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end;"
-		RedisClient.Eval(context.TODO(), pushErrorLogScript, []string{"relay:statistics:" + domain.Host}, err.Error(), 60).Result()
+		RedisClient.Eval(context.TODO(), pushErrorLogScript, []string{"relay:statistics:" + receiverDomain}, err.Error(), 60).Result()
 	}
 	reductionRemainCountScript := "local remain_count = redis.call('HINCRBY', KEYS[1], 'remain_count', -1); if remain_count < 1 then redis.call('DEL', KEYS[1]) end;"
 	RedisClient.Eval(context.TODO(), reductionRemainCountScript, []string{"relay:activity:" + activityID}).Result()

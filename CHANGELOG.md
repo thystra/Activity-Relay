@@ -8,12 +8,19 @@
 - Add focused regression tests for signed actor and object fetches, exact `Host`
   authority signing, redirect re-signing, signature verification, and bounded
   remote errors.
+- Record durable per-receiver delivery success and failure timestamps, total
+  counters, and consecutive failures after each relay fan-out attempt.
+- Expose delivery health for current receivers through `/status.json` schema
+  version 4 without exposing inbox URLs, actor IDs, error text, or departed
+  receiver history.
 
 ### Changed
 - Use one shared HTTP-signature implementation for authorized fetch and outbound
   delivery while preserving the established signed POST header set.
 - Include bounded non-success response text in remote actor and object fetch
   errors without allowing unbounded response bodies.
+- Keep registration deliveries outside receiver fan-out health accounting and
+  preserve existing short-lived worker error diagnostics.
 
 ## [2.4.0] - 2026-07-29
 
