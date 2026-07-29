@@ -42,7 +42,12 @@ Redis instance.
 The API validates and records accepted activities, then creates bounded
 asynchronous delivery work. Workers sign outbound HTTP requests with the relay
 actor key, enforce response limits and timeouts, retry failures according to the
-task backend, and surface bounded remote response text in errors.
+task backend, and surface bounded remote response text in errors. Remote actor
+and ActivityPub object resolution also uses the relay actor identity. Authorized-
+fetch `GET` requests sign `(request-target)`, `Host`, and `Date`; redirected
+fetches are re-signed for the new request target and authority. Delivery `POST`
+requests additionally sign `Digest` and `Content-Type`. Both paths sign the exact
+`Host` authority transmitted on the wire.
 
 ### Resource guard
 
@@ -135,7 +140,8 @@ lists.
 - Inbound verification and decoding failures return an error and log bounded
   request metadata without bodies, signatures, or key material.
 - Queue admission is bounded and atomic.
-- Remote JSON and error bodies are size-limited.
+- Remote JSON and error bodies are size-limited, including non-success actor
+  and object fetch responses.
 - Worker failures include actionable bounded response text and are retried by
   the task backend.
 - Website-generation failure does not stop relay operation.

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+- Sign remote actor and ActivityPub object `GET` requests with the relay actor
+  identity for Mastodon authorized-fetch and secure-mode interoperability.
+- Add focused regression tests for signed actor and object fetches, exact `Host`
+  authority signing, redirect re-signing, signature verification, and bounded
+  remote errors.
+
+### Changed
+- Use one shared HTTP-signature implementation for authorized fetch and outbound
+  delivery while preserving the established signed POST header set.
+- Include bounded non-success response text in remote actor and object fetch
+  errors without allowing unbounded response bodies.
+
 ## [2.4.0] - 2026-07-29
 
 ### Stable release

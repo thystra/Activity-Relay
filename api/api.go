@@ -6,6 +6,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
+	"github.com/thystra/Activity-Relay/internal/httpsignature"
 	"github.com/thystra/Activity-Relay/models"
 	"github.com/yukimochi/machinery-v1/v1"
 )
@@ -21,9 +22,10 @@ var (
 	// WebfingerResources : Relay's Webfinger Resources
 	WebfingerResources []models.WebfingerResource
 
-	ActorCache      *cache.Cache
-	MachineryServer *machinery.Server
-	RelayState      models.RelayState
+	ActorCache          *cache.Cache
+	MachineryServer     *machinery.Server
+	RemoteRequestSigner *httpsignature.Signer
+	RelayState          models.RelayState
 )
 
 func Entrypoint(g *models.RelayConfig, v string) error {
@@ -71,6 +73,13 @@ func initialize(globalConfig *models.RelayConfig) error {
 	}
 
 	RelayActor = models.NewActivityPubActorFromRelayConfig(globalConfig)
+	RemoteRequestSigner, err = httpsignature.NewSigner(
+		RelayActor.PublicKey.ID,
+		globalConfig.ActorKey(),
+	)
+	if err != nil {
+		return err
+	}
 	ActorCache = cache.New(5*time.Minute, 10*time.Minute)
 
 	Nodeinfo = models.GenerateNodeinfoResources(globalConfig.ServerHostname(), version)
