@@ -53,4 +53,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/RichardKnop/machinery/v2 => github.com/thystra/machinery/v2 v2.0.17-0.20260730145804-fd43623b7b5c
+replace github.com/RichardKnop/machinery/v2 => github.com/thystra/machinery/v2 v2.0.17-0.20260730204902-5efae3f700cd
