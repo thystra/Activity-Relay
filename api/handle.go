@@ -134,6 +134,20 @@ func executePublicAnnounce(activity *models.Activity, actor *models.Actor) error
 	return recordPublisherActivity(activity, actor)
 }
 func handleInbox(writer http.ResponseWriter, request *http.Request, activityDecoder func(*http.Request) (*models.Activity, *models.Actor, []byte, error)) {
+	activityType := "other"
+	if request.Method == http.MethodPost && OperationalMetrics != nil {
+		recorder := &inboxStatusRecorder{ResponseWriter: writer}
+		writer = recorder
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				recordActivityMetric("rejected", activityType, "internal")
+				panic(recovered)
+			}
+			result, reason := classifyInboxMetric(recorder.Status())
+			recordActivityMetric(result, activityType, reason)
+		}()
+	}
+
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
 		handleReadOnlyOrderedCollection(writer, request, RelayActor.Inbox, "GET, HEAD, POST")
@@ -144,6 +158,7 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 			writer.WriteHeader(http.StatusBadRequest)
 			writer.Write(nil)
 		} else {
+			activityType = activity.Type
 			actorID, _ := url.Parse(activity.Actor)
 			switch {
 			case contains(activity.To, "https://www.w3.org/ns/activitystreams#Public"), contains(activity.Cc, "https://www.w3.org/ns/activitystreams#Public"):

@@ -69,8 +69,15 @@ are not metric labels.
 
 Liveness is process-only. Readiness performs a bounded Redis ping because Redis
 is required for relay state and queue operations. Worker processes do not open
-the listener; later relay-wide worker metrics are exported by the API process
-from shared Redis state so multiple workers do not contend for one bind address.
+the listener. API and worker processes instead write closed-enum counters to a
+shared Redis hash, and the API process exports those counters through its private
+registry. Scrape-time collectors add queue depth, temporary reservations, current
+receiver and publisher counts, and aggregate receiver-health states.
+
+Operational labels are deliberately bounded. They never contain domains, actor
+IDs, inbox URLs, activity IDs, request paths, query strings, response bodies, or
+raw errors. Ledger writes and scrape-time collection use short timeouts and never
+change relay admission, fan-out, delivery, or retry outcomes.
 
 ### Resource guard
 

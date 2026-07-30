@@ -351,9 +351,17 @@ curl --fail http://127.0.0.1:9090/-/ready
 curl --fail http://127.0.0.1:9090/metrics
 ```
 
-The worker command does not open this listener. Relay-wide queue, fan-out, and
-delivery metrics will be exported by the API process from shared Redis state as
-the remaining v2.5.0 observability work is implemented.
+The worker command does not open this listener. When observability is enabled in
+the shared configuration, API and worker processes write bounded operational
+counters to Redis and the API process exports them through `/metrics`. The
+operational surface includes activity outcomes, queue admission and depth,
+fan-out targets, delivery results, Redis-operation failures, current receiver and
+publisher counts, and aggregate receiver-health states.
+
+Metric labels are closed enums. Domains, actor IDs, inbox URLs, activity IDs, raw
+paths, query strings, response bodies, and error text are never labels. Complete
+Redis outages are represented by readiness and collection-success metrics because
+a failed Redis server cannot also persist its own failure counter.
 
 ## Operational summary scheduling
 

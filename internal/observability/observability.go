@@ -29,7 +29,7 @@ type Service struct {
 }
 
 // New creates an observability service backed by the relay Redis client.
-func New(version string, redisClient *redis.Client) *Service {
+func New(version string, redisClient *redis.Client, snapshots ...RuntimeSnapshotFunc) *Service {
 	readiness := func(context.Context) error {
 		return errors.New("Redis client is unavailable")
 	}
@@ -38,10 +38,23 @@ func New(version string, redisClient *redis.Client) *Service {
 			return redisClient.Ping(ctx).Err()
 		}
 	}
-	return newService(version, readiness)
+	var snapshot RuntimeSnapshotFunc
+	if len(snapshots) > 0 {
+		snapshot = snapshots[0]
+	}
+	return newServiceWithOperational(version, readiness, redisClient, snapshot)
 }
 
 func newService(version string, readiness ReadinessFunc) *Service {
+	return newServiceWithOperational(version, readiness, nil, nil)
+}
+
+func newServiceWithOperational(
+	version string,
+	readiness ReadinessFunc,
+	redisClient *redis.Client,
+	snapshot RuntimeSnapshotFunc,
+) *Service {
 	if readiness == nil {
 		readiness = func(context.Context) error {
 			return errors.New("readiness check is unavailable")
@@ -105,6 +118,9 @@ func newService(version string, readiness ReadinessFunc) *Service {
 		service.httpRequests,
 		service.httpDuration,
 	)
+	if operationalCollector := NewOperationalCollector(redisClient, snapshot); operationalCollector != nil {
+		service.registry.MustRegister(operationalCollector)
+	}
 	service.metricsHandler = promhttp.HandlerFor(
 		service.registry,
 		promhttp.HandlerOpts{EnableOpenMetrics: true},

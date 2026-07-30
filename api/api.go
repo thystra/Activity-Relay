@@ -29,6 +29,7 @@ var (
 	MachineryServer     *machinery.Server
 	RemoteRequestSigner *httpsignature.Signer
 	RelayState          models.RelayState
+	OperationalMetrics  *observability.Recorder
 )
 
 type httpServerBinding struct {
@@ -50,7 +51,11 @@ func Entrypoint(g *models.RelayConfig, v string) error {
 
 	var observabilityService *observability.Service
 	if GlobalConfig.ObservabilityBind() != "" {
-		observabilityService = observability.New(version, GlobalConfig.RedisClient())
+		observabilityService = observability.New(
+			version,
+			GlobalConfig.RedisClient(),
+			relayRuntimeSnapshot,
+		)
 		publicHandler = observabilityService.Instrument(publicHandler)
 	}
 
@@ -121,6 +126,10 @@ func serveHTTPServers(bindings []httpServerBinding) error {
 func initialize(globalConfig *models.RelayConfig) error {
 	var err error
 	redisClient := globalConfig.RedisClient()
+	OperationalMetrics = nil
+	if globalConfig.ObservabilityBind() != "" {
+		OperationalMetrics = observability.NewRecorder(redisClient)
+	}
 	RelayState = models.NewState(redisClient, true)
 	RelayState.ListenNotify(nil)
 

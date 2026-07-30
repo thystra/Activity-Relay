@@ -17,6 +17,10 @@
   metrics, process-only liveness, and Redis-backed readiness.
 - Add private-registry Go, process, build, Redis-readiness, and public API HTTP
   metrics with bounded method, route, and status labels.
+- Add relay-wide accepted/rejected activity, queue-admission, fan-out, delivery,
+  Redis-failure, queue-depth, receiver, publisher, and receiver-health metrics.
+- Aggregate API and worker counters through a bounded Redis ledger so worker
+  processes do not open or contend for the observability listener.
 
 ### Changed
 - Use one shared HTTP-signature implementation for authorized fetch and outbound
