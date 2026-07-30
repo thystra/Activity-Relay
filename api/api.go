@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RichardKnop/machinery/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/httpsignature"
 	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
-	"github.com/yukimochi/machinery-v1/v1"
 )
 
 var (

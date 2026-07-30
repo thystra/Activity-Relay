@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/RichardKnop/machinery/v2/tasks"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/thystra/Activity-Relay/models"
-	"github.com/yukimochi/machinery-v1/v1/tasks"
 )
 
 func followCmdInit() *cobra.Command {

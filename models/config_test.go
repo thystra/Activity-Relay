@@ -105,7 +105,7 @@ func TestRelayConfig_DumpWelcomeMessage(t *testing.T) {
 		"module NAME":     "Testing",
 		"RELAY NAME":      relayConfig.serviceName,
 		"RELAY DOMAIN":    relayConfig.domain.Host,
-		"REDIS URL":       relayConfig.redisURL,
+		"REDIS URL":       relayConfig.redisDisplayURL,
 		"BIND ADDRESS":    relayConfig.serverBind,
 		"OBSERVABILITY":   "disabled",
 		"JOB_CONCURRENCY": strconv.Itoa(relayConfig.jobConcurrency),

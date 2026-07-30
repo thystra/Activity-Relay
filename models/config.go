@@ -9,12 +9,16 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
+	machinery "github.com/RichardKnop/machinery/v2"
+	redisbackend "github.com/RichardKnop/machinery/v2/backends/redis"
+	redisbroker "github.com/RichardKnop/machinery/v2/brokers/redis"
+	machineryconfig "github.com/RichardKnop/machinery/v2/config"
+	eagerlock "github.com/RichardKnop/machinery/v2/locks/eager"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/yukimochi/machinery-v1/v1"
-	"github.com/yukimochi/machinery-v1/v1/config"
 )
 
 // RelayConfig contains valid configuration.
@@ -22,7 +26,9 @@ type RelayConfig struct {
 	actorKey          *rsa.PrivateKey
 	domain            *url.URL
 	redisClient       *redis.Client
+	redisOptions      *redis.Options
 	redisURL          string
+	redisDisplayURL   string
 	serverBind        string
 	observabilityBind string
 	serviceName       string
@@ -86,13 +92,15 @@ func NewRelayConfig() (*RelayConfig, error) {
 	}
 
 	redisURL := viper.GetString("REDIS_URL")
-	redisOption, err := redis.ParseURL(redisURL)
+	redisOptions, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, errors.New("REDIS_URL: " + err.Error())
 	}
-	redisClient := redis.NewClient(redisOption)
-	err = redisClient.Ping(context.TODO()).Err()
-	if err != nil {
+	redisClient := redis.NewClient(redisOptions)
+	pingContext, cancelPing := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelPing()
+	if err := redisClient.Ping(pingContext).Err(); err != nil {
+		_ = redisClient.Close()
 		return nil, errors.New("REDIS_URL: " + err.Error())
 	}
 
@@ -108,7 +116,9 @@ func NewRelayConfig() (*RelayConfig, error) {
 		actorKey:          privateKey,
 		domain:            domain,
 		redisClient:       redisClient,
+		redisOptions:      redisOptions,
 		redisURL:          redisURL,
+		redisDisplayURL:   redactedRedisURL(redisURL),
 		serverBind:        serverBind,
 		observabilityBind: observabilityBind,
 		serviceName:       viper.GetString("RELAY_SERVICENAME"),
@@ -180,7 +190,48 @@ REDIS URL       : %s
 BIND ADDRESS    : %s
 OBSERVABILITY   : %s
 JOB_CONCURRENCY : %s
-`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisURL, relayConfig.serverBind, observabilityBind, strconv.Itoa(relayConfig.jobConcurrency))
+`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisDisplayURL, relayConfig.serverBind, observabilityBind, strconv.Itoa(relayConfig.jobConcurrency))
+}
+
+func redactedRedisURL(redisURL string) string {
+	parsed, err := url.Parse(redisURL)
+	if err != nil {
+		return "<invalid>"
+	}
+	return parsed.Redacted()
+}
+
+func machineryRedisAddress(options *redis.Options) string {
+	if options.Username == "" && options.Password == "" {
+		return options.Addr
+	}
+	if options.Username == "" {
+		return options.Password + "@" + options.Addr
+	}
+	return options.Username + ":" + options.Password + "@" + options.Addr
+}
+
+func machineryConfig(options *redis.Options, displayURL string) *machineryconfig.Config {
+	var tlsConfig = options.TLSConfig
+	if tlsConfig != nil {
+		tlsConfig = tlsConfig.Clone()
+	}
+	return &machineryconfig.Config{
+		Broker:          displayURL,
+		DefaultQueue:    machineryQueueName,
+		ResultBackend:   displayURL,
+		ResultsExpireIn: machineryResultsExpireSeconds,
+		TLSConfig:       tlsConfig,
+		Redis: &machineryconfig.RedisConfig{
+			MaxIdle:                3,
+			IdleTimeout:            240,
+			ReadTimeout:            15,
+			WriteTimeout:           15,
+			ConnectTimeout:         15,
+			NormalTasksPollPeriod:  1000,
+			DelayedTasksPollPeriod: 500,
+		},
+	}
 }
 
 func validateBindAddress(address string) error {
@@ -201,15 +252,47 @@ func validateBindAddress(address string) error {
 	return nil
 }
 
-// NewMachineryServer create Redis backed Machinery Server from RelayConfig.
-func NewMachineryServer(globalConfig *RelayConfig) (*machinery.Server, error) {
-	cnf := &config.Config{
-		Broker:          globalConfig.redisURL,
-		DefaultQueue:    "relay",
-		ResultBackend:   globalConfig.redisURL,
-		ResultsExpireIn: 1,
-	}
-	newServer, err := machinery.NewServer(cnf)
+const machineryQueueName = "relay"
+const machineryResultsExpireSeconds = 1
 
-	return newServer, err
+// NewMachineryServer creates the Redis-backed Machinery v2 server while
+// preserving the established relay queue, delayed-task key, and result format.
+func NewMachineryServer(globalConfig *RelayConfig) (*machinery.Server, error) {
+	if globalConfig == nil || globalConfig.redisOptions == nil {
+		return nil, errors.New("Redis configuration is unavailable")
+	}
+
+	options := globalConfig.redisOptions
+	cnf := machineryConfig(options, globalConfig.redisDisplayURL)
+
+	switch options.Network {
+	case "tcp":
+		address := machineryRedisAddress(options)
+		broker := redisbroker.NewGR(cnf, []string{address}, options.DB)
+		backend := redisbackend.NewGR(cnf, []string{address}, options.DB)
+		return machinery.NewServer(cnf, broker, backend, eagerlock.New()), nil
+	case "unix":
+		broker := redisbroker.New(
+			cnf,
+			"",
+			options.Username,
+			options.Password,
+			options.Addr,
+			options.DB,
+		)
+		backend := redisbackend.New(
+			cnf,
+			"",
+			options.Username,
+			options.Password,
+			options.Addr,
+			options.DB,
+		)
+		return machinery.NewServer(cnf, broker, backend, eagerlock.New()), nil
+	default:
+		return nil, fmt.Errorf(
+			"unsupported Redis network %q for Machinery",
+			options.Network,
+		)
+	}
 }

@@ -3,11 +3,11 @@ package control
 import (
 	"os"
 
+	"github.com/RichardKnop/machinery/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thystra/Activity-Relay/models"
-	"github.com/yukimochi/machinery-v1/v1"
 )
 
 var (
