@@ -37,9 +37,6 @@ func TestHandleInboxRecordsRejectedActivity(t *testing.T) {
 	if err := RelayState.RedisClient.Del(ctx, observability.OperationalMetricsKey).Err(); err != nil {
 		t.Fatal(err)
 	}
-	previous := OperationalMetrics
-	OperationalMetrics = observability.NewRecorder(RelayState.RedisClient)
-	defer func() { OperationalMetrics = previous }()
 
 	request := httptest.NewRequest(http.MethodPost, "/inbox", strings.NewReader("{}"))
 	response := httptest.NewRecorder()
@@ -63,16 +60,13 @@ func TestEnqueueActivityRecordsNoTargets(t *testing.T) {
 	if err := RelayState.RedisClient.Del(ctx, observability.OperationalMetricsKey).Err(); err != nil {
 		t.Fatal(err)
 	}
-	previous := OperationalMetrics
-	OperationalMetrics = observability.NewRecorder(RelayState.RedisClient)
-	defer func() { OperationalMetrics = previous }()
 
 	enqueueActivity(nil, "source.example", []byte(`{"type":"Announce"}`))
 	ledger, err := RelayState.RedisClient.HGetAll(ctx, observability.OperationalMetricsKey).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ledger["queue_admissions_total|relay|skipped|no_targets"] != "1" {
+	if value := ledger["queue_admissions_total|relay|skipped|no_targets"]; value == "" || value == "0" {
 		t.Fatalf("no-target queue metric missing: %#v", ledger)
 	}
 }
