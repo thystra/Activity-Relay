@@ -54,13 +54,18 @@ compatibility; the package's internal Debian version is unchanged.
     - the compiled version string.
 15. Build the native Debian package and run Lintian on the `.changes` file.
 16. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
-17. For publisher/fan-out changes, verify a real accepted publisher activity
+17. Complete the applicable container and native-package matrix in
+    `docs/INTEGRATION-TESTING.md`, retaining external evidence for the exact
+    commit and artifacts.
+18. For queue changes, test Redis outage and recovery, graceful worker restart,
+    and abrupt worker termination after task claim.
+19. For publisher/fan-out changes, verify a real accepted publisher activity
     reaches a receiving server.
-18. Commit and push the release preparation.
-19. Create and push the annotated tag.
-20. Verify the GitHub release, checksums, package metadata, packaged examples,
+20. Commit and push the release preparation.
+21. Create and push the annotated tag.
+22. Verify the GitHub release, checksums, package metadata, packaged examples,
     and container manifests.
-21. Replace generated release notes with the reviewed versioned release notes.
+23. Replace generated release notes with the reviewed versioned release notes.
 
 ## Local validation
 

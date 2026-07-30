@@ -21,6 +21,11 @@
   Redis-failure, queue-depth, receiver, publisher, and receiver-health metrics.
 - Aggregate API and worker counters through a bounded Redis ledger so worker
   processes do not open or contend for the observability listener.
+- Add a host-neutral container and native-package integration test matrix,
+  including queue interruption, Redis recovery, identity preservation, rollback,
+  federation, metrics, and evidence requirements.
+- Document the current HTTP-signature compatibility profile and an additive RFC
+  9421 and RFC 9530 interoperability roadmap.
 
 ### Changed
 - Use one shared HTTP-signature implementation for authorized fetch and outbound

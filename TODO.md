@@ -20,6 +20,12 @@ Apache, and Caddy deployment examples.
     regression tests.
 - Remaining release gate: validate end-to-end federation with a real Mastodon
   instance running authorized fetch or secure mode.
+- Future security work:
+  - add inbound RFC 9421 verification without removing the established
+    Fediverse signature profile;
+  - add RFC 9530 `Content-Digest` support and bounded replay validation;
+  - test outbound RFC 9421 signing and fallback behavior against Mastodon; and
+  - maintain the security profile in `docs/SECURITY.md`.
 - Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/94>
 
 ### Receiver delivery health
@@ -77,8 +83,12 @@ Apache, and Caddy deployment examples.
   - direct and Machinery-path validation for ACL/database Redis, verified TLS,
     and Unix sockets.
 - Remaining release gates:
+  - validate the exact commit as both a Compose deployment and a native package
+    using the matrix in `docs/INTEGRATION-TESTING.md`;
   - repeat `rediss://`, Unix-socket, outage, reconnect, and worker-restart tests
-    against the integrated Activity-Relay binary on the integration host;
+    against the integrated Activity-Relay binary;
+  - characterize worker termination after task claim and document any
+    at-most-once delivery window or recovery procedure;
   - document backup, export, restore, and persistence verification procedures;
   - maintain and rebase the Redis-only fork for relevant upstream security and
     correctness fixes; and

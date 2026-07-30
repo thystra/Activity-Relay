@@ -729,8 +729,11 @@ git diff --check
 
 Contributor and coding-agent expectations are documented in
 [`AGENTS.md`](AGENTS.md). See [`ARCHITECTURE.md`](ARCHITECTURE.md) for component
-and data-flow design, and [`TODO.md`](TODO.md) for the maintained roadmap and
-release gates.
+and data-flow design, [`TODO.md`](TODO.md) for the maintained roadmap and
+release gates, [`docs/INTEGRATION-TESTING.md`](docs/INTEGRATION-TESTING.md) for
+the container and native-package validation matrix, and
+[`docs/SECURITY.md`](docs/SECURITY.md) for the HTTP-signature compatibility
+profile and RFC 9421 roadmap.
 
 ## Releases
 

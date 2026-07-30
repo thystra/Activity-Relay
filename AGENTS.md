@@ -107,6 +107,10 @@ Never run tests against production Redis.
   development plan.
 - Versioned release notes under `docs/releases/` describe the artifact actually
   published for that tag.
+- `docs/INTEGRATION-TESTING.md` defines host-neutral container and native-package
+  release gates; private transcripts and host details remain outside the repo.
+- `docs/SECURITY.md` records the current signature profile and additive security
+  roadmap.
 - Update `readme.md` and affected deployment documentation whenever behavior,
   packaging, configuration, or release procedures change.
 

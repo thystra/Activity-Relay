@@ -47,6 +47,13 @@ task-signature JSON, and result-state encoding remain wire-compatible with the
 earlier Machinery v1 deployment so an upgrade does not require draining pending
 work first.
 
+The ready Redis queue is not a visibility-timeout or leased queue. A worker
+removes a ready task before its handler completes. Graceful shutdown, retries,
+and cross-version queue compatibility are tested, but abrupt termination after
+claim may create an at-most-once window until integration interruption testing
+demonstrates otherwise. The required matrix and evidence are documented in
+`docs/INTEGRATION-TESTING.md`.
+
 ### Workers and delivery
 
 The API validates and records accepted activities, then creates bounded
@@ -61,6 +68,11 @@ requests additionally sign `Digest` and `Content-Type`. Both paths sign the exac
 atomically records the receiver domain's last success or failure time, total
 successes and failures, and consecutive failure count. Registration traffic does
 not affect these delivery-health observations.
+
+The existing Fediverse `Signature`-header profile remains the compatibility
+baseline. RFC 9421 verification and signing are planned as an additive security
+workstream; they must not remove established signature support without an
+explicit compatibility decision. See `docs/SECURITY.md`.
 
 ### Observability
 
