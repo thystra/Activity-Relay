@@ -54,8 +54,13 @@ func contains(entries interface{}, key string) bool {
 }
 
 func reserveQueueCapacity(additional int) bool {
+	accepted, _ := reserveQueueCapacityWithReason(additional)
+	return accepted
+}
+
+func reserveQueueCapacityWithReason(additional int) (bool, string) {
 	if additional < 1 {
-		return true
+		return true, "accepted"
 	}
 	const reserveScript = `
 local queued = redis.call('LLEN', KEYS[1])
@@ -74,13 +79,14 @@ return 1`
 	).Int()
 	if err != nil {
 		logrus.Error("Unable to reserve relay queue capacity: ", err)
-		return false
+		recordRedisOperationFailure("api", "queue_reserve")
+		return false, "redis"
 	}
 	if reserved != 1 {
 		logrus.Warn("Skipped relay work: queue would exceed MAX_QUEUE_JOBS")
-		return false
+		return false, "capacity"
 	}
-	return true
+	return true, "accepted"
 }
 
 func releaseQueueCapacity(additional int) {
@@ -95,11 +101,13 @@ end
 return remaining`
 	if err := RelayState.RedisClient.Eval(context.Background(), releaseScript, []string{queueReservationKey}, additional).Err(); err != nil {
 		logrus.Error("Unable to release relay queue capacity: ", err)
+		recordRedisOperationFailure("api", "queue_release")
 	}
 }
-
 func enqueueRegisterActivity(inboxURL string, body []byte) {
-	if !reserveQueueCapacity(1) {
+	accepted, reason := reserveQueueCapacityWithReason(1)
+	if !accepted {
+		recordQueueAdmission("register", "rejected", reason)
 		return
 	}
 	defer releaseQueueCapacity(1)
@@ -119,12 +127,13 @@ func enqueueRegisterActivity(inboxURL string, body []byte) {
 			},
 		},
 	}
-	_, err := MachineryServer.SendTask(job)
-	if err != nil {
+	if _, err := MachineryServer.SendTask(job); err != nil {
 		logrus.Error(err)
+		recordQueueAdmission("register", "error", "broker")
+		return
 	}
+	recordQueueAdmission("register", "accepted", "accepted")
 }
-
 func relayTask(inboxURL string, activityID string) *tasks.Signature {
 	return &tasks.Signature{
 		Name:       "relay-v2",
@@ -154,6 +163,7 @@ func storeRelayActivity(activityID string, body []byte, targetCount int) error {
 		2*60,
 	).Int()
 	if err != nil {
+		recordRedisOperationFailure("api", "activity_store")
 		return err
 	}
 	if stored != 1 {
@@ -165,6 +175,8 @@ func storeRelayActivity(activityID string, body []byte, targetCount int) error {
 func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, body []byte) {
 	if len(subscriptions) > GlobalConfig.MaxFanoutTargets() {
 		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
+		recordQueueAdmission("relay", "rejected", "fanout_limit")
+		recordFanoutTargets("rejected", len(subscriptions))
 		return
 	}
 	targets := make([]models.Subscriber, 0, len(subscriptions))
@@ -174,19 +186,23 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 		}
 	}
 	if len(targets) < 1 {
+		recordQueueAdmission("relay", "skipped", "no_targets")
 		return
 	}
-	if !reserveQueueCapacity(len(targets)) {
+	accepted, reason := reserveQueueCapacityWithReason(len(targets))
+	if !accepted {
+		recordQueueAdmission("relay", "rejected", reason)
+		recordFanoutTargets("rejected", len(targets))
 		return
 	}
 	defer releaseQueueCapacity(len(targets))
-
 	activityID := uuid.NewString()
 	if err := storeRelayActivity(activityID, body, len(targets)); err != nil {
 		logrus.Error("Unable to store relay activity: ", err)
+		recordQueueAdmission("relay", "error", "store")
+		recordFanoutTargets("error", len(targets))
 		return
 	}
-
 	signatures := make([]*tasks.Signature, 0, len(targets))
 	for _, target := range targets {
 		signatures = append(signatures, relayTask(target.InboxURL, activityID))
@@ -194,6 +210,8 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 	group, err := tasks.NewGroup(signatures...)
 	if err != nil {
 		logrus.Error("Unable to create relay task group: ", err)
+		recordQueueAdmission("relay", "error", "group")
+		recordFanoutTargets("error", len(targets))
 		return
 	}
 	concurrency := len(signatures)
@@ -202,9 +220,13 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 	}
 	if _, err := MachineryServer.SendGroup(group, concurrency); err != nil {
 		logrus.Error("Unable to enqueue relay task group: ", err)
+		recordQueueAdmission("relay", "error", "broker")
+		recordFanoutTargets("error", len(targets))
+		return
 	}
+	recordQueueAdmission("relay", "accepted", "accepted")
+	recordFanoutTargets("queued", len(targets))
 }
-
 func enqueueActivityForAll(sourceDomain string, body []byte) {
 	enqueueActivity(RelayState.Snapshot().SubscribersAndFollowers, sourceDomain, body)
 }

@@ -50,13 +50,15 @@ Apache, and Caddy deployment examples.
     common methods, and numeric status codes; and
   - focused tests for private registries, probes, timeouts, bounded labels, and
     panic accounting.
-- Remaining operational metrics:
-  - accepted and rejected activities with bounded reason categories;
-  - queue admission, reservations, and backlog;
-  - fan-out targets and outcomes;
-  - delivery results and bounded error categories;
-  - aggregate current-receiver and publisher state; and
-  - Redis operation failures beyond the readiness signal.
+- Implemented operational metrics in the v2.5.0 development line:
+  - accepted, rejected, and ignored inbox activities with bounded type and reason
+    categories;
+  - queue admission decisions, current reservations, and broker backlog;
+  - fan-out target outcomes;
+  - delivery outcomes with bounded network, TLS, HTTP, URL, and expiration classes;
+  - aggregate receiver, publisher, and receiver-health gauges;
+  - bounded Redis-operation failure counters when Redis remains writable; and
+  - shared API/worker counters through Redis without private or unbounded labels.
 - Remaining release gate: validate private binding, Prometheus scraping, liveness,
   and Redis outage/recovery behavior during the consolidated v2.5.0 integration
   pass.
