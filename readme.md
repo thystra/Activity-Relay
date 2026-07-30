@@ -48,8 +48,11 @@ github.com/thystra/Activity-Relay
 
 Existing ActivityPub endpoints, YAML settings, environment variables, Redis
 state, and control commands remain compatible unless a release explicitly
-documents otherwise. The `github.com/yukimochi/machinery-v1` module remains an
-external dependency inherited from the original project.
+documents otherwise. Asynchronous work retains the
+`github.com/RichardKnop/machinery/v2` import path and uses a Go `replace`
+directive pinned to the Redis-only `github.com/thystra/machinery/v2` fork at
+`v2.0.17-0.20260730145804-fd43623b7b5c`. The migration preserves the existing `relay` queue, delayed
+retries, task-signature JSON, and result-state encoding.
 
 ## Requirements
 

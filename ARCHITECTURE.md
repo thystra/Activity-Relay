@@ -38,6 +38,15 @@ The native package uses a dedicated Redis instance. Container deployments use
 the Redis service in `compose.yml`. Tests must use a disposable non-production
 Redis instance.
 
+Asynchronous tasks use the thystra Redis-only Machinery v2 fork with an
+explicitly injected Redis broker, Redis result backend, and in-process lock.
+The main module retains the upstream import path and selects
+`github.com/thystra/machinery/v2` at `v2.0.17-0.20260730145804-fd43623b7b5c` with a Go `replace`
+directive. The established `relay` list, `delayed_tasks` sorted set,
+task-signature JSON, and result-state encoding remain wire-compatible with the
+earlier Machinery v1 deployment so an upgrade does not require draining pending
+work first.
+
 ### Workers and delivery
 
 The API validates and records accepted activities, then creates bounded

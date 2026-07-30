@@ -67,13 +67,23 @@ Apache, and Caddy deployment examples.
 - Related upstream PR: <https://github.com/yukimochi/Activity-Relay/pull/100>
 
 ### Redis transport and durability
-
-- Add integration tests for `rediss://` through both direct state access and the
-  Machinery broker/result backend.
-- Add integration tests for Redis Unix-socket URLs through the same paths.
-- Document backup, export, restore, and persistence verification procedures.
-- Evaluate durable storage or replicated-state options without breaking current
-  Redis data.
+- Implemented Machinery v2 migration groundwork in the v2.5.0 development line:
+  - the thystra Redis-only fork of `RichardKnop/machinery/v2` v2.0.16 with
+    Redis broker and result backend injection;
+  - preserved `relay` queue, task-signature JSON, delayed-retry, and result-state
+    compatibility;
+  - isolated v1 producer to v2 worker and v2 producer to v1 worker validation;
+  - a delayed retry scheduled by v1 and completed by v2; and
+  - direct and Machinery-path validation for ACL/database Redis, verified TLS,
+    and Unix sockets.
+- Remaining release gates:
+  - repeat `rediss://`, Unix-socket, outage, reconnect, and worker-restart tests
+    against the integrated Activity-Relay binary on the integration host;
+  - document backup, export, restore, and persistence verification procedures;
+  - maintain and rebase the Redis-only fork for relevant upstream security and
+    correctness fixes; and
+  - evaluate durable storage or replicated-state options without breaking
+    current Redis data.
 - Related upstream issues:
   - <https://github.com/yukimochi/Activity-Relay/issues/59>
   - <https://github.com/yukimochi/Activity-Relay/issues/88>

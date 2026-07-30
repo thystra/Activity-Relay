@@ -29,6 +29,11 @@
   errors without allowing unbounded response bodies.
 - Keep registration deliveries outside receiver fan-out health accounting and
   preserve existing short-lived worker error diagnostics.
+- Migrate asynchronous task transport from `yukimochi/machinery-v1` v1.10.10
+  to the thystra Redis-only fork of `RichardKnop/machinery/v2` v2.0.16,
+  pinned to `fd43623b7b5c7e0eb358c52e450cdb3cb4a1dec8`.
+- Preserve the existing `relay` queue, task-signature JSON, delayed-retry set,
+  result-state format, and Redis database selection across the migration.
 
 ## [2.4.0] - 2026-07-29
 

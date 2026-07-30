@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RichardKnop/machinery/v2"
+	"github.com/RichardKnop/machinery/v2/log"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
-	"github.com/yukimochi/machinery-v1/v1"
-	"github.com/yukimochi/machinery-v1/v1/log"
 )
 
 var (
