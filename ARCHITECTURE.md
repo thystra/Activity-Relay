@@ -53,6 +53,25 @@ atomically records the receiver domain's last success or failure time, total
 successes and failures, and consecutive failure count. Registration traffic does
 not affect these delivery-health observations.
 
+### Observability
+
+The `server` command may start an optional second HTTP listener configured by
+`OBSERVABILITY_BIND`. It is disabled when the setting is empty and exposes only
+`/metrics`, `/-/healthy`, and `/-/ready`. The public ActivityPub listener never
+registers those routes.
+
+The observability listener owns a private Prometheus registry rather than the
+process-global registry. Its foundation metrics cover the API process, build
+identity, Redis readiness, and public API request counts and durations. HTTP
+labels are restricted to a fixed route set, common methods, and numeric status
+codes. Raw paths, query strings, domains, actor IDs, inbox URLs, and error text
+are not metric labels.
+
+Liveness is process-only. Readiness performs a bounded Redis ping because Redis
+is required for relay state and queue operations. Worker processes do not open
+the listener; later relay-wide worker metrics are exported by the API process
+from shared Redis state so multiple workers do not contend for one bind address.
+
 ### Resource guard
 
 The Python resource guard monitors storage and cache budgets and can send
@@ -152,6 +171,10 @@ configuration, inbox URLs, actor IDs, error text, and blocked lists.
   the task backend.
 - A receiver-health recording failure is logged but does not change the delivery
   result or retry decision.
+- An observability bind failure prevents the API server from accepting traffic,
+  avoiding a partially started process with missing requested monitoring.
+- Readiness failure returns HTTP 503 without terminating the process; liveness
+  remains independent of Redis.
 - Website-generation failure does not stop relay operation.
 - Debian packages remain inactive after first installation and restart only
   already-active Activity-Relay services during upgrades.
@@ -166,6 +189,8 @@ configuration, inbox URLs, actor IDs, error text, and blocked lists.
 - Do not weaken open-publisher policy checks while adding interoperability.
 - Do not make the optional website or a particular reverse proxy a relay
   dependency.
+- Keep the observability listener disabled by default or restricted to a trusted
+  interface, and never attach unbounded or private values to metric labels.
 
 ## Packaging and releases
 

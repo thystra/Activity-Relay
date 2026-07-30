@@ -41,12 +41,27 @@ Apache, and Caddy deployment examples.
 
 ### Prometheus and health endpoints
 
-- Review and port the useful design from upstream PR 100 rather than
-  cherry-picking it unchanged.
-- Add opt-in or separately bound `/metrics`, liveness, and readiness endpoints.
-- Use normalized route labels and bounded error categories.
-- Include HTTP, accepted/rejected activity, queue, fan-out, delivery, receiver,
-  publisher, Redis-health, and readiness metrics.
+- Implemented observability foundation in the v2.5.0 development line:
+  - optional `OBSERVABILITY_BIND` with no listener when unset;
+  - a separate listener exposing only `/metrics`, `/-/healthy`, and `/-/ready`;
+  - process-only liveness and a bounded Redis-backed readiness check;
+  - a private Prometheus registry with Go, process, build, and dependency metrics;
+  - public API HTTP counters and duration histograms using normalized routes,
+    common methods, and numeric status codes; and
+  - focused tests for private registries, probes, timeouts, bounded labels, and
+    panic accounting.
+- Remaining operational metrics:
+  - accepted and rejected activities with bounded reason categories;
+  - queue admission, reservations, and backlog;
+  - fan-out targets and outcomes;
+  - delivery results and bounded error categories;
+  - aggregate current-receiver and publisher state; and
+  - Redis operation failures beyond the readiness signal.
+- Remaining release gate: validate private binding, Prometheus scraping, liveness,
+  and Redis outage/recovery behavior during the consolidated v2.5.0 integration
+  pass.
+- Design informed by upstream PR 100 but implemented independently with a private
+  registry, separate listener, bounded labels, and real dependency readiness.
 - Related upstream PR: <https://github.com/yukimochi/Activity-Relay/pull/100>
 
 ### Redis transport and durability

@@ -22,6 +22,7 @@ YAML Format
 	ACTOR_PEM: /var/lib/relay/actor.pem
 	REDIS_URL: redis://localhost:6379
 	RELAY_BIND: 0.0.0.0:8080
+	# OBSERVABILITY_BIND: 127.0.0.1:9090
 	RELAY_DOMAIN: relay.example.org
 	RELAY_SERVICENAME: Example ActivityPub Relay
 	JOB_CONCURRENCY: 50
@@ -36,6 +37,7 @@ This is Optional : When config file not exist, use environment variables.
   - ACTOR_PEM
   - REDIS_URL
   - RELAY_BIND
+  - OBSERVABILITY_BIND
   - RELAY_DOMAIN
   - RELAY_SERVICENAME
   - JOB_CONCURRENCY
@@ -165,6 +167,7 @@ func initConfig(cmd *cobra.Command) {
 		viper.BindEnv("ACTOR_PEM")
 		viper.BindEnv("REDIS_URL")
 		viper.BindEnv("RELAY_BIND")
+		viper.BindEnv("OBSERVABILITY_BIND")
 		viper.BindEnv("RELAY_DOMAIN")
 		viper.BindEnv("RELAY_SERVICENAME")
 		viper.BindEnv("JOB_CONCURRENCY")
