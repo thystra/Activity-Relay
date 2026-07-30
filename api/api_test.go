@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
+	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
 )
 
@@ -35,6 +36,10 @@ func TestMain(m *testing.M) {
 	}
 	RelayState = models.NewState(RelayState.RedisClient, false)
 	RelayState.RedisClient.FlushAll(context.TODO()).Result()
+	// Production initializes one recorder before requests are served. Keep
+	// the same recorder lifetime for the entire API test process so
+	// asynchronous fan-out cannot race per-test pointer replacement.
+	OperationalMetrics = observability.NewRecorder(RelayState.RedisClient)
 	code := m.Run()
 	os.Exit(code)
 }
