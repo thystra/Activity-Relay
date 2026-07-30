@@ -2,6 +2,9 @@ ACTOR_PEM: /var/lib/relay/actor.pem
 REDIS_URL: redis://redis:6379
 
 RELAY_BIND: 0.0.0.0:8080
+# Optional separate metrics and probe listener; disabled when unset.
+# Keep it on a private container network and do not publish it publicly.
+# OBSERVABILITY_BIND: 0.0.0.0:9090
 RELAY_DOMAIN: relay.example.org
 RELAY_SERVICENAME: Community ActivityPub Relay
 JOB_CONCURRENCY: 50

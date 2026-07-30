@@ -5,8 +5,10 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -17,19 +19,20 @@ import (
 
 // RelayConfig contains valid configuration.
 type RelayConfig struct {
-	actorKey         *rsa.PrivateKey
-	domain           *url.URL
-	redisClient      *redis.Client
-	redisURL         string
-	serverBind       string
-	serviceName      string
-	serviceSummary   string
-	serviceIconURL   *url.URL
-	serviceImageURL  *url.URL
-	jobConcurrency   int
-	maxActivityBytes int64
-	maxFanoutTargets int
-	maxQueueJobs     int64
+	actorKey          *rsa.PrivateKey
+	domain            *url.URL
+	redisClient       *redis.Client
+	redisURL          string
+	serverBind        string
+	observabilityBind string
+	serviceName       string
+	serviceSummary    string
+	serviceIconURL    *url.URL
+	serviceImageURL   *url.URL
+	jobConcurrency    int
+	maxActivityBytes  int64
+	maxFanoutTargets  int
+	maxQueueJobs      int64
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
@@ -94,27 +97,39 @@ func NewRelayConfig() (*RelayConfig, error) {
 	}
 
 	serverBind := viper.GetString("RELAY_BIND")
+	observabilityBind := strings.TrimSpace(viper.GetString("OBSERVABILITY_BIND"))
+	if observabilityBind != "" {
+		if err := validateBindAddress(observabilityBind); err != nil {
+			return nil, errors.New("OBSERVABILITY_BIND: " + err.Error())
+		}
+	}
 
 	return &RelayConfig{
-		actorKey:         privateKey,
-		domain:           domain,
-		redisClient:      redisClient,
-		redisURL:         redisURL,
-		serverBind:       serverBind,
-		serviceName:      viper.GetString("RELAY_SERVICENAME"),
-		serviceSummary:   viper.GetString("RELAY_SUMMARY"),
-		serviceIconURL:   iconURL,
-		serviceImageURL:  imageURL,
-		jobConcurrency:   jobConcurrency,
-		maxActivityBytes: maxActivityBytes,
-		maxFanoutTargets: maxFanoutTargets,
-		maxQueueJobs:     maxQueueJobs,
+		actorKey:          privateKey,
+		domain:            domain,
+		redisClient:       redisClient,
+		redisURL:          redisURL,
+		serverBind:        serverBind,
+		observabilityBind: observabilityBind,
+		serviceName:       viper.GetString("RELAY_SERVICENAME"),
+		serviceSummary:    viper.GetString("RELAY_SUMMARY"),
+		serviceIconURL:    iconURL,
+		serviceImageURL:   imageURL,
+		jobConcurrency:    jobConcurrency,
+		maxActivityBytes:  maxActivityBytes,
+		maxFanoutTargets:  maxFanoutTargets,
+		maxQueueJobs:      maxQueueJobs,
 	}, nil
 }
 
 // ServerBind is API Server's bind interface definition.
 func (relayConfig *RelayConfig) ServerBind() string {
 	return relayConfig.serverBind
+}
+
+// ObservabilityBind is the optional private metrics and probe listener.
+func (relayConfig *RelayConfig) ObservabilityBind() string {
+	return relayConfig.observabilityBind
 }
 
 // ServerHostname is API Server's hostname definition.
@@ -153,14 +168,37 @@ func (relayConfig *RelayConfig) RedisClient() *redis.Client {
 
 // DumpWelcomeMessage provide build and config information string.
 func (relayConfig *RelayConfig) DumpWelcomeMessage(moduleName string, version string) string {
+	observabilityBind := relayConfig.observabilityBind
+	if observabilityBind == "" {
+		observabilityBind = "disabled"
+	}
 	return fmt.Sprintf(`Welcome to Activity-Relay %s - %s
  - Configuration
 RELAY NAME      : %s
 RELAY DOMAIN    : %s
 REDIS URL       : %s
 BIND ADDRESS    : %s
+OBSERVABILITY   : %s
 JOB_CONCURRENCY : %s
-`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisURL, relayConfig.serverBind, strconv.Itoa(relayConfig.jobConcurrency))
+`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisURL, relayConfig.serverBind, observabilityBind, strconv.Itoa(relayConfig.jobConcurrency))
+}
+
+func validateBindAddress(address string) error {
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	if port == "" {
+		return errors.New("port is empty")
+	}
+	portNumber, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return errors.New("port must be numeric")
+	}
+	if portNumber == 0 {
+		return errors.New("port must be greater than zero")
+	}
+	return nil
 }
 
 // NewMachineryServer create Redis backed Machinery Server from RelayConfig.

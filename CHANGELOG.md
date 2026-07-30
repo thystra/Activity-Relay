@@ -13,6 +13,10 @@
 - Expose delivery health for current receivers through `/status.json` schema
   version 4 without exposing inbox URLs, actor IDs, error text, or departed
   receiver history.
+- Add an optional separately bound observability listener exposing Prometheus
+  metrics, process-only liveness, and Redis-backed readiness.
+- Add private-registry Go, process, build, Redis-readiness, and public API HTTP
+  metrics with bounded method, route, and status labels.
 
 ### Changed
 - Use one shared HTTP-signature implementation for authorized fetch and outbound

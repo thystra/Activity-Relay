@@ -261,6 +261,7 @@ ACTOR_PEM: /var/lib/relay/actor.pem
 REDIS_URL: redis://redis:6379
 
 RELAY_BIND: 0.0.0.0:8080
+# OBSERVABILITY_BIND: 0.0.0.0:9090
 RELAY_DOMAIN: relay.example.org
 RELAY_SERVICENAME: Community ActivityPub Relay
 JOB_CONCURRENCY: 10
@@ -296,6 +297,7 @@ environment variables:
 ACTOR_PEM
 REDIS_URL
 RELAY_BIND
+OBSERVABILITY_BIND
 RELAY_DOMAIN
 RELAY_SERVICENAME
 JOB_CONCURRENCY
@@ -309,6 +311,49 @@ RELAY_IMAGE
 
 Operational storage, cache, mail, and daily-summary settings are documented in
 [`contrib/ops/README.md`](contrib/ops/README.md).
+
+## Observability listener
+
+Observability is disabled when `OBSERVABILITY_BIND` is empty or unset. When it
+is configured for the `server` command, Activity-Relay starts a separate HTTP
+listener exposing only:
+
+```text
+GET /metrics
+GET /-/healthy
+GET /-/ready
+```
+
+`/-/healthy` is process-only liveness. `/-/ready` performs a bounded Redis ping
+and returns `503 Service Unavailable` when the required runtime store is not
+available. `/metrics` uses a private Prometheus registry and initially reports
+Go and process metrics, build information, Redis readiness, and public API HTTP
+request counts and durations. HTTP labels use a fixed route set, common methods,
+and numeric response codes; raw paths, query strings, domains, and error text are
+never labels.
+
+For a native installation, prefer a loopback binding such as:
+
+```yaml
+OBSERVABILITY_BIND: 127.0.0.1:9090
+```
+
+For containers, bind to the private container network only and do not publish
+the observability port on an untrusted interface. The bundled Compose file does
+not publish an observability port. Do not forward these routes through the public
+ActivityPub reverse proxy.
+
+Example local checks:
+
+```bash
+curl --fail http://127.0.0.1:9090/-/healthy
+curl --fail http://127.0.0.1:9090/-/ready
+curl --fail http://127.0.0.1:9090/metrics
+```
+
+The worker command does not open this listener. Relay-wide queue, fan-out, and
+delivery metrics will be exported by the API process from shared Redis state as
+the remaining v2.5.0 observability work is implemented.
 
 ## Operational summary scheduling
 
@@ -384,6 +429,9 @@ A public reverse proxy should forward these relay routes:
 /nodeinfo/2.1
 ```
 
+The public proxy should not forward `/metrics`, `/-/healthy`, or `/-/ready`;
+those routes belong only to the separately bound observability listener.
+
 The actor advertises `inbox`, `outbox`, `followers`, `following`, and
 `endpoints.sharedInbox`. Public GET requests to the collection endpoints return
 privacy-filtered empty `OrderedCollection` documents. The relay does not expose
@@ -444,12 +492,13 @@ The API server exposes:
 GET /status.json
 ```
 
-Schema version 3 reports relay identity and policy, endpoints, software version,
+Schema version 4 reports relay identity and policy, endpoints, software version,
 and three related domain views:
 
 - `connected_instances`: the deduplicated set of domains that receive relay
   traffic, publish accepted activities, or do both;
-- `receiving_instances`: the narrower set that receives fan-out;
+- `receiving_instances`: the narrower set that receives fan-out, including
+  delivery-health timestamps and counters for currently registered receivers;
 - `publishers`: observed sending domains, last-seen metadata, activity count,
   and whether each domain also receives the relay.
 

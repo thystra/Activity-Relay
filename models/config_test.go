@@ -18,6 +18,9 @@ func TestNewRelayConfig(t *testing.T) {
 		if relayConfig.serverBind != "0.0.0.0:8080" {
 			t.Errorf("Expected RelayConfig.serverBind to be '0.0.0.0:8080', but got '%s'", relayConfig.serverBind)
 		}
+		if relayConfig.observabilityBind != "" {
+			t.Errorf("Expected RelayConfig.observabilityBind to be empty, but got '%s'", relayConfig.observabilityBind)
+		}
 		if relayConfig.domain.Host != "relay.toot.yukimochi.jp" {
 			t.Errorf("Expected RelayConfig.domain.Host to be 'relay.toot.yukimochi.jp', but got '%s'", relayConfig.domain.Host)
 		}
@@ -37,10 +40,12 @@ func TestNewRelayConfig(t *testing.T) {
 
 	t.Run("Fail to load invalid configuration", func(t *testing.T) {
 		invalidConfig := map[string]string{
-			"ACTOR_PEM@notFound":        "../misc/test/notfound.pem",
-			"ACTOR_PEM@invalidKey":      "../misc/test/actor.dh.pem",
-			"REDIS_URL@invalidURL":      "",
-			"REDIS_URL@unreachableHost": "redis://localhost:6380",
+			"ACTOR_PEM@notFound":             "../misc/test/notfound.pem",
+			"ACTOR_PEM@invalidKey":           "../misc/test/actor.dh.pem",
+			"REDIS_URL@invalidURL":           "",
+			"REDIS_URL@unreachableHost":      "redis://localhost:6380",
+			"OBSERVABILITY_BIND@missingPort": "127.0.0.1",
+			"OBSERVABILITY_BIND@zeroPort":    "127.0.0.1:0",
 		}
 
 		for key, value := range invalidConfig {
@@ -74,6 +79,17 @@ func TestRelayConfig_ServerBind(t *testing.T) {
 	}
 }
 
+func TestRelayConfig_ObservabilityBind(t *testing.T) {
+	previous := viper.GetString("OBSERVABILITY_BIND")
+	viper.Set("OBSERVABILITY_BIND", "127.0.0.1:9090")
+	defer viper.Set("OBSERVABILITY_BIND", previous)
+
+	relayConfig := createRelayConfig(t)
+	if relayConfig.ObservabilityBind() != "127.0.0.1:9090" {
+		t.Errorf("Expected ObservabilityBind() to return '127.0.0.1:9090', but got '%s'", relayConfig.ObservabilityBind())
+	}
+}
+
 func TestRelayConfig_ServerHostname(t *testing.T) {
 	relayConfig := createRelayConfig(t)
 	if relayConfig.ServerHostname() != relayConfig.domain {
@@ -91,6 +107,7 @@ func TestRelayConfig_DumpWelcomeMessage(t *testing.T) {
 		"RELAY DOMAIN":    relayConfig.domain.Host,
 		"REDIS URL":       relayConfig.redisURL,
 		"BIND ADDRESS":    relayConfig.serverBind,
+		"OBSERVABILITY":   "disabled",
 		"JOB_CONCURRENCY": strconv.Itoa(relayConfig.jobConcurrency),
 	}
 

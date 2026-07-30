@@ -3,6 +3,8 @@ ACTOR_PEM: /etc/activity-relay/actor.pem
 REDIS_URL: redis://127.0.0.1:6380
 
 RELAY_BIND: 127.0.0.1:8080
+# Optional loopback-only metrics and probe listener; disabled when unset.
+# OBSERVABILITY_BIND: 127.0.0.1:9090
 RELAY_DOMAIN: relay.example.org
 RELAY_SERVICENAME: Community ActivityPub Relay
 JOB_CONCURRENCY: 50

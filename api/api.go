@@ -1,12 +1,16 @@
 package api
 
 import (
+	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/httpsignature"
+	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
 	"github.com/yukimochi/machinery-v1/v1"
 )
@@ -14,7 +18,6 @@ import (
 var (
 	version      string
 	GlobalConfig *models.RelayConfig
-
 	// RelayActor : Relay's Actor
 	RelayActor models.Actor
 	// Nodeinfo : Relay's Nodeinfo
@@ -28,41 +31,95 @@ var (
 	RelayState          models.RelayState
 )
 
-func Entrypoint(g *models.RelayConfig, v string) error {
-	var err error
+type httpServerBinding struct {
+	name     string
+	server   *http.Server
+	listener net.Listener
+}
 
+func Entrypoint(g *models.RelayConfig, v string) error {
 	version = v
 	GlobalConfig = g
-
-	err = initialize(GlobalConfig)
-	if err != nil {
+	if err := initialize(GlobalConfig); err != nil {
 		return err
 	}
 
 	mux := http.NewServeMux()
 	handlersRegister(mux)
+	publicHandler := http.Handler(mux)
 
-	logrus.Info("Starting API Server at ", GlobalConfig.ServerBind())
-	server := &http.Server{
-		Addr:              GlobalConfig.ServerBind(),
-		Handler:           mux,
+	var observabilityService *observability.Service
+	if GlobalConfig.ObservabilityBind() != "" {
+		observabilityService = observability.New(version, GlobalConfig.RedisClient())
+		publicHandler = observabilityService.Instrument(publicHandler)
+	}
+
+	apiListener, err := net.Listen("tcp", GlobalConfig.ServerBind())
+	if err != nil {
+		return fmt.Errorf("listen for API server on %s: %w", GlobalConfig.ServerBind(), err)
+	}
+	bindings := []httpServerBinding{
+		{
+			name:     "API Server",
+			server:   newHTTPServer(GlobalConfig.ServerBind(), publicHandler),
+			listener: apiListener,
+		},
+	}
+
+	if observabilityService != nil {
+		observabilityBind := GlobalConfig.ObservabilityBind()
+		observabilityListener, err := net.Listen("tcp", observabilityBind)
+		if err != nil {
+			_ = apiListener.Close()
+			return fmt.Errorf("listen for observability server on %s: %w", observabilityBind, err)
+		}
+		bindings = append(bindings, httpServerBinding{
+			name:     "Observability Server",
+			server:   newHTTPServer(observabilityBind, observabilityService.Handler()),
+			listener: observabilityListener,
+		})
+	}
+
+	return serveHTTPServers(bindings)
+}
+
+func newHTTPServer(address string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              address,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    64 * 1024,
 	}
-	err = server.ListenAndServe()
-	if err != nil {
-		return err
+}
+
+func serveHTTPServers(bindings []httpServerBinding) error {
+	errorsChannel := make(chan error, len(bindings))
+	for _, binding := range bindings {
+		binding := binding
+		logrus.Info("Starting ", binding.name, " at ", binding.listener.Addr())
+		go func() {
+			err := binding.server.Serve(binding.listener)
+			if errors.Is(err, http.ErrServerClosed) {
+				err = nil
+			} else if err != nil {
+				err = fmt.Errorf("%s: %w", binding.name, err)
+			}
+			errorsChannel <- err
+		}()
 	}
 
-	return nil
+	err := <-errorsChannel
+	for _, binding := range bindings {
+		_ = binding.server.Close()
+	}
+	return err
 }
 
 func initialize(globalConfig *models.RelayConfig) error {
 	var err error
-
 	redisClient := globalConfig.RedisClient()
 	RelayState = models.NewState(redisClient, true)
 	RelayState.ListenNotify(nil)
@@ -81,13 +138,11 @@ func initialize(globalConfig *models.RelayConfig) error {
 		return err
 	}
 	ActorCache = cache.New(5*time.Minute, 10*time.Minute)
-
 	Nodeinfo = models.GenerateNodeinfoResources(globalConfig.ServerHostname(), version)
 	WebfingerResources = append(WebfingerResources, RelayActor.GenerateWebfingerResource(globalConfig.ServerHostname()))
 
 	return nil
 }
-
 func handlersRegister(mux *http.ServeMux) {
 	mux.HandleFunc("/.well-known/nodeinfo", handleNodeinfoLink)
 	mux.HandleFunc("/.well-known/webfinger", handleWebfinger)
