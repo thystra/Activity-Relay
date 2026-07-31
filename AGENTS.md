@@ -65,8 +65,11 @@ Before committing changes:
 2. Run `go vet ./...`.
 3. Run Redis-backed tests with a disposable Redis instance:
    `REDIS_URL=redis://127.0.0.1:6381 go test -count=1 -p 1 ./...`
-4. Run focused race tests:
-   `REDIS_URL=redis://127.0.0.1:6381 go test -race -count=1 -p 1 ./api ./models`
+4. Run the full serialized race suite:
+   `REDIS_URL=redis://127.0.0.1:6381 go test -race -count=1 -p 1 ./...`
+   Activity-Relay package tests share Redis and some packages clear the selected
+   database, so package-level test processes must remain serialized unless each
+   package receives an isolated Redis database.
 5. Run the static-site tests:
    `python3 -m unittest discover -s contrib/web -p 'test_*.py'`
 6. Run the operations tests:

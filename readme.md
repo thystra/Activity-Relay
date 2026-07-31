@@ -23,12 +23,14 @@ Compared with the upstream baseline, this fork includes:
   publishers, including WordPress ActivityPub sites.
 - Publisher first-seen, last-seen, activity-type, and accepted-activity
   counters.
-- `/status.json` schema version 3 with:
+- `/status.json` schema version 4 with:
   - `connected_instances`: all unique participating domains;
-  - `receiving_instances`: domains that receive relay fan-out;
+  - `receiving_instances`: domains that receive relay fan-out, with current
+    delivery-health timestamps and counters;
   - `publishers`: observed sending domains and their roles.
 - A tested Redis-backed fan-out pipeline with bounded queue and response
-  controls.
+  controls, leased in-flight task claims, and at-least-once recovery after
+  abrupt worker termination.
 - Multi-architecture `linux/amd64` and `linux/arm64` container releases on GHCR.
 - Native Ubuntu 24.04 `amd64` Debian packages with systemd units, a dedicated
   Redis instance, operational resource monitoring, and upgrade-safe identity
@@ -51,8 +53,15 @@ state, and control commands remain compatible unless a release explicitly
 documents otherwise. Asynchronous work retains the
 `github.com/RichardKnop/machinery/v2` import path and uses a Go `replace`
 directive pinned to the Redis-only `github.com/thystra/machinery/v2` fork at
-`v2.0.17-0.20260730145804-fd43623b7b5c`. The migration preserves the existing `relay` queue, delayed
-retries, task-signature JSON, and result-state encoding.
+`v2.0.17-0.20260730204902-5efae3f700cd`. The migration preserves the existing `relay` queue,
+delayed retries, task-signature JSON, and result-state encoding.
+
+The go-redis worker moves ready work atomically into leased in-flight claim
+records and acknowledges a claim only after processing succeeds. Expired claims
+are recovered to the ready queue. This prevents silent task loss during abrupt
+worker or host failure, but it is intentionally at-least-once: a remote side
+effect may be repeated when the worker dies after remote success but before
+local completion and acknowledgement.
 
 ## Requirements
 
@@ -707,6 +716,8 @@ done
 
 REDIS_URL='redis://127.0.0.1:6381' \
   go test -count=1 -p 1 ./...
+REDIS_URL='redis://127.0.0.1:6381' \
+  go test -race -count=1 -p 1 ./...
 
 go vet ./...
 
@@ -740,7 +751,9 @@ profile and RFC 9421 roadmap.
 Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
 [`docs/releases/`](docs/releases/), including
-[`v2.4.0`](docs/releases/v2.4.0.md). Historical RC notes remain under the same directory.
+[`v2.4.0`](docs/releases/v2.4.0.md) and the
+[`v2.5.0 draft`](docs/releases/v2.5.0.md). Historical RC notes remain under the
+same directory.
 
 ## Upstream and attribution
 

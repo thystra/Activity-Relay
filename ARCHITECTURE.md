@@ -41,18 +41,28 @@ Redis instance.
 Asynchronous tasks use the thystra Redis-only Machinery v2 fork with an
 explicitly injected Redis broker, Redis result backend, and in-process lock.
 The main module retains the upstream import path and selects
-`github.com/thystra/machinery/v2` at `v2.0.17-0.20260730145804-fd43623b7b5c` with a Go `replace`
-directive. The established `relay` list, `delayed_tasks` sorted set,
-task-signature JSON, and result-state encoding remain wire-compatible with the
-earlier Machinery v1 deployment so an upgrade does not require draining pending
-work first.
+`github.com/thystra/machinery/v2` at `v2.0.17-0.20260730204902-5efae3f700cd` with a Go `replace`
+directive. The maintained Machinery branch also contains repository cleanup and
+CI commits, while Activity-Relay remains pinned to the exact dependency commit
+validated in the integration environment.
+The established `relay` list, `delayed_tasks` sorted set, task-signature JSON,
+and result-state encoding remain wire-compatible with the earlier Machinery v1
+deployment so an upgrade does not require draining pending work first.
 
-The ready Redis queue is not a visibility-timeout or leased queue. A worker
-removes a ready task before its handler completes. Graceful shutdown, retries,
-and cross-version queue compatibility are tested, but abrupt termination after
-claim may create an at-most-once window until integration interruption testing
-demonstrates otherwise. The required matrix and evidence are documented in
-`docs/INTEGRATION-TESTING.md`.
+The go-redis broker atomically moves a ready task into an in-flight payload hash
+and lease sorted set. A processing worker renews the lease and acknowledges the
+claim only after `TaskProcessor.Process` returns successfully. Another worker
+atomically recovers expired claims to their original ready queue. Delayed-task
+promotion is also atomic.
+
+This gives abrupt worker and host failure at-least-once semantics. Work is not
+silently lost after claim, but a remote side effect may be repeated when the
+worker dies after remote success and before local completion and
+acknowledgement. Handlers and remote integrations should therefore use stable
+operation identifiers or otherwise tolerate duplicate delivery. Redis Cluster
+mode is rejected because the ready, payload, and lease keys are not guaranteed
+to share a cluster hash slot. The required interruption matrix and evidence
+expectations are documented in `docs/INTEGRATION-TESTING.md`.
 
 ### Workers and delivery
 

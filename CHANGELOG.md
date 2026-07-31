@@ -36,9 +36,20 @@
   preserve existing short-lived worker error diagnostics.
 - Migrate asynchronous task transport from `yukimochi/machinery-v1` v1.10.10
   to the thystra Redis-only fork of `RichardKnop/machinery/v2` v2.0.16,
-  pinned to `fd43623b7b5c7e0eb358c52e450cdb3cb4a1dec8`.
+  pinned to reliable-claims commit
+  `5efae3f700cd1d6118a564d6dab75a1bc7adc403`.
+- Move ready work atomically into leased in-flight Redis claims, renew active
+  leases, acknowledge only after successful processing, and recover expired
+  claims to their original ready queue.
+- Define task execution as at-least-once: abrupt termination after remote
+  success but before local acknowledgement may produce an expected duplicate,
+  while silent loss of the claimed task is prevented.
 - Preserve the existing `relay` queue, task-signature JSON, delayed-retry set,
-  result-state format, and Redis database selection across the migration.
+  result-state format, Redis database selection, and v1/v2 producer/consumer
+  compatibility across the migration.
+- Validate queued work, graceful shutdown, abrupt termination during delivery,
+  abrupt termination after remote HTTP success, delayed retry recovery, clean
+  final claim state, and bidirectional NodeBB/Mastodon relay interoperability.
 
 ## [2.4.0] - 2026-07-29
 
