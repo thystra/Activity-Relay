@@ -33,6 +33,26 @@ release:
 The NodeBB-to-Mastodon test was performed without relying on an indirect
 Friendica follow path.
 
+## v2.5.0 development validation
+
+The v2.5.0 development line was also exercised through an isolated test relay
+after the Machinery v2 reliable-claims migration:
+
+| Publisher path | Receiving software | Result |
+| --- | --- | --- |
+| NodeBB category public embedded `Announce` | Mastodon | Accepted, fetched, imported, and displayed |
+| Mastodon public `Create` | NodeBB | Delivered and displayed |
+
+The NodeBB test server was subscribed only to the isolated test relay during the
+Mastodon-to-NodeBB check, ruling out another configured relay as the delivery
+path. Both servers appeared as current receivers with successful delivery-health
+updates, zero consecutive failures, and no ready, delayed, or in-flight claims
+remaining after traffic settled.
+
+This confirms ordinary bidirectional fan-out after the reliable-claims
+migration. It does not replace the separate release gate for an explicitly
+configured Mastodon secure-mode or authorized-fetch test.
+
 ## Public embedded Announce normalization
 
 Some servers, including NodeBB category actors, publish locally created content

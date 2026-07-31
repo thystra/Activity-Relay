@@ -79,23 +79,39 @@ metadata and contents, run Lintian, and test:
 9. actor-key, configuration, Redis-data, and website-content preservation; and
 10. package removal behavior without purging operator-owned state.
 
-## Queue interruption tests
+## Queue interruption and reliable-claim tests
 
-The Redis broker removes a ready task from the queue before the handler
-finishes. Therefore an abrupt process death after claim but before completion
-requires explicit observation. Test at least these points:
+The go-redis broker atomically moves a task from the ready list into an
+in-flight payload hash and lease sorted set. A worker renews the lease while
+processing and acknowledges the claim only after successful completion. Expired
+claims are atomically returned to their original ready queue.
 
-- worker termination before claim;
-- termination immediately after claim;
-- termination during outbound HTTP delivery;
-- termination after remote success but before result-state completion;
-- graceful worker shutdown with queued tasks;
-- delayed retry scheduled before restart and completed afterward; and
-- Redis restart while workers are blocked waiting for tasks.
+Test at least these points:
 
-For every case, record whether the job is retried, duplicated, lost, or remains
-recoverable. A release note must document any known at-most-once window or
-operator recovery procedure.
+- worker termination before claim, expecting the task to remain ready;
+- graceful termination during active delivery, expecting completion and
+  acknowledgement before shutdown;
+- abrupt termination during outbound HTTP, expecting one durable claim followed
+  by retry after lease expiry;
+- abrupt termination after remote HTTP success but before local completion,
+  expecting a duplicate after lease expiry and eventual acknowledgement;
+- delayed retry scheduled before abrupt worker downtime and completed afterward;
+- Redis restart while workers are blocked waiting for tasks; and
+- final ready, delayed, in-flight payload, and lease counts returning to zero.
+
+For every case, capture the ready queue, delayed set, claim payload hash, lease
+set, HTTP-attempt events, local activity/result state, worker lifecycle, and
+final cleanup state. The release gate fails on silent loss, premature claim
+deletion, stranded claims, or inconclusive timing.
+
+The at-least-once behavior intentionally permits a duplicate when the remote side
+has already accepted an operation but the worker dies before local completion
+and acknowledgement. This is a passing classification only when the claim
+survives, expires, is retried, completes, and is removed cleanly. It is not an
+exactly-once guarantee.
+
+The reliable-claims implementation rejects Redis Cluster mode because all keys
+used by an atomic claim operation are not guaranteed to share a hash slot.
 
 ## Federation checks
 

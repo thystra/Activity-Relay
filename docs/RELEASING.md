@@ -43,7 +43,7 @@ compatibility; the package's internal Debian version is unchanged.
 6. Run `gofmt` on changed Go files.
 7. Run `go vet ./...`.
 8. Run Redis-backed `go test -count=1 -p 1 ./...`.
-9. Run Redis-backed `go test -race -count=1 -p 1 ./api ./models`.
+9. Run Redis-backed `go test -race -count=1 -p 1 ./...`.
 10. Run `python3 -m unittest discover -s contrib/web -p 'test_*.py'`.
 11. Run `python3 -m unittest discover -s contrib/ops -p 'test_*.py'`.
 12. Validate the Caddy example when it changes.
@@ -57,15 +57,23 @@ compatibility; the package's internal Debian version is unchanged.
 17. Complete the applicable container and native-package matrix in
     `docs/INTEGRATION-TESTING.md`, retaining external evidence for the exact
     commit and artifacts.
-18. For queue changes, test Redis outage and recovery, graceful worker restart,
-    and abrupt worker termination after task claim.
-19. For publisher/fan-out changes, verify a real accepted publisher activity
+18. For task-transport changes, run the interruption matrix and confirm:
+    - queued work survives pre-claim downtime;
+    - graceful shutdown completes and acknowledges active work;
+    - lease expiry recovers work after abrupt termination;
+    - remote success followed by local pre-acknowledgement failure produces the
+      expected at-least-once duplicate rather than silent loss;
+    - delayed retries survive worker downtime; and
+    - final ready, delayed, claim-payload, and claim-lease state is empty.
+19. Confirm the exact Machinery pseudo-version and commit in `go.mod` match the
+    revision covered by local, CI, container, and package evidence.
+20. For publisher/fan-out changes, verify a real accepted publisher activity
     reaches a receiving server.
-20. Commit and push the release preparation.
-21. Create and push the annotated tag.
-22. Verify the GitHub release, checksums, package metadata, packaged examples,
+21. Commit and push the release preparation.
+22. Create and push the annotated tag.
+23. Verify the GitHub release, checksums, package metadata, packaged examples,
     and container manifests.
-23. Replace generated release notes with the reviewed versioned release notes.
+24. Replace generated release notes with the reviewed versioned release notes.
 
 ## Local validation
 
@@ -92,7 +100,7 @@ REDIS_URL='redis://127.0.0.1:6381' \
   go test -count=1 -p 1 ./...
 
 REDIS_URL='redis://127.0.0.1:6381' \
-  go test -race -count=1 -p 1 ./api ./models
+  go test -race -count=1 -p 1 ./...
 
 go vet ./...
 
@@ -117,7 +125,7 @@ docker rm -f activity-relay-release-test-redis
 Build and inspect the container:
 
 ```bash
-ACTIVITY_RELAY_VERSION='2.4.0' \
+ACTIVITY_RELAY_VERSION='2.5.0-rc1' \
 docker compose \
   -f compose.yml \
   -f compose.build.yml \
@@ -152,7 +160,7 @@ dpkg-buildpackage \
 
 lintian \
   --fail-on error \
-  ../activity-relay_2.4.0-1_amd64.changes
+  ../activity-relay_2.5.0~rc1-1_amd64.changes
 ```
 
 ## Tag the tested commit
@@ -161,15 +169,15 @@ lintian \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.4.0 -m 'Activity-Relay v2.4.0 maintained fork release'
-git push origin v2.4.0
+git tag -a v2.5.0-rc1 -m 'Activity-Relay v2.5.0-rc1'
+git push origin v2.5.0-rc1
 ```
 
 After the release workflow creates the GitHub release, apply the reviewed notes
 stored in the repository:
 
 ```bash
-gh release edit v2.4.0 --notes-file docs/releases/v2.4.0.md
+gh release edit v2.5.0-rc1 --notes-file docs/releases/v2.5.0.md
 ```
 
 For a future release candidate, use its complete `vX.Y.Z-rcN` tag and matching

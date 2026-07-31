@@ -2,117 +2,94 @@
 
 ## Current stable release
 
-`v2.4.0` is the current stable maintained-fork release. It promotes the RC6
-application code after production soak validation and includes optional Nginx,
-Apache, and Caddy deployment examples.
+`v2.4.0` is the current stable maintained-fork release. Production remains on
+that release until the complete v2.5.0 package, release-artifact, and deployment
+gates pass.
 
-## Planned v2.5.0 work
+## v2.5.0 development status
 
-### Signed authorized fetch
+Status recorded 2026-07-30.
 
-- Implemented in the v2.5.0 development line:
-  - relay-signed remote actor and object `GET` requests for Mastodon authorized-
-    fetch and secure-mode interoperability;
-  - a shared signer that preserves exact on-wire `Host` authority behavior for
-    both authorized fetch and outbound delivery;
-  - bounded success and non-success response handling; and
-  - focused signature, redirect, actor-fetch, object-fetch, and error-bound
-    regression tests.
-- Remaining release gate: validate end-to-end federation with a real Mastodon
-  instance running authorized fetch or secure mode.
-- Future security work:
-  - add inbound RFC 9421 verification without removing the established
-    Fediverse signature profile;
-  - add RFC 9530 `Content-Digest` support and bounded replay validation;
-  - test outbound RFC 9421 signing and fallback behavior against Mastodon; and
-  - maintain the security profile in `docs/SECURITY.md`.
-- Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/94>
+### Implemented
 
-### Receiver delivery health
+- Relay-signed remote actor and object `GET` requests for Mastodon authorized-
+  fetch and secure-mode interoperability.
+- Shared exact-authority HTTP signing for authorized fetch and outbound
+  delivery, including redirect re-signing and bounded remote errors.
+- Durable per-receiver delivery success and failure timestamps, consecutive
+  failures, and total counters.
+- `/status.json` schema version 4 receiver-health output for current receivers
+  without inbox URLs, actor IDs, error text, or departed receiver history.
+- Optional private observability listener with Prometheus metrics, process
+  liveness, Redis-backed readiness, and bounded operational labels.
+- Migration from Machinery v1 to the maintained Redis-only Machinery v2 fork
+  while preserving queue, task, delayed-retry, result-state, Redis database, and
+  v1/v2 producer/consumer compatibility.
+- Leased in-flight Redis task claims, lease renewal, acknowledgement after
+  successful processing, expired-claim recovery, and atomic delayed promotion.
+- Explicit at-least-once delivery semantics: silent post-claim loss is
+  prevented, while a remote success followed by local worker death may produce
+  an expected duplicate.
 
-- Implemented in the v2.5.0 development line:
-  - atomic per-receiver last-success and last-failure timestamps;
-  - consecutive-failure, total-success, and total-failure counters;
-  - `/status.json` schema version 4 entries for current receivers only; and
-  - focused atomicity, success-reset, failure, privacy, and registration-exclusion
-    regression tests.
-- Existing short-lived `relay:statistics:<domain>` error diagnostics remain
-  compatible.
-- Historical health keys are retained but are not publicly listed after a receiver
-  unsubscribes.
-- Remaining release gate: observe health updates during the consolidated v2.5.0
-  end-to-end federation and production validation pass.
-- Define stale-receiver and cleanup policy only after observation data exists.
-- Related upstream issue: <https://github.com/yukimochi/Activity-Relay/issues/83>
+### Validated
 
-### Prometheus and health endpoints
+- Activity-Relay `master` commit
+  `75cf98a88e53303c75eb26b4b47b7bcd928e7dad`.
+- Machinery reliable-claims dependency commit
+  `5efae3f700cd1d6118a564d6dab75a1bc7adc403`.
+- Machinery maintained baseline
+  `9ccb63336b003d1c9827ebfaf2399bf13ea501a0`; its repository cleanup and CI
+  commits do not change the pinned `v2/` module bytes.
+- Full serialized Activity-Relay tests, full serialized race tests, vet, focused
+  regression repetition, binary builds, and command help.
+- Machinery full tests, full race tests, vet, Redis integration, groups, retries,
+  TLS, ACL, database selection, Unix sockets, and v1/v2 queue/result
+  compatibility.
+- Container integration with preserved actor identity, reverse-proxy
+  configuration, Redis persistence, private observability, and clean rollback.
+- Interruption matrix covering:
+  - task queued before claim;
+  - graceful shutdown during active delivery;
+  - abrupt termination during outbound HTTP;
+  - abrupt termination after remote HTTP success but before local completion;
+  - delayed retry across abrupt worker downtime; and
+  - empty ready, delayed, in-flight payload, and lease state afterward.
+- Bidirectional NodeBB-to-Mastodon and Mastodon-to-NodeBB delivery through an
+  isolated test relay, including receiver-health success observations and no
+  final queued or claimed work.
 
-- Implemented observability foundation in the v2.5.0 development line:
-  - optional `OBSERVABILITY_BIND` with no listener when unset;
-  - a separate listener exposing only `/metrics`, `/-/healthy`, and `/-/ready`;
-  - process-only liveness and a bounded Redis-backed readiness check;
-  - a private Prometheus registry with Go, process, build, and dependency metrics;
-  - public API HTTP counters and duration histograms using normalized routes,
-    common methods, and numeric status codes; and
-  - focused tests for private registries, probes, timeouts, bounded labels, and
-    panic accounting.
-- Implemented operational metrics in the v2.5.0 development line:
-  - accepted, rejected, and ignored inbox activities with bounded type and reason
-    categories;
-  - queue admission decisions, current reservations, and broker backlog;
-  - fan-out target outcomes;
-  - delivery outcomes with bounded network, TLS, HTTP, URL, and expiration classes;
-  - aggregate receiver, publisher, and receiver-health gauges;
-  - bounded Redis-operation failure counters when Redis remains writable; and
-  - shared API/worker counters through Redis without private or unbounded labels.
-- Remaining release gate: validate private binding, Prometheus scraping, liveness,
-  and Redis outage/recovery behavior during the consolidated v2.5.0 integration
-  pass.
-- Design informed by upstream PR 100 but implemented independently with a private
-  registry, separate listener, bounded labels, and real dependency readiness.
-- Related upstream PR: <https://github.com/yukimochi/Activity-Relay/pull/100>
+## Remaining v2.5.0 release gates
 
-### Redis transport and durability
-- Implemented Machinery v2 migration groundwork in the v2.5.0 development line:
-  - the thystra Redis-only fork of `RichardKnop/machinery/v2` v2.0.16 with
-    Redis broker and result backend injection;
-  - preserved `relay` queue, task-signature JSON, delayed-retry, and result-state
-    compatibility;
-  - isolated v1 producer to v2 worker and v2 producer to v1 worker validation;
-  - a delayed retry scheduled by v1 and completed by v2; and
-  - direct and Machinery-path validation for ACL/database Redis, verified TLS,
-    and Unix sockets.
-- Remaining release gates:
-  - validate the exact commit as both a Compose deployment and a native package
-    using the matrix in `docs/INTEGRATION-TESTING.md`;
-  - repeat `rediss://`, Unix-socket, outage, reconnect, and worker-restart tests
-    against the integrated Activity-Relay binary;
-  - characterize worker termination after task claim and document any
-    at-most-once delivery window or recovery procedure;
-  - document backup, export, restore, and persistence verification procedures;
-  - maintain and rebase the Redis-only fork for relevant upstream security and
-    correctness fixes; and
-  - evaluate durable storage or replicated-state options without breaking
-    current Redis data.
-- Related upstream issues:
-  - <https://github.com/yukimochi/Activity-Relay/issues/59>
-  - <https://github.com/yukimochi/Activity-Relay/issues/88>
-  - <https://github.com/yukimochi/Activity-Relay/issues/67>
+1. Validate authorized fetch against a real Mastodon instance explicitly running
+   the intended secure-mode or authorized-fetch configuration, including remote
+   actor and object fetch behavior.
+2. Build the final unreleased native package from the release candidate commit
+   and complete the package matrix in `docs/INTEGRATION-TESTING.md`, including
+   clean install, explicit activation, upgrade from v2.4.0, reinstallation,
+   rollback where supported, identity preservation, and removal behavior.
+3. Repeat the final Redis outage/reconnect and applicable TLS or Unix-socket
+   checks through the integrated release-candidate binary or package rather than
+   only the fork-level test suite.
+4. Document operator backup, export, restore, and Redis persistence verification
+   procedures.
+5. Finalize `CHANGELOG.md`, `readme.md`, Debian changelog/version metadata, and
+   `docs/releases/v2.5.0.md`.
+6. Run final local and GitHub Actions validation, build and lint the Debian
+   package, validate container contents and manifests, and verify checksums.
+7. Tag and publish a release candidate before any production deployment.
+8. Perform production deployment and post-deployment validation as a separate
+   explicitly recorded state.
 
-## Completed in v2.4.0
+## Deferred work after v2.5.0
 
-- Standard actor outbox, followers, following, and shared-inbox metadata.
-- Friendica and standards-style server-actor follow compatibility.
-- NodeBB reciprocal follow, public-key, HTTP `Host` signing, and embedded
-  `Announce` interoperability.
-- Public connected, receiving, and publisher status information.
-- Open signed publisher ingestion with policy enforcement.
-- Bounded queue, fan-out, remote response, and concurrency controls.
-- Multiple explicit daily-summary slots and resilient mail handling.
-- Upgrade-safe optional website customization.
-- Native package identity preservation and inactive-by-default services.
-- Optional Caddy example reviewed from the idea in upstream PR 60, implemented
-  as documentation rather than a runtime dependency.
+- Define stale-receiver retention and cleanup policy after sufficient health
+  observation data exists.
+- Add RFC 9421 inbound verification and RFC 9530 digest support without removing
+  the established Fediverse `Signature` compatibility profile.
+- Evaluate replicated or alternative durable state designs without breaking
+  current Redis compatibility.
+- Continue maintaining and rebasing the Redis-only Machinery fork for relevant
+  upstream security and correctness fixes.
 
 ## Release gates for future versions
 
