@@ -149,9 +149,12 @@ The relay records their receiving inboxes and fans out accepted public traffic.
 ### Follower-style subscription
 
 Pleroma, Akkoma, Friendica, NodeBB, and compatible server actors follow
-`/actor`. The relay accepts valid `Application` and `Service` actors at
-implementation-defined paths, returns `Accept`, and sends a reciprocal `Follow`.
-Legacy `/relay` and `/friendica` paths remain compatible.
+`/actor`. Activity-Relay publishes that relay actor as `Application` with
+`preferredUsername` `relay`, allowing current Friendica relay discovery while
+retaining the established actor ID, collections, and key identity. The relay
+accepts valid remote `Application` and `Service` actors at implementation-
+defined paths, returns `Accept`, and sends a reciprocal `Follow`. Legacy
+`/relay` and `/friendica` paths remain compatible.
 
 ### Publisher validation
 

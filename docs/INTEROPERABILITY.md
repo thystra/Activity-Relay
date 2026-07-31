@@ -14,9 +14,14 @@ Activity-Relay supports both common relay subscription models:
 - Follower-style servers follow the relay actor at `/actor` and receive an
   `Accept` plus a reciprocal relay `Follow`.
 
-The relay actor may be followed by standards-style `Application` or `Service`
-actors at implementation-defined actor paths. Legacy `/relay` and `/friendica`
-server actors remain supported.
+Activity-Relay publishes its own relay actor as `Application`, with
+`preferredUsername` `relay` at `/actor`. This matches current Friendica relay
+discovery while preserving the established actor ID, collections, endpoints,
+and `#main-key` identity.
+
+The relay actor may be followed by standards-style remote `Application` or
+`Service` actors at implementation-defined actor paths. Legacy `/relay` and
+`/friendica` server actors remain supported.
 
 ## v2.4.0 validation matrix
 
