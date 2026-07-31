@@ -46,6 +46,10 @@ an editable copy without replacing existing files:
 
    cp -an /usr/share/activity-relay/web/. /etc/activity-relay-web/
 
+   cp --update=none \
+       /etc/activity-relay-web/site.json.example \
+       /etc/activity-relay-web/site.json
+
 Edit /etc/activity-relay-web/site.json and build the site with the current
 package-managed source:
 
