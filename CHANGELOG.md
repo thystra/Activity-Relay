@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.0-rc1] - 2026-07-30
+
 ### Added
 - Sign remote actor and ActivityPub object `GET` requests with the relay actor
   identity for Mastodon authorized-fetch and secure-mode interoperability.
@@ -53,6 +55,16 @@
 - Validate queued work, graceful shutdown, abrupt termination during delivery,
   abrupt termination after remote HTTP success, delayed retry recovery, clean
   final claim state, and bidirectional NodeBB/Mastodon relay interoperability.
+
+### Validation
+- Confirm real Mastodon secure-mode behavior with an unsigned canonical-object
+  request rejected and the same request accepted when signed by the relay actor.
+- Confirm fresh Friendica 2026.05 relay discovery, follow/accept registration,
+  Mastodon-to-relay delivery, canonical-object retrieval, media and hashtag
+  preservation, and final Friendica presentation.
+- Record a NodeBB 4.14.2 receiving-side limitation: application-context object
+  fetches are unsigned, so secure-mode canonical objects can produce HTTP 424
+  even when the relay-signed delivery itself is valid.
 
 ## [2.4.0] - 2026-07-29
 

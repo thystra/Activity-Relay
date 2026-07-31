@@ -16,6 +16,10 @@
 
 Compared with the upstream baseline, this fork includes:
 
+- Relay-signed actor and canonical-object `GET` requests for Mastodon
+  authorized-fetch and secure-mode interoperability.
+- An ActivityStreams `Application` relay profile recognized by current
+  Friendica discovery without rotating the actor key or changing endpoints.
 - Server-actor follow and unfollow compatibility for NodeBB, Friendica,
   LitePub, and other `Application` or `Service` actors, while preserving
   `/relay` and `/friendica` legacy paths.
@@ -94,6 +98,12 @@ Set the stable release image in `.env`:
 
 ```dotenv
 ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
+```
+
+After `v2.5.0-rc1` is published, candidate testing uses:
+
+```dotenv
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.0-rc1
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move
@@ -488,6 +498,12 @@ object belongs to another domain, remain publisher-accounting events and are
 not fanned out. This preserves relay-to-relay loop protection and avoids
 amplifying ordinary boosts.
 
+NodeBB 4.14.2 has a receiving-side secure-mode limitation: its
+application-context canonical-object fetch is unsigned, so it can return HTTP
+424 after accepting a valid relay delivery when the remote object requires a
+signed `GET`. See `docs/INTEROPERABILITY.md`; this is not a relay-signature
+failure.
+
 Inbound request failures are logged with the HTTP method, path, remote address,
 user agent, and the bounded verification or decoding error. Request bodies,
 signatures, and key material are not logged.
@@ -755,7 +771,8 @@ Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
 [`docs/releases/`](docs/releases/), including
 [`v2.4.0`](docs/releases/v2.4.0.md) and the
-[`v2.5.0 draft`](docs/releases/v2.5.0.md). Historical RC notes remain under the
+[`v2.5.0 release-candidate notes`](docs/releases/v2.5.0.md). Historical RC
+notes remain under the
 same directory.
 
 ## Upstream and attribution
