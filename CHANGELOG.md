@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [2.5.0-rc2] - 2026-07-31
+### Added
+- Add bounded structured delivery-attempt diagnostics containing task and
+  activity correlation identifiers, origin and receiver domains, attempt
+  counters, elapsed time, HTTP status, error class, retry schedule, body digest,
+  and bounded non-success response text.
+- Add regression tests proving a retriable receiver failure preserves the shared
+  activity body and a later retry can deliver it successfully.
+### Changed
+- Give each `relay-v2` fan-out target five delayed retries using Machinery's
+  Fibonacci schedule after the initial delivery attempt.
+- Retain shared fan-out activity bodies for fifteen minutes, exceeding the full
+  retry horizon with an operational margin.
+### Fixed
+- Decrement a shared activity's `remain_count` only after successful delivery or
+  final retry exhaustion, rather than after every failed attempt.
+- Prevent transient receiver timeouts from deleting the payload required by
+  their own delayed retries or by other receivers.
+
 ## [2.5.0-rc1] - 2026-07-30
 
 ### Added

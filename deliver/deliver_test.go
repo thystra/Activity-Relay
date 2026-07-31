@@ -63,7 +63,7 @@ func TestRelayActivity(t *testing.T) {
 	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
 	RedisClient.Eval(context.TODO(), pushActivityScript, []string{"relay:activity:" + activityID.String()}, "ExampleData", remainCount, 10).Result()
 
-	err := relayActivityV2(s.URL, activityID.String())
+	err := relayActivityV2(context.Background(), s.URL, activityID.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestRelayActivityNoHost(t *testing.T) {
 	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
 	RedisClient.Eval(context.TODO(), pushActivityScript, []string{"relay:activity:" + activityID.String()}, "ExampleData", remainCount, 10).Result()
 
-	err := relayActivityV2("http://nohost.example.jp", activityID.String())
+	err := relayActivityV2(context.Background(), "http://nohost.example.jp", activityID.String())
 	if err == nil {
 		t.Fatal("Expected error to be reported for nohost, but got nil")
 	}
@@ -127,7 +127,7 @@ func TestRelayActivityResp500(t *testing.T) {
 	pushActivityScript := "redis.call('HSET',KEYS[1], 'body', ARGV[1], 'remain_count', ARGV[2]); redis.call('EXPIRE', KEYS[1], ARGV[3]);"
 	RedisClient.Eval(context.TODO(), pushActivityScript, []string{"relay:activity:" + activityID.String()}, "ExampleData", remainCount, 10).Result()
 
-	err := relayActivityV2(s.URL, activityID.String())
+	err := relayActivityV2(context.Background(), s.URL, activityID.String())
 	if err == nil {
 		t.Fatal("Expected error to be reported for 500 response, but got nil")
 	}

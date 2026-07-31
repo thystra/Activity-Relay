@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/thystra/Activity-Relay/internal/deliverypolicy"
 )
 
 func TestStoreRelayActivityReturnsSuccessAndPersistsPayload(t *testing.T) {
@@ -36,7 +38,8 @@ func TestStoreRelayActivityReturnsSuccessAndPersistsPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read relay activity TTL: %v", err)
 	}
-	if ttl <= 0 || ttl > 2*time.Minute {
-		t.Errorf("TTL = %v; want > 0 and <= 2m", ttl)
+	minimumTTL := deliverypolicy.ActivityRetention - time.Minute
+	if ttl < minimumTTL || ttl > deliverypolicy.ActivityRetention {
+		t.Errorf("TTL = %v; want between %v and %v", ttl, minimumTTL, deliverypolicy.ActivityRetention)
 	}
 }

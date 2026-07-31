@@ -1,3 +1,15 @@
+activity-relay (2.5.0~rc2-1) noble; urgency=medium
+
+  * Retry each relay fan-out target five times after the initial attempt.
+  * Retain shared activity bodies for fifteen minutes across the retry horizon.
+  * Reduce remain_count only on successful or finally exhausted target delivery.
+  * Add bounded structured task, activity, receiver, timing, status, retry, and
+    remote-response diagnostics without logging activity bodies or key material.
+  * Add regression tests for retriable failure retention, successful retry,
+    terminal cleanup, retry horizon, metadata extraction, and response bounds.
+
+ -- thystra <noreply@github.com>  Fri, 31 Jul 2026 17:23:00 -0400
+
 activity-relay (2.5.0~rc1-1) noble; urgency=medium
 
   * Sign remote actor and canonical-object GET requests with the relay actor

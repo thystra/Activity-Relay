@@ -12,6 +12,7 @@ import (
 	"github.com/RichardKnop/machinery/v2/tasks"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/thystra/Activity-Relay/internal/deliverypolicy"
 	"github.com/thystra/Activity-Relay/models"
 )
 
@@ -136,8 +137,9 @@ func enqueueRegisterActivity(inboxURL string, body []byte) {
 }
 func relayTask(inboxURL string, activityID string) *tasks.Signature {
 	return &tasks.Signature{
-		Name:       "relay-v2",
-		RetryCount: 0,
+		Name:         "relay-v2",
+		RetryCount:   deliverypolicy.RetryCount,
+		RetryTimeout: deliverypolicy.InitialRetryTimeoutSeconds,
 		Args: []tasks.Arg{
 			{
 				Name:  "inboxURL",
@@ -160,7 +162,7 @@ func storeRelayActivity(activityID string, body []byte, targetCount int) error {
 		[]string{"relay:activity:" + activityID},
 		body,
 		targetCount,
-		2*60,
+		deliverypolicy.ActivityRetentionSeconds,
 	).Int()
 	if err != nil {
 		recordRedisOperationFailure("api", "activity_store")

@@ -1,5 +1,20 @@
 # ActivityPub interoperability
 
+## Delivery retries and slow receivers
+
+RC2 retries each relay fan-out target five times after the initial attempt and
+retains the shared activity body for the full retry horizon. Receiver-side
+ActivityPub implementations may synchronously fetch actors, keys, objects,
+parents, contexts, or collections before returning from `/inbox`; transient
+timeouts therefore no longer become immediate terminal loss at the relay.
+Retries remain at-least-once and a receiver must tolerate duplicate delivery
+when it commits an activity after the relay client has timed out.
+
+Structured worker diagnostics record public identifiers, hashed body identity,
+attempt and elapsed-time data, receiver and origin domains, HTTP status, error
+classification, and bounded error responses. They intentionally exclude raw
+activity bodies, signatures, and key material.
+
 This document records interoperability behavior validated for the stable
 Activity-Relay `v2.4.0` release and the `v2.5.0-rc1` candidate line. The
 release-candidate results remain prerelease evidence; no matrix can guarantee
