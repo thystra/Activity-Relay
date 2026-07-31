@@ -453,10 +453,13 @@ The public proxy should not forward `/metrics`, `/-/healthy`, or `/-/ready`;
 those routes belong only to the separately bound observability listener.
 
 The actor advertises `inbox`, `outbox`, `followers`, `following`, and
-`endpoints.sharedInbox`. Public GET requests to the collection endpoints return
-privacy-filtered empty `OrderedCollection` documents. The relay does not expose
-subscriber identities or historical relayed activities, and it does not
-implement ActivityPub client-to-server POSTs to the outbox.
+`endpoints.sharedInbox`. It is published as an ActivityStreams `Application`
+named `relay` at `/actor` so current Friendica relay discovery recognizes it.
+This classification does not change the actor ID, endpoints, collections,
+public-key ID, or underlying actor key. Public GET requests to the collection
+endpoints return privacy-filtered empty `OrderedCollection` documents. The
+relay does not expose subscriber identities or historical relayed activities,
+and it does not implement ActivityPub client-to-server POSTs to the outbox.
 
 The relay accepts standards-style server actors of type `Application` or
 `Service` following the relay actor, regardless of whether their actor URL ends

@@ -28,6 +28,9 @@
   9421 and RFC 9530 interoperability roadmap.
 
 ### Changed
+- Publish the relay actor as an ActivityStreams `Application` rather than a
+  `Service` so current Friendica relay discovery accepts `/actor` while
+  preserving the actor ID, endpoints, collections, and `#main-key` identity.
 - Use one shared HTTP-signature implementation for authorized fetch and outbound
   delivery while preserving the established signed POST header set.
 - Include bounded non-success response text in remote actor and object fetch

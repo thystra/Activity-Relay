@@ -153,7 +153,7 @@ func NewActivityPubActorFromRelayConfig(globalConfig *RelayConfig) Actor {
 	newActor := Actor{
 		Context:           []string{"https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"},
 		ID:                hostname + "/actor",
-		Type:              "Service",
+		Type:              "Application",
 		Name:              globalConfig.serviceName,
 		PreferredUsername: "relay",
 		Summary:           globalConfig.serviceSummary,

@@ -14,6 +14,8 @@ Status recorded 2026-07-30.
 
 - Relay-signed remote actor and object `GET` requests for Mastodon authorized-
   fetch and secure-mode interoperability.
+- `Application` relay-actor classification for current Friendica discovery,
+  preserving the established actor ID, collections, endpoints, and key identity.
 - Shared exact-authority HTTP signing for authorized fetch and outbound
   delivery, including redirect re-signing and bounded remote errors.
 - Durable per-receiver delivery success and failure timestamps, consecutive
@@ -62,7 +64,8 @@ Status recorded 2026-07-30.
 
 1. Validate authorized fetch against a real Mastodon instance explicitly running
    the intended secure-mode or authorized-fetch configuration, including remote
-   actor and object fetch behavior.
+   actor and object fetch behavior; then validate fresh Friendica relay discovery,
+   follow/accept registration, delivery, canonical-object fetch, and presentation.
 2. Build the final unreleased native package from the release candidate commit
    and complete the package matrix in `docs/INTEGRATION-TESTING.md`, including
    clean install, explicit activation, upgrade from v2.4.0, reinstallation,
