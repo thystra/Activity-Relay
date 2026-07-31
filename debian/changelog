@@ -1,3 +1,22 @@
+activity-relay (2.5.0~rc1-1) noble; urgency=medium
+
+  * Sign remote actor and canonical-object GET requests with the relay actor
+    identity for Mastodon authorized-fetch and secure-mode interoperability.
+  * Publish the relay actor as ActivityStreams Application for current
+    Friendica discovery while preserving actor identity and endpoints.
+  * Add durable receiver delivery-health state and status schema version 4.
+  * Add a private observability listener with Prometheus, liveness, and
+    Redis-backed readiness endpoints.
+  * Migrate task transport to the maintained Redis-only Machinery v2 fork.
+  * Add leased in-flight claims, renewal, acknowledgement, expired-claim
+    recovery, and documented at-least-once delivery semantics.
+  * Preserve the existing queue, delayed retries, task JSON, result state,
+    Redis database selection, configuration, actor key, and website content.
+  * Validate worker interruption recovery, secure-mode signed fetches, fresh
+    Friendica registration and presentation, and maintained-fork compatibility.
+
+ -- thystra <noreply@github.com>  Thu, 30 Jul 2026 23:26:00 -0400
+
 activity-relay (2.4.0-1) noble; urgency=medium
 
   * Promote the production-validated RC6 application code to stable 2.4.0.
