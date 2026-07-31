@@ -100,10 +100,10 @@ Set the stable release image in `.env`:
 ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
 ```
 
-After `v2.5.0-rc1` is published, candidate testing uses:
+After `v2.5.0-rc2` is published, candidate testing uses:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.0-rc1
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.0-rc2
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move

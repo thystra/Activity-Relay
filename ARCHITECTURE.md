@@ -74,10 +74,20 @@ and ActivityPub object resolution also uses the relay actor identity. Authorized
 fetch `GET` requests sign `(request-target)`, `Host`, and `Date`; redirected
 fetches are re-signed for the new request target and authority. Delivery `POST`
 requests additionally sign `Digest` and `Content-Type`. Both paths sign the exact
-`Host` authority transmitted on the wire. Each `relay-v2` fan-out attempt also
-atomically records the receiver domain's last success or failure time, total
-successes and failures, and consecutive failure count. Registration traffic does
-not affect these delivery-health observations.
+`Host` authority transmitted on the wire. Each `relay-v2` target receives one initial attempt and five delayed retries
+using Machinery's Fibonacci schedule. The shared activity body remains in Redis
+for fifteen minutes, which exceeds the complete retry horizon. A target reduces
+the shared `remain_count` only after success or final retry exhaustion, so one
+temporary receiver failure cannot delete the payload needed by its own retry or
+by another receiver. Every attempt atomically records receiver delivery health;
+registration traffic remains outside these observations.
+
+Worker logs contain bounded structured correlation fields: stable task UUID,
+storage ID, public activity and object identifiers when present, origin and
+receiver domains, body digest, attempt counters, elapsed time, HTTP status,
+error class, next retry delay, and bounded non-success response text. Raw
+activity bodies, signatures, private keys, and unbounded remote content are not
+logged or exported as metric labels.
 
 The existing Fediverse `Signature`-header profile remains the compatibility
 baseline. RFC 9421 verification and signing are planned as an additive security
@@ -208,8 +218,9 @@ configuration, inbox URLs, actor IDs, error text, and blocked lists.
 - Queue admission is bounded and atomic.
 - Remote JSON and error bodies are size-limited, including non-success actor
   and object fetch responses.
-- Worker failures include actionable bounded response text and are retried by
-  the task backend.
+- Worker failures include bounded structured correlation fields and response
+  text. Retriable attempts preserve the shared activity body; success and final
+  exhaustion are the only terminal target outcomes that reduce `remain_count`.
 - A receiver-health recording failure is logged but does not change the delivery
   result or retry decision.
 - An observability bind failure prevents the API server from accepting traffic,

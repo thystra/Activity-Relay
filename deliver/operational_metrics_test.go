@@ -32,7 +32,7 @@ func TestRelayActivityRecordsOperationalMetric(t *testing.T) {
 	}).Err(); err != nil {
 		t.Fatal(err)
 	}
-	if err := relayActivityV2(server.URL, activityID); err == nil {
+	if err := relayActivityV2(context.Background(), server.URL, activityID); err == nil {
 		t.Fatal("expected delivery failure")
 	}
 	ledger, err := RedisClient.HGetAll(context.Background(), observability.OperationalMetricsKey).Result()
