@@ -2,8 +2,9 @@
 
 ## Delivery retries and slow receivers
 
-RC2 retries each relay fan-out target five times after the initial attempt and
-retains the shared activity body for the full retry horizon. Receiver-side
+Activity-Relay v2.5.0 retries each relay fan-out target five times after
+the initial attempt and retains the shared activity body for the full retry
+horizon. Receiver-side
 ActivityPub implementations may synchronously fetch actors, keys, objects,
 parents, contexts, or collections before returning from `/inbox`; transient
 timeouts therefore no longer become immediate terminal loss at the relay.
@@ -15,11 +16,10 @@ attempt and elapsed-time data, receiver and origin domains, HTTP status, error
 classification, and bounded error responses. They intentionally exclude raw
 activity bodies, signatures, and key material.
 
-This document records interoperability behavior validated for the stable
-Activity-Relay `v2.4.0` release and the `v2.5.0-rc1` candidate line. The
-release-candidate results remain prerelease evidence; no matrix can guarantee
-that every version or configuration of every ActivityPub server behaves
-identically.
+This document records interoperability behavior validated for stable
+Activity-Relay releases through `v2.5.0`. Historical `v2.4.0` results are kept
+for comparison; no matrix can guarantee that every version or configuration of
+every ActivityPub server behaves identically.
 
 ## Subscription models
 
@@ -54,7 +54,7 @@ release:
 The NodeBB-to-Mastodon test was performed without relying on an indirect
 Friendica follow path.
 
-## v2.5.0 release-candidate validation
+## v2.5.0 stable validation
 
 The v2.5.0 line was exercised through an isolated relay after the Machinery v2
 reliable-claims migration and again after the Friendica actor-profile correction:
@@ -67,16 +67,25 @@ reliable-claims migration and again after the Friendica actor-profile correction
 | Unsigned canonical-object `GET` | Mastodon secure-mode endpoint | Rejected with HTTP 401 `Request not signed` |
 | Relay-signed canonical-object `GET` using the deployed actor identity | Same Mastodon secure-mode endpoint | Returned HTTP 200 ActivityPub JSON for the intended object |
 
-The ordinary bidirectional NodeBB/Mastodon test ruled out another configured relay
-as the delivery path. The secure-mode control used the same relay actor key and
-HTTP-signature implementation as the deployed candidate. Friendica was freshly
-registered only after it fetched the corrected `Application` actor profile.
+The ordinary bidirectional NodeBB/Mastodon test ruled out another configured
+relay as the delivery path. The secure-mode control used the same relay actor
+key and HTTP-signature implementation as the deployed candidate. Friendica was
+freshly registered only after it fetched the corrected `Application` actor
+profile.
+
+The production RC2 soak confirmed that new posts continued reaching a
+secure-mode Mastodon receiver. Relay-signed inbox deliveries were accepted,
+actor and key identity remained continuous, and no relay-specific signature,
+private-address, Redis, queue, worker, or resource regression was observed.
+Receiver-side 502 responses during the window were traced to a separate
+PHP-FPM incident and are not classified as an Activity-Relay failure.
 
 ### NodeBB secure-mode canonical-object limitation
 
-NodeBB 4.14.2 accepted the relay-signed delivery but returned HTTP 424 when the
-referenced Mastodon object required authorized fetch. Receiving-side evidence
-showed NodeBB's application-context canonical-object request was unsigned and the
+NodeBB 4.14.x, including 4.14.5 testing, accepted the relay-signed delivery
+but returned HTTP 424 when the referenced Mastodon object required authorized
+fetch. Receiving-side evidence showed NodeBB's application-context
+canonical-object request was unsigned and the
 secure-mode server returned HTTP 401. The same object was returned when fetched
 with the Activity-Relay signature implementation.
 
@@ -136,7 +145,7 @@ Start with the public relay request status:
 
 - `202 Accepted` means the relay accepted the signed activity for processing.
 - `400 Bad Request` commonly indicates actor resolution, signature or digest
-  verification, or JSON decoding failed. Version 2.4.0 logs the bounded failure reason
+  verification, or JSON decoding failed. Version 2.5.0 logs the bounded failure reason
   with request metadata, but never logs request bodies, signatures, or key
   material.
 

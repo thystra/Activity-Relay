@@ -97,13 +97,7 @@ cp config.yml.example config.yml
 Set the stable release image in `.env`:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.4.0
-```
-
-After `v2.5.0-rc2` is published, candidate testing uses:
-
-```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.0-rc2
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.0
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move
@@ -187,7 +181,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:2.4.0 \
+  ghcr.io/thystra/activity-relay:2.5.0 \
   --version
 ```
 
@@ -224,7 +218,7 @@ Continue with:
 For a tagged stable build:
 
 ```bash
-VERSION=2.4.0
+VERSION=2.5.0
 
 git checkout "v${VERSION}"
 mkdir -p build
@@ -498,11 +492,11 @@ object belongs to another domain, remain publisher-accounting events and are
 not fanned out. This preserves relay-to-relay loop protection and avoids
 amplifying ordinary boosts.
 
-NodeBB 4.14.2 has a receiving-side secure-mode limitation: its
-application-context canonical-object fetch is unsigned, so it can return HTTP
-424 after accepting a valid relay delivery when the remote object requires a
-signed `GET`. See `docs/INTEROPERABILITY.md`; this is not a relay-signature
-failure.
+NodeBB 4.14.x, including 4.14.5 testing, has a receiving-side secure-mode
+limitation: its application-context canonical-object fetch is unsigned, so it
+can return HTTP 424 after accepting a valid relay delivery when the remote
+object requires a signed `GET`. See `docs/INTEROPERABILITY.md`; this is not a
+relay-signature failure.
 
 Inbound request failures are logged with the HTTP method, path, remote address,
 user agent, and the bounded verification or decoding error. Request bodies,
@@ -666,11 +660,11 @@ Published images contain website sources at:
 /usr/share/activity-relay/web
 ```
 
-The `2.4.0` image includes Python 3 for resource-guard tooling and website generation.
+The `2.5.0` image includes Python 3 for resource-guard tooling and website generation.
 To customize the website outside the running relay, extract the sources:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.4.0'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.5.0'
 
 mkdir -p \
   activity-relay-web \
@@ -770,10 +764,9 @@ profile and RFC 9421 roadmap.
 Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
 [`docs/releases/`](docs/releases/), including
-[`v2.4.0`](docs/releases/v2.4.0.md) and the
-[`v2.5.0 release-candidate notes`](docs/releases/v2.5.0.md). Historical RC
-notes remain under the
-same directory.
+[`v2.5.0`](docs/releases/v2.5.0.md), with the prior stable
+[`v2.4.0`](docs/releases/v2.4.0.md) retained for historical reference.
+Historical RC notes remain under the same directory.
 
 ## Upstream and attribution
 

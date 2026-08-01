@@ -82,7 +82,7 @@ operator data, deployment transcripts, or maintained-fork release metadata.
   generally useful part as an optional, project-neutral Caddy example beside
   Nginx and Apache; it does not adopt a generator, Makefile workflow, web-root
   ownership, or runtime dependency.
-- PR 100 proposes initial Prometheus HTTP metrics and health endpoints. It is a
-  design input for the v2.5.0 observability work in `TODO.md`; porting should
-  include queue, delivery, receiver, publisher, Redis, and readiness semantics
-  appropriate to this fork.
+- PR 100 proposed initial Prometheus HTTP metrics and health endpoints. It
+  informed the stable v2.5.0 private observability implementation, which adds
+  bounded API, queue, delivery, receiver, publisher, Redis, liveness, and
+  readiness semantics appropriate to this fork.

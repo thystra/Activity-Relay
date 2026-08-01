@@ -6,25 +6,25 @@ package.
 
 ## Version and tag policy
 
-- Patch release: backward-compatible fixes, for example `2.4.1`.
-- Minor release: backward-compatible features, for example `2.5.0`.
+- Patch release: backward-compatible fixes, for example `2.5.1`.
+- Minor release: backward-compatible features, for example `2.6.0`.
 - Major release: incompatible configuration, API, storage, protocol, or
   identity changes.
-- Release candidate: append `-rcN`, for example `v2.5.0-rc1`.
+- Release candidate: append `-rcN`, for example `v2.6.0-rc1`.
 
 Prerelease tags publish only their complete prerelease container tag. They do
 not move `latest`, major, or major/minor tags.
 
 The workflow derives the Debian version series from the tag and preserves the
 top changelog version when it already belongs to that series. The stable
-`v2.4.0` release uses:
+`v2.5.0` release uses:
 
 ```text
-2.4.0-1
+2.5.0-1
 ```
 
-A future prerelease such as `v2.5.0-rc1` uses a Debian series such as
-`2.5.0~rc1-1`. If the top changelog entry does not match the tag series, the
+A future prerelease such as `v2.6.0-rc1` uses a Debian series such as
+`2.6.0~rc1-1`. If the top changelog entry does not match the tag series, the
 workflow starts that series at Debian revision `-1`.
 
 Release filenames replace `~` with `-` only when necessary for GitHub asset
@@ -69,11 +69,15 @@ compatibility; the package's internal Debian version is unchanged.
     revision covered by local, CI, container, and package evidence.
 20. For publisher/fan-out changes, verify a real accepted publisher activity
     reaches a receiving server.
-21. Commit and push the release preparation.
-22. Create and push the annotated tag.
-23. Verify the GitHub release, checksums, package metadata, packaged examples,
+21. Before stable promotion from a release candidate, complete a production soak
+    of the exact candidate application code. Classify every observed failure as
+    release-caused, receiver-caused, or environmental, and retain the evidence
+    outside the public repository.
+22. Commit and push the release preparation.
+23. Create and push the annotated tag.
+24. Verify the GitHub release, checksums, package metadata, packaged examples,
     and container manifests.
-24. Replace generated release notes with the reviewed versioned release notes.
+25. Replace generated release notes with the reviewed versioned release notes.
 
 ## Local validation
 
@@ -125,7 +129,7 @@ docker rm -f activity-relay-release-test-redis
 Build and inspect the container:
 
 ```bash
-ACTIVITY_RELAY_VERSION='2.5.0-rc1' \
+ACTIVITY_RELAY_VERSION='2.5.0' \
 docker compose \
   -f compose.yml \
   -f compose.build.yml \
@@ -160,7 +164,7 @@ dpkg-buildpackage \
 
 lintian \
   --fail-on error \
-  ../activity-relay_2.5.0~rc1-1_amd64.changes
+  ../activity-relay_2.5.0-1_amd64.changes
 ```
 
 ## Tag the tested commit
@@ -169,22 +173,22 @@ lintian \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.5.0-rc1 -m 'Activity-Relay v2.5.0-rc1'
-git push origin v2.5.0-rc1
+git tag -a v2.5.0 -m 'Activity-Relay v2.5.0 stable release'
+git push origin v2.5.0
 ```
 
 After the release workflow creates the GitHub release, apply the reviewed notes
 stored in the repository:
 
 ```bash
-gh release edit v2.5.0-rc1 --notes-file docs/releases/v2.5.0.md
+gh release edit v2.5.0 --notes-file docs/releases/v2.5.0.md
 ```
 
+Promote a validated release candidate by creating a new stable preparation
+commit and a new stable `vX.Y.Z` tag. Never move or rename the published RC tag.
 For a future release candidate, use its complete `vX.Y.Z-rcN` tag and matching
-versioned release-notes file. Do not promote a prerelease by moving its tag.
-
-Do not move an already-published release tag. Correct mistakes with another
-release candidate or patch release.
+versioned release-notes file. Do not move an already-published release tag;
+correct mistakes with another release candidate or patch release.
 
 ## Workflow behavior
 

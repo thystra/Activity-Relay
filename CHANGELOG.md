@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-08-01
+
+### Stable release
+- Promote the production-soaked RC2 application code and corrected delivery
+  retry lifecycle to stable `v2.5.0`.
+- Preserve the established relay actor ID, `#main-key` identity, endpoints,
+  configuration, Redis data, queued work, and operator-owned website content.
+- Confirm Mastodon authorized-fetch and secure-mode operation during the
+  production soak without relay-specific signature, private-address, queue,
+  Redis, or resource regressions.
+- Confirm that receiver-side HTTP failures remain isolated per target while
+  successful receivers continue to accept deliveries.
+- Publish stable `2.5.0` container tags, the `2.5.0-1` native package, reviewed
+  release notes, and updated operator and maintainer documentation.
+
 ## [2.5.0-rc2] - 2026-07-31
 ### Added
 - Add bounded structured delivery-attempt diagnostics containing task and

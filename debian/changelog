@@ -1,3 +1,19 @@
+activity-relay (2.5.0-1) noble; urgency=medium
+
+  * Promote the production-validated RC2 application code to stable 2.5.0.
+  * Sign remote actor and object GET requests for Mastodon authorized fetch.
+  * Publish the relay actor as Application while preserving its identity.
+  * Add receiver delivery health, private metrics, liveness, and readiness.
+  * Migrate to the maintained Redis-only Machinery v2 transport.
+  * Add leased in-flight claims and documented at-least-once recovery.
+  * Retry each fan-out target five times after the initial attempt.
+  * Retain shared activity bodies across the complete retry horizon.
+  * Decrement remain_count only after target success or final exhaustion.
+  * Add bounded structured delivery diagnostics and regression coverage.
+  * Publish stable documentation and reviewed release notes.
+
+ -- thystra <noreply@github.com>  Sat, 01 Aug 2026 14:03:21 -0400
+
 activity-relay (2.5.0~rc2-1) noble; urgency=medium
 
   * Retry each relay fan-out target five times after the initial attempt.
