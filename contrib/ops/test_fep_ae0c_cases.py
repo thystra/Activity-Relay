@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = REPOSITORY_ROOT / "testdata" / "fep-ae0c" / "cases.json"
+COVERAGE_PATH = REPOSITORY_ROOT / "testdata" / "fep-ae0c" / "coverage.json"
 
 REQUIRED_CASE_FIELDS = {
     "id",
@@ -24,6 +25,7 @@ REQUIRED_CASE_FIELDS = {
 }
 
 PAYLOAD_FIELDS = {"activity", "actor", "http_request", "scenario"}
+EXECUTABLE_COVERAGE = {"executable-new", "existing-executable"}
 
 
 class FEPAE0CCasesTest(unittest.TestCase):
@@ -32,6 +34,10 @@ class FEPAE0CCasesTest(unittest.TestCase):
         cls.document = json.loads(CASES_PATH.read_text(encoding="utf-8"))
         cls.allowed = cls.document["allowed_values"]
         cls.cases = cls.document["cases"]
+        cls.coverage_document = json.loads(
+            COVERAGE_PATH.read_text(encoding="utf-8")
+        )
+        cls.coverage = cls.coverage_document["coverage"]
 
     def test_document_metadata(self) -> None:
         self.assertEqual(self.document["schema_version"], 1)
@@ -93,6 +99,48 @@ class FEPAE0CCasesTest(unittest.TestCase):
             if case["status"] == "audit-required":
                 with self.subTest(case=case["id"]):
                     self.assertEqual(case["decision"], "investigate")
+
+    def test_coverage_metadata(self) -> None:
+        self.assertEqual(self.coverage_document["schema_version"], 1)
+        self.assertEqual(
+            self.coverage_document["activity_relay_baseline"],
+            "v2.5.0",
+        )
+        self.assertEqual(
+            self.coverage_document["fixture_catalog"],
+            "testdata/fep-ae0c/cases.json",
+        )
+
+    def test_every_fixture_has_exactly_one_coverage_record(self) -> None:
+        case_ids = {case["id"] for case in self.cases}
+        coverage_ids = [entry["case_id"] for entry in self.coverage]
+
+        self.assertEqual(len(coverage_ids), len(set(coverage_ids)))
+        self.assertEqual(case_ids, set(coverage_ids))
+
+    def test_coverage_statuses_and_test_names(self) -> None:
+        allowed_statuses = set(
+            self.coverage_document["allowed_statuses"]
+        )
+
+        for entry in self.coverage:
+            with self.subTest(case=entry["case_id"]):
+                self.assertIn(entry["status"], allowed_statuses)
+                self.assertIsInstance(entry.get("notes"), str)
+                self.assertTrue(entry["notes"].strip())
+
+                tests = entry.get("tests")
+                self.assertIsInstance(tests, list)
+
+                if entry["status"] in EXECUTABLE_COVERAGE:
+                    self.assertGreater(len(tests), 0)
+                    for test_name in tests:
+                        self.assertRegex(
+                            test_name,
+                            r"^Test[A-Za-z0-9_]+$",
+                        )
+                else:
+                    self.assertEqual(tests, [])
 
 
 if __name__ == "__main__":

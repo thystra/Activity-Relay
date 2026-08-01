@@ -138,6 +138,17 @@ characterization tests. For changes involving direct forwarding, reciprocal
 follows, Announce wrapping, audience handling, or loop prevention, exercise both
 relay families and a mixed two-relay topology.
 
+### FEP-ae0c characterization coverage
+
+`testdata/fep-ae0c/coverage.json` must contain exactly one coverage record for
+every fixture. Unit-characterized cases must name executable Go tests.
+Network-dependent and future-protocol cases must remain explicitly classified
+rather than being represented by mocks that bypass the behavior under review.
+
+The referenced-Announce and two-relay reflection cases require real process
+boundaries, separate Redis state, signed HTTP requests, and bounded delivery
+assertions before their coverage status may change to executable.
+
 ## Promotion gate
 
 Do not tag a release candidate until both deployment forms pass the applicable
