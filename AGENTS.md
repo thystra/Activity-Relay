@@ -114,6 +114,11 @@ Never run tests against production Redis.
   release gates; private transcripts and host details remain outside the repo.
 - `docs/SECURITY.md` records the current signature profile and additive security
   roadmap.
+- `docs/FEP-AE0C-COMPATIBILITY.md` records the two retrospective relay
+  families, Activity-Relay extensions, unresolved behavior questions, and the
+  characterization fixtures that must remain synchronized with protocol
+  changes.
+
 - Update `readme.md` and affected deployment documentation whenever behavior,
   packaging, configuration, or release procedures change.
 
