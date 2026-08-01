@@ -32,16 +32,38 @@ operator-owned website content, and supported deployment models.
 - Container, native-package, interruption, identity, Redis, secure-mode,
   interoperability, production-deployment, and overnight-soak validation.
 
-## Immediate post-release verification
+## v2.5.0 release verification completed
 
-- Verify the stable GitHub release metadata, release notes, checksums, internal
-  Debian version, package contents, and required examples.
-- Verify `linux/amd64` and `linux/arm64` container manifests plus the `2.5.0`,
-  `2.5`, `2`, and `latest` tags.
-- Deploy the stable `2.5.0-1` package to production and reconfirm actor identity,
-  dedicated Redis state, API and worker health, private observability, and
-  public endpoints.
-- Retain the RC2 and stable-promotion evidence outside the public repository.
+- Stable GitHub release metadata, reviewed release notes, checksums, internal
+  Debian version, package contents, and required examples passed independent
+  verification.
+- The `2.5.0`, `2.5`, `2`, and `latest` container tags publish matching
+  `linux/amd64` and `linux/arm64` manifests.
+- The stable `2.5.0-1` package is deployed in production with preserved actor
+  and key identity, dedicated Redis state, healthy API and worker services,
+  private observability, and healthy public endpoints.
+- RC2, stable-promotion, publication, and production-deployment evidence is
+  retained outside the public repository.
+
+## Activity-Relay 3.0 design
+
+The next active protocol milestone is a modern signing architecture informed by
+the retrospective FEP-ae0c relay profiles.
+
+- Land and maintain `docs/FEP-AE0C-COMPATIBILITY.md` and the machine-readable
+  fixture catalog before changing runtime behavior.
+- Convert current Mastodon-style forwarding, LitePub reciprocal-follow and
+  Announce behavior, open publisher ingestion, NodeBB normalization, actor-path
+  compatibility, and authorized fetch into executable characterization tests.
+- Resolve Public-in-`to` versus Public-only-in-`cc` through explicit
+  configuration and real interoperability evidence rather than an implicit
+  routing condition.
+- Add RFC 9421 HTTP Message Signatures and RFC 9530 `Content-Digest` support
+  additively while preserving the established Fediverse `Signature` profile.
+- Keep document-level Linked Data proof semantics separate from HTTP message
+  authentication; do not claim or add proof verification incidentally.
+- Prove duplicate and reflection bounds in a mixed two-relay topology before
+  selecting 3.0 defaults.
 
 ## Deferred work after v2.5.0
 
@@ -49,12 +71,15 @@ operator-owned website content, and supported deployment models.
   reproduce failed attempts to follow `Julian@activitypub.space` from Friendica
   and WordPress, use a controlled NodeBB instance, and inspect the corresponding
   application logs.
-- Define stale-receiver retention and cleanup policy after sufficient delivery
-  health history exists.
-- Add RFC 9421 message-signature and RFC 9530 content-digest support
-  additively, without removing the established Fediverse `Signature` profile.
-- Evaluate replicated or alternative durable-state designs without breaking
-  current Redis compatibility.
+- Define stale-receiver retention and cleanup configuration after sufficient
+  delivery-health history exists. Begin in report-only dry-run mode; active
+  membership and queued or claimed work remain non-configurable deletion
+  barriers.
+- Implement the Activity-Relay 3.0 RFC 9421 and RFC 9530 signing milestone
+  under the FEP-ae0c characterization and interoperability gates above.
+- Replicated or alternative durable-state backends are tabled. Revisit only
+  when production experience, availability requirements, or operator demand
+  justify the value and compatibility cost.
 - Continue maintaining and rebasing the Redis-only Machinery fork for relevant
   upstream security and correctness fixes.
 

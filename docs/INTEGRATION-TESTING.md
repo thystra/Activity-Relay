@@ -130,6 +130,14 @@ For Mastodon secure-mode testing, verify relay-signed actor and object fetches,
 redirect re-signing, exact wire authority, and the existing interoperable
 `Signature` header format.
 
+FEP-ae0c and Activity-Relay extension changes must update
+`testdata/fep-ae0c/cases.json` and
+`docs/FEP-AE0C-COMPATIBILITY.md`. Before changing relay routing or wrapping
+behavior, first convert the affected specification fixtures into executable
+characterization tests. For changes involving direct forwarding, reciprocal
+follows, Announce wrapping, audience handling, or loop prevention, exercise both
+relay families and a mixed two-relay topology.
+
 ## Promotion gate
 
 Do not tag a release candidate until both deployment forms pass the applicable

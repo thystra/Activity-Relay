@@ -21,6 +21,20 @@ Activity-Relay releases through `v2.5.0`. Historical `v2.4.0` results are kept
 for comparison; no matrix can guarantee that every version or configuration of
 every ActivityPub server behaves identically.
 
+## FEP-ae0c compatibility
+
+Activity-Relay implements both relay families retrospectively described by
+[FEP-ae0c](https://w3id.org/fep/ae0c), plus documented extensions for open
+publishers, broad server-actor compatibility, NodeBB embedded-Announce
+normalization, and authorized fetch.
+
+The exact comparison, unresolved `to` versus `cc` visibility question,
+document-proof distinction, loop-prevention audit, and machine-readable
+characterization cases are maintained in
+[`FEP-AE0C-COMPATIBILITY.md`](FEP-AE0C-COMPATIBILITY.md). FEP compatibility is
+an input to the Activity-Relay 3.0 design; v2.5.0 behavior remains unchanged by
+that design document.
+
 ## Subscription models
 
 Activity-Relay supports both common relay subscription models:

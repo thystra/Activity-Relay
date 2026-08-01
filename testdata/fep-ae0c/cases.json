@@ -1,0 +1,413 @@
+{
+  "schema_version": 1,
+  "source": {
+    "fep": "https://w3id.org/fep/ae0c",
+    "activity_relay_baseline": "v2.5.0",
+    "documentation": "docs/FEP-AE0C-COMPATIBILITY.md"
+  },
+  "allowed_values": {
+    "profile": [
+      "mastodon",
+      "litepub",
+      "activity-relay-extension",
+      "cross-profile"
+    ],
+    "decision": [
+      "preserve",
+      "document-extension",
+      "investigate",
+      "defer"
+    ],
+    "status": [
+      "covered",
+      "specified",
+      "audit-required"
+    ],
+    "distribution": [
+      "none",
+      "forward-original",
+      "relay-announce",
+      "relationship"
+    ]
+  },
+  "cases": [
+    {
+      "id": "mastodon-follow-public",
+      "description": "Traditional subscriber follows the Public pseudo-collection.",
+      "profile": "mastodon",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "relationship",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://subscriber.example/activities/follow-public",
+        "type": "Follow",
+        "actor": "https://subscriber.example/actor",
+        "object": "https://www.w3.org/ns/activitystreams#Public"
+      },
+      "current_v2_5": "May create a traditional inbox subscription after actor and policy validation.",
+      "v3_assertion": "Preserve deployed interoperability despite the Public object not being an actor."
+    },
+    {
+      "id": "litepub-follow-relay-actor",
+      "description": "Follower-style server follows the relay actor.",
+      "profile": "litepub",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "relationship",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://follower.example/activities/follow-relay",
+        "type": "Follow",
+        "actor": "https://follower.example/actor",
+        "object": "https://relay.example/actor",
+        "to": [
+          "https://relay.example/actor"
+        ]
+      },
+      "current_v2_5": "Begins follower-style Accept and reciprocal Follow processing.",
+      "v3_assertion": "Preserve reciprocal relationship behavior."
+    },
+    {
+      "id": "litepub-accept-reciprocal-follow",
+      "description": "Remote actor accepts the relay's reciprocal Follow.",
+      "profile": "litepub",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "relationship",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://follower.example/activities/accept-relay",
+        "type": "Accept",
+        "actor": "https://follower.example/actor",
+        "object": {
+          "id": "https://relay.example/activities/follow/follower.example",
+          "type": "Follow",
+          "actor": "https://relay.example/actor",
+          "object": "https://follower.example/actor"
+        },
+        "to": [
+          "https://relay.example/actor"
+        ]
+      },
+      "current_v2_5": "Finalizes mutual-follow state for the receiver.",
+      "v3_assertion": "Preserve and characterize idempotency."
+    },
+    {
+      "id": "traditional-create-public-to",
+      "description": "Public Create addresses Public in to.",
+      "profile": "mastodon",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "forward-original",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://publisher.example/activities/create-public",
+        "type": "Create",
+        "actor": "https://publisher.example/actor",
+        "to": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": {
+          "id": "https://publisher.example/objects/1",
+          "type": "Note",
+          "attributedTo": "https://publisher.example/actor",
+          "content": "Public example"
+        }
+      },
+      "current_v2_5": "Queues the original received body for relay fan-out.",
+      "v3_assertion": "Preserve public forwarding and exact-body characterization."
+    },
+    {
+      "id": "traditional-create-public-cc",
+      "description": "Create addresses Public only in cc, commonly interpreted as unlisted.",
+      "profile": "mastodon",
+      "status": "specified",
+      "decision": "investigate",
+      "distribution": "forward-original",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://publisher.example/activities/create-unlisted",
+        "type": "Create",
+        "actor": "https://publisher.example/actor",
+        "to": [
+          "https://publisher.example/actor/followers"
+        ],
+        "cc": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": {
+          "id": "https://publisher.example/objects/2",
+          "type": "Note",
+          "attributedTo": "https://publisher.example/actor",
+          "content": "Unlisted example"
+        }
+      },
+      "current_v2_5": "Routes identically to Public in to and fans out the original body.",
+      "v3_assertion": "Measure receiver behavior and select an explicit configurable policy."
+    },
+    {
+      "id": "traditional-forward-preserves-ld-proof",
+      "description": "A forwarded body already contains a historical document proof.",
+      "profile": "mastodon",
+      "status": "specified",
+      "decision": "investigate",
+      "distribution": "forward-original",
+      "activity": {
+        "@context": [
+          "https://www.w3.org/ns/activitystreams",
+          "https://w3id.org/identity/v1"
+        ],
+        "id": "https://publisher.example/activities/create-with-proof",
+        "type": "Create",
+        "actor": "https://publisher.example/actor",
+        "to": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": "https://publisher.example/objects/3",
+        "signature": {
+          "type": "RsaSignature2017",
+          "creator": "https://publisher.example/actor#main-key",
+          "created": "2026-01-01T00:00:00Z",
+          "signatureValue": "fixture-not-a-real-signature"
+        }
+      },
+      "current_v2_5": "Original bytes, including an existing proof, are retained for direct fan-out; the proof is not separately verified.",
+      "v3_assertion": "Do not conflate proof preservation with proof verification or RFC 9421."
+    },
+    {
+      "id": "litepub-announce-reference",
+      "description": "Established follower-style receiver announces a referenced activity.",
+      "profile": "litepub",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "relay-announce",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://follower.example/activities/announce-1",
+        "type": "Announce",
+        "actor": "https://follower.example/actor",
+        "to": [
+          "https://relay.example/actor"
+        ],
+        "object": "https://follower.example/activities/create-1"
+      },
+      "current_v2_5": "Requires prior relay membership, fetches the referenced activity, and redistributes through the announce path.",
+      "v3_assertion": "Preserve membership enforcement and characterize wrapper/body output."
+    },
+    {
+      "id": "nodebb-embedded-announce-same-origin",
+      "description": "NodeBB-style same-origin embedded object is normalized.",
+      "profile": "activity-relay-extension",
+      "status": "covered",
+      "decision": "document-extension",
+      "distribution": "relay-announce",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://forum.example/post/3#activity/announce",
+        "type": "Announce",
+        "actor": "https://forum.example/category/5",
+        "to": [
+          "https://forum.example/category/5/followers"
+        ],
+        "cc": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": {
+          "id": "https://forum.example/post/3",
+          "type": "Article",
+          "attributedTo": "https://forum.example/user/alice",
+          "content": "Forum example"
+        }
+      },
+      "current_v2_5": "Creates one relay-authored Announce referencing the canonical object ID for all receiver styles.",
+      "v3_assertion": "Preserve signer/actor alignment and same-origin restriction."
+    },
+    {
+      "id": "public-announce-url-only",
+      "description": "Public Announce references an object URL without embedding it.",
+      "profile": "cross-profile",
+      "status": "specified",
+      "decision": "investigate",
+      "distribution": "none",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://publisher.example/activities/announce-url",
+        "type": "Announce",
+        "actor": "https://publisher.example/actor",
+        "to": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": "https://origin.example/objects/1"
+      },
+      "current_v2_5": "Records publisher activity but does not enter public embedded-Announce fan-out.",
+      "v3_assertion": "Keep anti-loop behavior until explicit interoperability and abuse analysis supports a change."
+    },
+    {
+      "id": "public-announce-cross-origin-embedded",
+      "description": "Public embedded Announce object belongs to another origin.",
+      "profile": "activity-relay-extension",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "none",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://publisher.example/activities/announce-foreign",
+        "type": "Announce",
+        "actor": "https://publisher.example/actor",
+        "to": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": {
+          "id": "https://origin.example/objects/2",
+          "type": "Note",
+          "content": "Foreign-origin object"
+        }
+      },
+      "current_v2_5": "Records publisher activity but refuses NodeBB-style normalization.",
+      "v3_assertion": "Preserve the anti-amplification same-origin invariant."
+    },
+    {
+      "id": "unsupported-public-like",
+      "description": "Public Like reaches the traditional activity-selection branch.",
+      "profile": "cross-profile",
+      "status": "specified",
+      "decision": "investigate",
+      "distribution": "none",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://publisher.example/activities/like-1",
+        "type": "Like",
+        "actor": "https://publisher.example/actor",
+        "to": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": "https://origin.example/objects/3"
+      },
+      "current_v2_5": "Returns HTTP 202 without relay fan-out.",
+      "v3_assertion": "Add a documented outcome and bounded reason metric without amplifying reactions by default."
+    },
+    {
+      "id": "open-publisher-public-create",
+      "description": "Valid signed public publisher is not a relay receiver.",
+      "profile": "activity-relay-extension",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "forward-original",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://blog.example/activities/create-1",
+        "type": "Create",
+        "actor": "https://blog.example/author/1",
+        "to": [
+          "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "object": {
+          "id": "https://blog.example/posts/1",
+          "type": "Article",
+          "attributedTo": "https://blog.example/author/1",
+          "content": "Blog example"
+        }
+      },
+      "current_v2_5": "May fan out after HTTP-signature, actor-host, and domain-policy validation without adding receiver membership.",
+      "v3_assertion": "Preserve and repeat the security matrix under every signing profile."
+    },
+    {
+      "id": "server-actor-arbitrary-path",
+      "description": "Application actor uses an implementation-defined actor path.",
+      "profile": "activity-relay-extension",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "relationship",
+      "actor": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://server.example/activitypub/server",
+        "type": "Application",
+        "preferredUsername": "relay-client",
+        "inbox": "https://server.example/activitypub/server/inbox",
+        "endpoints": {
+          "sharedInbox": "https://server.example/inbox"
+        }
+      },
+      "current_v2_5": "Accepts standards-style Application or Service actors without requiring /relay or /friendica.",
+      "v3_assertion": "Preserve actor-type and path flexibility."
+    },
+    {
+      "id": "authorized-fetch-canonical-object",
+      "description": "Relay fetches a referenced canonical object from a secure-mode server.",
+      "profile": "activity-relay-extension",
+      "status": "covered",
+      "decision": "preserve",
+      "distribution": "none",
+      "http_request": {
+        "method": "GET",
+        "url": "https://secure.example/objects/1",
+        "accept": "application/activity+json",
+        "signature_profile": "legacy"
+      },
+      "current_v2_5": "Signs the GET with the relay actor key and exact wire authority.",
+      "v3_assertion": "Preserve legacy signing and add dual/RFC 9421 fixtures."
+    },
+    {
+      "id": "historical-state-property",
+      "description": "Historical relay activity includes an optional state property.",
+      "profile": "cross-profile",
+      "status": "specified",
+      "decision": "defer",
+      "distribution": "relationship",
+      "activity": {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        "id": "https://subscriber.example/activities/follow-with-state",
+        "type": "Follow",
+        "actor": "https://subscriber.example/actor",
+        "object": "https://www.w3.org/ns/activitystreams#Public",
+        "state": "pending"
+      },
+      "current_v2_5": "The property is not part of Activity-Relay's documented public contract.",
+      "v3_assertion": "Do not emit or require it without a demonstrated implementation need."
+    },
+    {
+      "id": "repeat-id-two-relay-loop",
+      "description": "The same activity ID traverses a topology containing two relays.",
+      "profile": "cross-profile",
+      "status": "audit-required",
+      "decision": "investigate",
+      "distribution": "none",
+      "scenario": {
+        "activity_id": "https://publisher.example/activities/repeat-1",
+        "topology": [
+          "relay-a.example",
+          "relay-b.example"
+        ],
+        "receiver_styles": [
+          "traditional",
+          "follower"
+        ],
+        "repetitions": 3
+      },
+      "current_v2_5": "Several paths constrain loops, but the complete FEP reflection invariant is not yet represented by one executable multi-relay test.",
+      "v3_assertion": "Prove bounded processing and no repeated re-relay beyond intentional delivery retries."
+    },
+    {
+      "id": "rfc9421-dual-profile-post",
+      "description": "Future dual-profile POST signs one exact body with legacy and modern fields.",
+      "profile": "cross-profile",
+      "status": "specified",
+      "decision": "investigate",
+      "distribution": "forward-original",
+      "http_request": {
+        "method": "POST",
+        "url": "https://receiver.example/inbox",
+        "headers": [
+          "Digest",
+          "Content-Digest",
+          "Signature",
+          "Signature-Input"
+        ],
+        "signature_profile": "dual"
+      },
+      "current_v2_5": "Not implemented; v2.5.0 emits the legacy Fediverse profile.",
+      "v3_assertion": "Both digest fields must cover identical transmitted bytes, with independent verification and downgrade rules."
+    }
+  ]
+}
