@@ -230,6 +230,41 @@ executable unit and multi-relay integration coverage.
    receiver-presentation integration tests.
 8. Select 3.0 defaults only after the compatibility evidence is recorded.
 
+## Executable characterization coverage
+
+The first executable characterization tranche is mapped in
+[`testdata/fep-ae0c/coverage.json`](../testdata/fep-ae0c/coverage.json).
+
+Fixture-driven API tests now freeze:
+
+- traditional Public-collection subscription;
+- LitePub-style follow and reciprocal `Accept`;
+- v2.5 forwarding for Public in `to` and Public only in `cc`;
+- byte-for-byte forwarding of a body containing an existing
+  `RsaSignature2017` proof, without claiming proof verification;
+- open publisher fan-out without receiver membership;
+- HTTP 202 without fan-out for unsupported public `Like`;
+- publisher-only handling for URL-only and foreign-origin public
+  `Announce`;
+- the same-origin NodeBB normalization guard; and
+- `Application` actors at implementation-defined paths.
+
+Existing tests provide the signed authorized-fetch coverage referenced by the
+fixture catalog.
+
+Two cases remain intentionally outside this tranche:
+
+1. `litepub-announce-reference` needs a signed remote object and actor server,
+   plus assertions at real receiver boundaries.
+2. `repeat-id-two-relay-loop` needs two independently configured relay
+   processes and independent Redis databases. An in-memory graph simulation
+   would not prove the actual storage, queue, signature, retry, or reflection
+   behavior and is therefore not accepted as completion evidence.
+
+The RFC 9421 dual-profile fixture remains future protocol coverage. External
+review feedback may add or refine fixtures without changing these frozen v2.5
+characterization assertions.
+
 ## Fixture status
 
 The initial fixtures are specifications. They intentionally include both covered

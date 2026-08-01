@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "activity_relay_baseline": "v2.5.0",
+  "fixture_catalog": "testdata/fep-ae0c/cases.json",
+  "allowed_statuses": [
+    "executable-new",
+    "existing-executable",
+    "planned-integration",
+    "future-protocol"
+  ],
+  "coverage": [
+    {
+      "case_id": "mastodon-follow-public",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CTraditionalFollowFixtures"
+      ],
+      "notes": "Fixture-driven handler test creates a traditional subscriber."
+    },
+    {
+      "case_id": "litepub-follow-relay-actor",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CLitePubFollowAndAcceptFixtures"
+      ],
+      "notes": "Fixture-driven handler test creates a non-mutual follower."
+    },
+    {
+      "case_id": "litepub-accept-reciprocal-follow",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CLitePubFollowAndAcceptFixtures"
+      ],
+      "notes": "Fixture-driven handler test finalizes mutual-follow state."
+    },
+    {
+      "case_id": "traditional-create-public-to",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CTraditionalPublicAudienceFixtures"
+      ],
+      "notes": "Exact original fixture bytes are stored for traditional fan-out."
+    },
+    {
+      "case_id": "traditional-create-public-cc",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CTraditionalPublicAudienceFixtures"
+      ],
+      "notes": "Freezes v2.5 behavior that Public only in cc also enters fan-out."
+    },
+    {
+      "case_id": "traditional-forward-preserves-ld-proof",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CPreservesOriginalBodyWithLinkedDataProof"
+      ],
+      "notes": "Proves byte preservation without claiming proof verification."
+    },
+    {
+      "case_id": "litepub-announce-reference",
+      "status": "planned-integration",
+      "tests": [],
+      "notes": "Requires a signed remote object/actor server and receiver assertions."
+    },
+    {
+      "case_id": "nodebb-embedded-announce-same-origin",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CNodeBBNormalizationGuardFixtures",
+        "TestExecutePublicAnnounceFansOutRelaySignedWrapperToAllReceivers"
+      ],
+      "notes": "Fixture guard is bound to the existing full wrapper fan-out test."
+    },
+    {
+      "case_id": "public-announce-url-only",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CPublicAnnounceNonFanoutFixtures",
+        "TestFEPAE0CNodeBBNormalizationGuardFixtures"
+      ],
+      "notes": "Acknowledged and recorded as publisher activity without fan-out."
+    },
+    {
+      "case_id": "public-announce-cross-origin-embedded",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CPublicAnnounceNonFanoutFixtures",
+        "TestFEPAE0CNodeBBNormalizationGuardFixtures"
+      ],
+      "notes": "Freezes the same-origin anti-amplification restriction."
+    },
+    {
+      "case_id": "unsupported-public-like",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CUnsupportedPublicLikeIsAcknowledgedWithoutFanout"
+      ],
+      "notes": "Freezes HTTP 202 without fan-out or publisher accounting."
+    },
+    {
+      "case_id": "open-publisher-public-create",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0COpenPublisherCreate"
+      ],
+      "notes": "Publisher is recorded and fanned out without becoming a receiver."
+    },
+    {
+      "case_id": "server-actor-arbitrary-path",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CServerActorArbitraryPath",
+        "TestIsActorAbleToBeFollower"
+      ],
+      "notes": "Binds the fixture to existing actor-path compatibility behavior."
+    },
+    {
+      "case_id": "authorized-fetch-canonical-object",
+      "status": "existing-executable",
+      "tests": [
+        "TestNewActivityPubActivityFromRemoteActivitySignsGET",
+        "TestSignGETUsesExactWireAuthority"
+      ],
+      "notes": "Existing tests verify signed GET and exact wire authority."
+    },
+    {
+      "case_id": "historical-state-property",
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CTraditionalFollowFixtures"
+      ],
+      "notes": "Unknown state property does not prevent traditional subscription."
+    },
+    {
+      "case_id": "repeat-id-two-relay-loop",
+      "status": "planned-integration",
+      "tests": [],
+      "notes": "Must use two real relay processes and independent Redis databases."
+    },
+    {
+      "case_id": "rfc9421-dual-profile-post",
+      "status": "future-protocol",
+      "tests": [],
+      "notes": "Becomes executable only when additive RFC 9421/RFC 9530 code exists."
+    }
+  ]
+}

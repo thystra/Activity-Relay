@@ -52,9 +52,12 @@ the retrospective FEP-ae0c relay profiles.
 
 - Land and maintain `docs/FEP-AE0C-COMPATIBILITY.md` and the machine-readable
   fixture catalog before changing runtime behavior.
-- Convert current Mastodon-style forwarding, LitePub reciprocal-follow and
-  Announce behavior, open publisher ingestion, NodeBB normalization, actor-path
-  compatibility, and authorized fetch into executable characterization tests.
+- Convert current behavior into executable characterization tests. The first
+  fixture-driven API tranche covers traditional and LitePub relationship
+  handling, audience routing, exact-body forwarding, open publishers, NodeBB
+  normalization guards, unsupported activity handling, and actor-path
+  compatibility. Referenced-Announce and true two-relay reflection coverage
+  remain separate process-level integration work.
 - Resolve Public-in-`to` versus Public-only-in-`cc` through explicit
   configuration and real interoperability evidence rather than an implicit
   routing condition.
