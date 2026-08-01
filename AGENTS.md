@@ -120,6 +120,13 @@ Never run tests against production Redis.
 ## Releases
 
 - Stable tags use `vX.Y.Z`; release-candidate tags use `vX.Y.Z-rcN`.
+- A stable promotion after an RC must either preserve the exact validated
+  application code or repeat all affected integration and production gates.
+  Documentation and package-metadata-only promotion commits must be identified
+  explicitly.
+- Audit every current-version example and release-status statement before
+  tagging; historical changelog and release-candidate records must remain
+  clearly historical.
 - Stable Debian versions use `X.Y.Z-1`; prerelease versions use
   `X.Y.Z~rcN-<revision>`.
 - Uploaded release filenames must not contain `~`; the package's internal

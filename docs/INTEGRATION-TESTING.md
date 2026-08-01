@@ -1,9 +1,10 @@
-# Integration and release-candidate testing
+# Integration, release-candidate, and stable-promotion testing
 
 ## Purpose
 
-Integration testing validates the same commit through both supported deployment
-forms before a release candidate is tagged:
+Integration testing validates the same application commit through both
+supported deployment forms before a release candidate is tagged or a stable
+release is promoted:
 
 1. a locally built container deployment using the repository Compose files; and
 2. a native Debian or Ubuntu package using the packaged systemd and dedicated
@@ -29,7 +30,7 @@ must remain portable.
 
 Both deployment forms must pass:
 
-- `relay --version` reports the intended commit or release-candidate version;
+- `relay --version` reports the intended commit, candidate, or stable version;
 - the actor identity remains unchanged across restart and upgrade tests;
 - `/actor`, `/nodeinfo/2.1`, and `/status.json` return valid responses through
   the public HTTPS reverse proxy;
@@ -65,8 +66,8 @@ Exercise:
 
 ## Native package matrix
 
-Build an unreleased package version from the exact tested commit. Inspect package
-metadata and contents, run Lintian, and test:
+Build the candidate or stable package version from the exact tested commit.
+Inspect package metadata and contents, run Lintian, and test:
 
 1. clean installation with inactive services;
 2. operator configuration and explicit service enablement;
@@ -135,3 +136,14 @@ Do not tag a release candidate until both deployment forms pass the applicable
 matrix, unresolved failures are documented, and the evidence identifies the
 exact commit and artifacts. Production deployment remains a separate state and
 must not be inferred from integration success.
+
+Before promoting an RC to stable, retain evidence that the exact candidate
+application code passed a representative production soak. Classify receiver and
+environmental incidents separately from relay regressions. A stable-preparation
+commit may update documentation and package metadata without repeating the
+application-code matrix; any runtime change requires the affected gates to be
+repeated.
+
+After the stable tag is published, verify the release assets, internal Debian
+version, checksums, packaged examples, multi-architecture container manifests,
+stable semantic tags, and `latest` before declaring publication complete.
