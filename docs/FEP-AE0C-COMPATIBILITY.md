@@ -252,11 +252,15 @@ Fixture-driven API tests now freeze:
 Existing tests provide the signed authorized-fetch coverage referenced by the
 fixture catalog.
 
-Two cases remain intentionally outside this tranche:
+The `litepub-announce-reference` fixture is now executable against a real
+remote HTTP origin. The origin verifies the relay's HTTP signature on both the
+canonical-activity GET and actor-document GET before returning either document.
+The test then verifies canonical publisher accounting and a relay-authored
+`Announce` queued for both receiver styles.
 
-1. `litepub-announce-reference` needs a signed remote object and actor server,
-   plus assertions at real receiver boundaries.
-2. `repeat-id-two-relay-loop` needs two independently configured relay
+One case remains intentionally outside executable coverage:
+
+1. `repeat-id-two-relay-loop` needs two independently configured relay
    processes and independent Redis databases. An in-memory graph simulation
    would not prove the actual storage, queue, signature, retry, or reflection
    behavior and is therefore not accepted as completion evidence.
@@ -264,6 +268,17 @@ Two cases remain intentionally outside this tranche:
 The RFC 9421 dual-profile fixture remains future protocol coverage. External
 review feedback may add or refine fixtures without changing these frozen v2.5
 characterization assertions.
+
+### Two-relay process-probe contract
+
+The remaining repeated-ID/reflection audit is specified in
+[`testdata/fep-ae0c/two-relay-probe-contract.json`](../testdata/fep-ae0c/two-relay-probe-contract.json).
+The future probe must use two API processes, two workers, two Redis instances,
+independent actor keys, locally trusted TLS frontends, and a signed origin. It
+must cap cross-relay POSTs so discovery of a reflection cycle cannot run
+indefinitely. Successful probe execution is not itself a passing invariant;
+the resulting classification controls whether the next step is an assertion or
+a loop-suppression fix.
 
 ## Fixture status
 

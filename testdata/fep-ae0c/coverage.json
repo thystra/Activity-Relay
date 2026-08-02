@@ -59,9 +59,11 @@
     },
     {
       "case_id": "litepub-announce-reference",
-      "status": "planned-integration",
-      "tests": [],
-      "notes": "Requires a signed remote object/actor server and receiver assertions."
+      "status": "executable-new",
+      "tests": [
+        "TestFEPAE0CReferencedAnnounceFetchesSignedRemoteActivityAndQueuesRelayAnnounce"
+      ],
+      "notes": "A real HTTP origin verifies relay-signed activity and actor GETs; the handler queues the relay-authored Announce for both receiver styles."
     },
     {
       "case_id": "nodebb-embedded-announce-same-origin",
@@ -136,7 +138,7 @@
       "case_id": "repeat-id-two-relay-loop",
       "status": "planned-integration",
       "tests": [],
-      "notes": "Must use two real relay processes and independent Redis databases."
+      "notes": "The required real-process topology, evidence, safety threshold, classifications, and promotion rule are frozen in testdata/fep-ae0c/two-relay-probe-contract.json."
     },
     {
       "case_id": "rfc9421-dual-profile-post",

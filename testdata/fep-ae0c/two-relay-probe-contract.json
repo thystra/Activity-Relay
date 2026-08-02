@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "fixture": "repeat-id-two-relay-loop",
+  "purpose": "Define the required real-process evidence before the two-relay reflection fixture can be marked executable.",
+  "topology": {
+    "relay_processes": 2,
+    "worker_processes": 2,
+    "redis_instances": 2,
+    "independent_actor_keys": true,
+    "trusted_tls_frontends": true,
+    "signed_origin_server": true,
+    "receiver_relationship": "mutual follower-style relay relationship"
+  },
+  "seed": {
+    "activity_type": "Announce",
+    "object": "canonical Create activity URL",
+    "signer": "relay B",
+    "recipient": "relay A actor or recognized follower collection"
+  },
+  "required_observations": [
+    "Every remote actor and canonical-object GET is HTTP signed.",
+    "Every cross-relay inbox POST is counted by destination and activity ID.",
+    "Redis ready, delayed, claimed, retry, and retained-activity state is recorded for both relays.",
+    "The probe has a hard POST threshold that stops a runaway reflection cycle.",
+    "The report distinguishes delivery retries from newly generated relay Announce activities.",
+    "The report preserves logs and exact process configuration outside the repository."
+  ],
+  "classifications": [
+    "no_reflection_observed",
+    "reflection_settled",
+    "reflection_active_at_timeout",
+    "reflection_threshold_reached",
+    "infrastructure_failure"
+  ],
+  "promotion_rule": "Only no_reflection_observed or an explicitly bounded reflection_settled result with documented limits may become a passing invariant. Active or threshold-reaching reflection requires a runtime loop-suppression fix first."
+}
