@@ -100,7 +100,7 @@ cp config.yml.example config.yml
 Set the stable release image in `.env`:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.0
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.1
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move
@@ -184,7 +184,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:2.5.0 \
+  ghcr.io/thystra/activity-relay:2.5.1 \
   --version
 ```
 
@@ -221,7 +221,7 @@ Continue with:
 For a tagged stable build:
 
 ```bash
-VERSION=2.5.0
+VERSION=2.5.1
 
 git checkout "v${VERSION}"
 mkdir -p build
@@ -663,11 +663,11 @@ Published images contain website sources at:
 /usr/share/activity-relay/web
 ```
 
-The `2.5.0` image includes Python 3 for resource-guard tooling and website generation.
+The `2.5.1` image includes Python 3 for resource-guard tooling and website generation.
 To customize the website outside the running relay, extract the sources:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.5.0'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.5.1'
 
 mkdir -p \
   activity-relay-web \
@@ -767,7 +767,8 @@ profile and RFC 9421 roadmap.
 Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
 [`docs/releases/`](docs/releases/), including
-[`v2.5.0`](docs/releases/v2.5.0.md), with the prior stable
+[`v2.5.1`](docs/releases/v2.5.1.md), with
+[`v2.5.0`](docs/releases/v2.5.0.md) and
 [`v2.4.0`](docs/releases/v2.4.0.md) retained for historical reference.
 Historical RC notes remain under the same directory.
 
