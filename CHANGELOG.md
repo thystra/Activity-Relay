@@ -1,10 +1,15 @@
 # Changelog
 
 ## [Unreleased]
+
+## [2.5.1] - 2026-08-02
 ### Fixed
 - Prevent authenticated relay-to-relay `Announce` reflection by excluding
-  the supplying relay from fan-out and atomically suppressing repeated
-  canonical activity references for the retained delivery horizon.
+  the supplying relay and canonical origin from fan-out.
+- Atomically suppress repeated canonical activity references for the retained
+  delivery horizon without storing raw activity URLs in the marker key.
+- Acknowledge duplicate references without minting another relay-authored
+  wrapper, and release reservations after known queue-admission failures.
 - Add a required real-process two-relay invariant with independent API,
   worker, Redis, actor-key, TLS, and signed-origin boundaries.
 

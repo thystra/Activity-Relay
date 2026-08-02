@@ -17,10 +17,10 @@ not move `latest`, major, or major/minor tags.
 
 The workflow derives the Debian version series from the tag and preserves the
 top changelog version when it already belongs to that series. The stable
-`v2.5.0` release uses:
+`v2.5.1` release uses:
 
 ```text
-2.5.0-1
+2.5.1-1
 ```
 
 A future prerelease such as `v2.6.0-rc1` uses a Debian series such as
@@ -129,7 +129,7 @@ docker rm -f activity-relay-release-test-redis
 Build and inspect the container:
 
 ```bash
-ACTIVITY_RELAY_VERSION='2.5.0' \
+ACTIVITY_RELAY_VERSION='2.5.1' \
 docker compose \
   -f compose.yml \
   -f compose.build.yml \
@@ -164,7 +164,7 @@ dpkg-buildpackage \
 
 lintian \
   --fail-on error \
-  ../activity-relay_2.5.0-1_amd64.changes
+  ../activity-relay_2.5.1-1_amd64.changes
 ```
 
 ## Tag the tested commit
@@ -173,15 +173,15 @@ lintian \
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.5.0 -m 'Activity-Relay v2.5.0 stable release'
-git push origin v2.5.0
+git tag -a v2.5.1 -m 'Activity-Relay v2.5.1 stable release'
+git push origin v2.5.1
 ```
 
 After the release workflow creates the GitHub release, apply the reviewed notes
 stored in the repository:
 
 ```bash
-gh release edit v2.5.0 --notes-file docs/releases/v2.5.0.md
+gh release edit v2.5.1 --notes-file docs/releases/v2.5.1.md
 ```
 
 Promote a validated release candidate by creating a new stable preparation

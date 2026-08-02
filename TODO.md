@@ -2,14 +2,29 @@
 
 ## Current stable release
 
-`v2.5.0` is the current stable maintained-fork release. It promotes the
-production-soaked RC2 application code from commit
-`0ed2ff5a3aff1700172feebde91ad3ed9022e3f8`.
+`v2.5.1` is the current stable maintained-fork patch release. It is prepared
+from loop-suppression merge commit
+`855ea56fe088e738dc708b99690d1224da0be330`.
 
-The stable release preserves the established relay actor ID, endpoints,
-collections, `#main-key` identity, configuration, Redis data, queue formats,
-operator-owned website content, and supported deployment models.
+The patch preserves the established relay actor ID, endpoints, collections,
+`#main-key` identity, configuration, Redis data, queue formats, operator-owned
+website content, and supported deployment models.
 
+## v2.5.1 completed
+
+- Prevent authenticated follower-style relays from reflecting one canonical
+  activity indefinitely through freshly minted `Announce` wrapper IDs.
+- Exclude both the supplying relay and canonical origin from referenced-
+  `Announce` fan-out.
+- Atomically suppress repeated canonical references for the retained delivery
+  horizon using a SHA-256-derived Redis marker without raw URLs.
+- Retain normal acknowledgement for duplicate references and release known
+  failed queue-admission reservations.
+- Require the real-process two-relay test to report
+  `no_reflection_observed`, valid signatures, retained canonical markers, and
+  no final queue backlog.
+
+## v2.5.0 completed
 ## v2.5.0 completed
 
 - Relay-signed actor and object `GET` requests for Mastodon authorized-fetch and
@@ -67,10 +82,10 @@ the retrospective FEP-ae0c relay profiles.
   additively while preserving the established Fediverse `Signature` profile.
 - Keep document-level Linked Data proof semantics separate from HTTP message
   authentication; do not claim or add proof verification incidentally.
-- Prove duplicate and reflection bounds in a mixed two-relay topology before
-  selecting 3.0 defaults.
+- Retain the passing mixed two-relay no-reflection invariant while the 3.0
+  signing architecture is developed.
 
-## Deferred work after v2.5.0
+## Deferred work after v2.5.1
 
 - Investigate NodeBB follow interoperability separately from Activity-Relay:
   reproduce failed attempts to follow `Julian@activitypub.space` from Friendica

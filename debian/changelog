@@ -1,3 +1,16 @@
+activity-relay (2.5.1-1) noble; urgency=medium
+
+  * Prevent authenticated relay-to-relay Announce reflection loops.
+  * Exclude the supplying relay and canonical origin from referenced-Announce
+    fan-out.
+  * Atomically suppress duplicate canonical activity references for the
+    retained delivery horizon.
+  * Avoid storing raw actor, object, inbox, or activity URLs in loop markers.
+  * Release reservations after known queue-admission failures.
+  * Add a required real-process two-relay no-reflection invariant.
+
+ -- thystra <noreply@github.com>  Sun, 02 Aug 2026 00:52:35 -0400
+
 activity-relay (2.5.0-1) noble; urgency=medium
 
   * Promote the production-validated RC2 application code to stable 2.5.0.
