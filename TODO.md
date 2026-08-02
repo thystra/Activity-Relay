@@ -57,9 +57,9 @@ the retrospective FEP-ae0c relay profiles.
   handling, audience routing, exact-body forwarding, open publishers, NodeBB
   normalization guards, unsupported activity handling, and actor-path
   compatibility. Referenced-Announce now has a signed-origin integration
-  test. The true two-relay reflection case now has a bounded real-process
-  diagnostic under the frozen probe contract; its observed classification must
-  drive either a passing invariant or a runtime loop-suppression fix.
+  test. The authenticated two-relay reflection defect is now guarded by
+  non-configurable source-relay exclusion, canonical-reference deduplication,
+  and a required real-process `no_reflection_observed` invariant.
 - Resolve Public-in-`to` versus Public-only-in-`cc` through explicit
   configuration and real interoperability evidence rather than an implicit
   routing condition.

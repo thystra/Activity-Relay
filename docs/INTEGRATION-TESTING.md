@@ -164,10 +164,12 @@ contrib/ops/test_fep_ae0c_two_relay_probe.sh /path/to/private/evidence
 
 The report records cross-relay POSTs by destination and activity ID, legacy
 HTTP-signature verification, initial and final Redis key inventories, process
-configuration, and logs. A zero exit status means the infrastructure and
-observation completed; it does not mean the loop invariant passed. Review
-`report.json` and apply the contract promotion rule before changing fixture
-status or beginning protocol refactoring.
+configuration, and logs. The command is now a required passing invariant. It
+fails unless the report classifies the run as `no_reflection_observed`, records
+zero generated non-seed cross-relay POSTs, validates every observed signature,
+retains a canonical loop-suppression marker, and leaves no ready, delayed,
+claimed, retry, or retained-activity backlog. Preserve the report and process
+logs as promotion evidence before beginning protocol refactoring.
 
 ## Promotion gate
 

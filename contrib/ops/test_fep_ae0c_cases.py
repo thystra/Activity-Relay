@@ -149,7 +149,10 @@ class FEPAE0CCasesTest(unittest.TestCase):
                             test_name,
                             r"^Test[A-Za-z0-9_]+$",
                         )
-                elif entry["status"] == "diagnostic-executable":
+                elif entry["status"] in {
+                    "diagnostic-executable",
+                    "process-invariant",
+                }:
                     self.assertEqual(tests, [])
                     command = entry.get("command")
                     self.assertIsInstance(command, str)
@@ -157,6 +160,11 @@ class FEPAE0CCasesTest(unittest.TestCase):
                     command_path = REPOSITORY_ROOT / command
                     self.assertTrue(command_path.is_file(), command)
                     self.assertTrue(command_path.stat().st_mode & 0o111)
+                    if entry["status"] == "process-invariant":
+                        self.assertEqual(
+                            entry.get("expected_classification"),
+                            "no_reflection_observed",
+                        )
                 else:
                     self.assertEqual(tests, [])
                     self.assertNotIn("command", entry)
@@ -182,6 +190,19 @@ class FEPAE0CCasesTest(unittest.TestCase):
         self.assertGreaterEqual(
             len(contract["required_observations"]),
             6,
+        )
+        self.assertGreaterEqual(
+            len(contract.get("runtime_invariants", [])),
+            5,
+        )
+        expectations = contract.get("passing_expectations", {})
+        self.assertEqual(
+            expectations.get("classification"),
+            "no_reflection_observed",
+        )
+        self.assertEqual(
+            expectations.get("generated_cross_relay_posts"),
+            0,
         )
 
 

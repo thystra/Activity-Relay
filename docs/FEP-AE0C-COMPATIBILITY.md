@@ -286,6 +286,28 @@ Successful command execution is not itself a passing invariant. Only
 `reflection_settled`, may be promoted to passing coverage. Active or
 threshold-reaching reflection requires a runtime loop-suppression fix first.
 
+### Relay-reflection suppression invariant
+
+The process probe demonstrated that two mutually connected v2.5 relays could
+continuously mint new relay-authored `Announce` IDs for one canonical activity.
+This was not ordinary retry duplication: every wrapper ID was new and every
+observed HTTP signature was valid.
+
+Activity-Relay now treats loop prevention as a non-configurable protocol safety
+invariant. When processing a referenced relay `Announce`, it:
+
+- excludes the relay that supplied the activity from the new fan-out;
+- excludes the canonical origin domain;
+- atomically reserves a SHA-256-derived Redis key for the fetched canonical
+  activity ID before minting a wrapper;
+- acknowledges a duplicate reference without minting another wrapper; and
+- retains the marker for the same bounded horizon as the shared relay payload.
+
+Known queue-admission failures release their reservation. The marker contains no
+raw actor, object, inbox, or activity URL. The real-process probe is now a
+required passing invariant and must report `no_reflection_observed` with no
+non-seed cross-relay POST or final delivery backlog.
+
 ## Fixture status
 
 The initial fixtures are specifications. They intentionally include both covered

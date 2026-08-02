@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- Prevent authenticated relay-to-relay `Announce` reflection by excluding
+  the supplying relay from fan-out and atomically suppressing repeated
+  canonical activity references for the retained delivery horizon.
+- Add a required real-process two-relay invariant with independent API,
+  worker, Redis, actor-key, TLS, and signed-origin boundaries.
 
 ## [2.5.0] - 2026-08-01
 

@@ -32,5 +32,27 @@
     "reflection_threshold_reached",
     "infrastructure_failure"
   ],
-  "promotion_rule": "Only no_reflection_observed or an explicitly bounded reflection_settled result with documented limits may become a passing invariant. Active or threshold-reaching reflection requires a runtime loop-suppression fix first."
+  "promotion_rule": "The command is a required passing process invariant. Any classification other than no_reflection_observed, any generated non-seed cross-relay POST, invalid signature, missing canonical marker, or final queue backlog fails validation.",
+  "runtime_invariants": [
+    "The relay that supplied a referenced Announce is excluded from fan-out.",
+    "The fetched canonical activity ID is reserved atomically in Redis before a new relay Announce is admitted.",
+    "A duplicate canonical reference is acknowledged without minting a new relay Announce ID.",
+    "Canonical reservation keys contain only a SHA-256 digest and expire with the retained activity horizon.",
+    "Known queue-admission failure releases the canonical reservation so a later retry can proceed."
+  ],
+  "passing_expectations": {
+    "classification": "no_reflection_observed",
+    "generated_cross_relay_posts": 0,
+    "invalid_signed_gets": 0,
+    "invalid_signed_posts": 0,
+    "minimum_signed_gets": 2,
+    "minimum_canonical_markers": 1,
+    "final_backlog_categories": {
+      "ready": 0,
+      "delayed": 0,
+      "claimed_or_reserved": 0,
+      "retry": 0,
+      "retained_activity": 0
+    }
+  }
 }

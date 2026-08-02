@@ -174,28 +174,53 @@ func storeRelayActivity(activityID string, body []byte, targetCount int) error {
 	return nil
 }
 
-func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, body []byte) {
+func normalizedStoredDomain(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return ""
+	}
+	parsed, err := url.Parse("//" + domain)
+	if err == nil && parsed.Hostname() != "" {
+		return strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	}
+	return strings.ToLower(strings.TrimSuffix(domain, "."))
+}
+
+func enqueueActivityExcept(
+	subscriptions []models.Subscriber,
+	body []byte,
+	excludedDomains ...string,
+) bool {
 	if len(subscriptions) > GlobalConfig.MaxFanoutTargets() {
 		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
 		recordQueueAdmission("relay", "rejected", "fanout_limit")
 		recordFanoutTargets("rejected", len(subscriptions))
-		return
+		return false
 	}
+
+	excluded := make(map[string]struct{}, len(excludedDomains))
+	for _, domain := range excludedDomains {
+		normalized := normalizedStoredDomain(domain)
+		if normalized != "" {
+			excluded[normalized] = struct{}{}
+		}
+	}
+
 	targets := make([]models.Subscriber, 0, len(subscriptions))
 	for _, subscription := range subscriptions {
-		if sourceDomain != subscription.Domain {
+		if _, skip := excluded[normalizedStoredDomain(subscription.Domain)]; !skip {
 			targets = append(targets, subscription)
 		}
 	}
 	if len(targets) < 1 {
 		recordQueueAdmission("relay", "skipped", "no_targets")
-		return
+		return true
 	}
 	accepted, reason := reserveQueueCapacityWithReason(len(targets))
 	if !accepted {
 		recordQueueAdmission("relay", "rejected", reason)
 		recordFanoutTargets("rejected", len(targets))
-		return
+		return false
 	}
 	defer releaseQueueCapacity(len(targets))
 	activityID := uuid.NewString()
@@ -203,7 +228,7 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 		logrus.Error("Unable to store relay activity: ", err)
 		recordQueueAdmission("relay", "error", "store")
 		recordFanoutTargets("error", len(targets))
-		return
+		return false
 	}
 	signatures := make([]*tasks.Signature, 0, len(targets))
 	for _, target := range targets {
@@ -214,7 +239,7 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 		logrus.Error("Unable to create relay task group: ", err)
 		recordQueueAdmission("relay", "error", "group")
 		recordFanoutTargets("error", len(targets))
-		return
+		return false
 	}
 	concurrency := len(signatures)
 	if concurrency > 16 {
@@ -224,13 +249,38 @@ func enqueueActivity(subscriptions []models.Subscriber, sourceDomain string, bod
 		logrus.Error("Unable to enqueue relay task group: ", err)
 		recordQueueAdmission("relay", "error", "broker")
 		recordFanoutTargets("error", len(targets))
-		return
+		return false
 	}
 	recordQueueAdmission("relay", "accepted", "accepted")
 	recordFanoutTargets("queued", len(targets))
+	return true
 }
+
+func enqueueActivity(
+	subscriptions []models.Subscriber,
+	sourceDomain string,
+	body []byte,
+) {
+	_ = enqueueActivityExcept(subscriptions, body, sourceDomain)
+}
+
 func enqueueActivityForAll(sourceDomain string, body []byte) {
-	enqueueActivity(RelayState.Snapshot().SubscribersAndFollowers, sourceDomain, body)
+	enqueueActivity(
+		RelayState.Snapshot().SubscribersAndFollowers,
+		sourceDomain,
+		body,
+	)
+}
+
+func enqueueActivityForAllExcept(
+	body []byte,
+	excludedDomains ...string,
+) bool {
+	return enqueueActivityExcept(
+		RelayState.Snapshot().SubscribersAndFollowers,
+		body,
+		excludedDomains...,
+	)
 }
 
 func enqueueActivityForSubscriber(sourceDomain string, body []byte) {
@@ -537,24 +587,61 @@ func executeRelayActivity(activity *models.Activity, actor *models.Actor, body [
 	return nil
 }
 
-func executeAnnounceActivity(activity *models.Activity, actor *models.Actor) error {
+func executeAnnounceActivity(
+	activity *models.Activity,
+	actor *models.Actor,
+	sourceRelayDomain string,
+) error {
 	actorID, err := url.Parse(actor.ID)
 	if err != nil || normalizedActorDomain(actorID) == "" {
 		return errors.New("activity actor has an invalid ID")
 	}
+	originDomain := normalizedActorDomain(actorID)
 	if isActorBlocked(actorID) {
-		return errors.New(normalizedActorDomain(actorID) + " is blocked")
+		return errors.New(originDomain + " is blocked")
 	}
-	if isActorAbleToRelay(actor) {
-		if err := recordPublisherActivity(activity, actor); err != nil {
-			return err
-		}
-		announce := models.NewActivityPubActivity(RelayActor, []string{RelayActor.Followers()}, activity.ID, "Announce")
-		jsonData, _ := json.Marshal(&announce)
-		go enqueueActivityForAll(normalizedActorDomain(actorID), jsonData)
-		logrus.Debug("Accepted Announce Activity : ", activity.Actor)
-	} else {
+	if !isActorAbleToRelay(actor) {
 		logrus.Debug("Skipped Announce Activity : ", activity.Actor)
+		return nil
 	}
+
+	reservation, accepted, err := reserveCanonicalRelayActivity(activity.ID)
+	if err != nil {
+		logrus.WithError(err).Error(
+			"Unable to reserve canonical relay activity",
+		)
+		return nil
+	}
+	if !accepted {
+		recordQueueAdmission("relay", "skipped", "canonical_duplicate")
+		logrus.Debug("Skipped duplicate canonical Announce Activity : ", activity.ID)
+		return nil
+	}
+
+	if err := recordPublisherActivity(activity, actor); err != nil {
+		releaseCanonicalRelayActivity(reservation)
+		return err
+	}
+	announce := models.NewActivityPubActivity(
+		RelayActor,
+		[]string{RelayActor.Followers()},
+		activity.ID,
+		"Announce",
+	)
+	jsonData, err := json.Marshal(&announce)
+	if err != nil {
+		releaseCanonicalRelayActivity(reservation)
+		return err
+	}
+	go func() {
+		if !enqueueActivityForAllExcept(
+			jsonData,
+			sourceRelayDomain,
+			originDomain,
+		) {
+			releaseCanonicalRelayActivity(reservation)
+		}
+	}()
+	logrus.Debug("Accepted Announce Activity : ", activity.Actor)
 	return nil
 }
