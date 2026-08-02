@@ -62,16 +62,13 @@ material before signing. GET requests do not carry a content digest.
 
 ## Security and rollout gates
 
-The standards core is not runtime-selectable yet. The next tranches must add:
+Inbound RFC 9421 verification and explicit outbound profile selection are
+runtime-selectable. Remaining rollout gates are:
 
-1. inbound RFC 9421 verification with actor/key binding, required components,
-   bounded `created` validation, and Redis-backed nonce replay prevention;
-2. isolated receiver and sender integration tests;
-3. destination capability state and an explicitly reviewed dual negotiation
+1. destination capability state and an explicitly reviewed dual negotiation
    policy;
-4. metrics that distinguish legacy, modern, fallback, verification, and replay
-   outcomes; and
-5. mixed-version interoperability tests before changing the default.
+2. outbound profile metrics and negotiation outcomes where applicable; and
+3. mixed-version interoperability tests before changing the default.
 
 Linked Data proofs remain separate from HTTP request authentication.
 
@@ -134,8 +131,8 @@ normalization. The activity actor document fetched for normal relay processing
 is checked through the same exact binding.
 
 The verifier is initialized from the relay's configured public HTTPS authority
-and existing Redis client. This is additive inbound support; outbound delivery
-and authorized fetch still use the legacy profile.
+and existing Redis client. Inbound support is additive and independent of the
+operator-selected outbound profile.
 
 ## Inbound signature metrics
 
@@ -150,3 +147,27 @@ and `rfc9421`. Results are `success` and `failure`. Reasons are bounded to
 accepted, parse, key, crypto, digest, replay, time, actor, authority, policy,
 Redis, activity, or other. Raw actor IDs, key IDs, nonce values, URLs, and
 error text are never metric labels.
+
+## Outbound runtime profile
+
+`OUTBOUND_SIGNATURE_PROFILE` controls both relay-authenticated remote GETs and
+worker delivery POSTs.
+
+Accepted values are:
+
+- `legacy`: the established Fediverse `Signature` and `Digest` profile; and
+- `rfc9421`: RFC 9421 `Signature-Input` and `Signature`, with RFC 9530
+  `Content-Digest` on POST requests.
+
+An empty or omitted value is normalized to `legacy`. This preserves existing
+installations and generated test configurations. Unknown values fail startup.
+`dual` also fails startup because it is a destination-aware policy rather than
+one safe request format.
+
+The API server and every worker construct the same configured signer from the
+same validated `RelayConfig`. Authorized-fetch redirects remove all legacy and
+modern signature fields before re-signing the new request target.
+
+Selecting `rfc9421` is an explicit operator action. It does not probe a
+destination, retry a POST with another signature grammar, or fall back after a
+remote rejection.

@@ -270,3 +270,34 @@ It requires:
 
 The evidence directory contains the exact relay configuration, process log,
 binary checksum, and machine-readable report.
+
+## Outbound signature profile configuration
+
+Focused validation must cover both values:
+
+```text
+go test -count=1 ./internal/httpsignature ./models ./api ./deliver
+```
+
+The configuration and runtime suite requires:
+
+- omitted and empty configuration to resolve to `legacy`;
+- case-normalized `rfc9421` to be accepted;
+- unknown and `dual` values to fail configuration construction;
+- API and worker configured signers to match `RelayConfig`;
+- legacy authorized-fetch GETs and delivery POSTs to retain their established
+  fields and cryptographic verification;
+- RFC 9421 GETs and POSTs to verify cryptographically;
+- RFC 9421 POSTs to use `Content-Digest` and omit legacy `Digest`;
+- redirects to remove stale fields and re-sign the redirected target; and
+- no automatic fallback or duplicate POST attempt.
+
+Because omitted configuration is the compatibility default, also rerun:
+
+```text
+contrib/ops/test_rfc9421_inbound_probe.sh /absolute/private/evidence/path
+contrib/ops/test_fep_ae0c_two_relay_probe.sh /absolute/private/evidence/path
+```
+
+The first preserves the modern-inbound/legacy-outbound boundary. The second
+must retain `no_reflection_observed` with legacy wire signatures.

@@ -19,30 +19,40 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	relayhttpsig "github.com/thystra/Activity-Relay/internal/httpsignature"
 )
 
 // RelayConfig contains valid configuration.
 type RelayConfig struct {
-	actorKey          *rsa.PrivateKey
-	domain            *url.URL
-	redisClient       *redis.Client
-	redisOptions      *redis.Options
-	redisURL          string
-	redisDisplayURL   string
-	serverBind        string
-	observabilityBind string
-	serviceName       string
-	serviceSummary    string
-	serviceIconURL    *url.URL
-	serviceImageURL   *url.URL
-	jobConcurrency    int
-	maxActivityBytes  int64
-	maxFanoutTargets  int
-	maxQueueJobs      int64
+	actorKey                 *rsa.PrivateKey
+	domain                   *url.URL
+	redisClient              *redis.Client
+	redisOptions             *redis.Options
+	redisURL                 string
+	redisDisplayURL          string
+	serverBind               string
+	observabilityBind        string
+	serviceName              string
+	serviceSummary           string
+	serviceIconURL           *url.URL
+	serviceImageURL          *url.URL
+	jobConcurrency           int
+	maxActivityBytes         int64
+	maxFanoutTargets         int
+	maxQueueJobs             int64
+	outboundSignatureProfile relayhttpsig.Profile
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
 func NewRelayConfig() (*RelayConfig, error) {
+	outboundSignatureProfile, err := relayhttpsig.ParseOutboundProfile(
+		viper.GetString("OUTBOUND_SIGNATURE_PROFILE"),
+	)
+	if err != nil {
+		return nil, errors.New(
+			"OUTBOUND_SIGNATURE_PROFILE: " + err.Error(),
+		)
+	}
 	domain, err := url.ParseRequestURI("https://" + viper.GetString("RELAY_DOMAIN"))
 	if err != nil {
 		return nil, errors.New("RELAY_DOMAIN: " + err.Error())
@@ -113,22 +123,23 @@ func NewRelayConfig() (*RelayConfig, error) {
 	}
 
 	return &RelayConfig{
-		actorKey:          privateKey,
-		domain:            domain,
-		redisClient:       redisClient,
-		redisOptions:      redisOptions,
-		redisURL:          redisURL,
-		redisDisplayURL:   redactedRedisURL(redisURL),
-		serverBind:        serverBind,
-		observabilityBind: observabilityBind,
-		serviceName:       viper.GetString("RELAY_SERVICENAME"),
-		serviceSummary:    viper.GetString("RELAY_SUMMARY"),
-		serviceIconURL:    iconURL,
-		serviceImageURL:   imageURL,
-		jobConcurrency:    jobConcurrency,
-		maxActivityBytes:  maxActivityBytes,
-		maxFanoutTargets:  maxFanoutTargets,
-		maxQueueJobs:      maxQueueJobs,
+		actorKey:                 privateKey,
+		domain:                   domain,
+		redisClient:              redisClient,
+		redisOptions:             redisOptions,
+		redisURL:                 redisURL,
+		redisDisplayURL:          redactedRedisURL(redisURL),
+		serverBind:               serverBind,
+		observabilityBind:        observabilityBind,
+		serviceName:              viper.GetString("RELAY_SERVICENAME"),
+		serviceSummary:           viper.GetString("RELAY_SUMMARY"),
+		serviceIconURL:           iconURL,
+		serviceImageURL:          imageURL,
+		jobConcurrency:           jobConcurrency,
+		maxActivityBytes:         maxActivityBytes,
+		maxFanoutTargets:         maxFanoutTargets,
+		maxQueueJobs:             maxQueueJobs,
+		outboundSignatureProfile: outboundSignatureProfile,
 	}, nil
 }
 
@@ -166,6 +177,15 @@ func (relayConfig *RelayConfig) MaxFanoutTargets() int { return relayConfig.maxF
 // MaxQueueJobs limits admission based on the Redis broker backlog.
 func (relayConfig *RelayConfig) MaxQueueJobs() int64 { return relayConfig.maxQueueJobs }
 
+// OutboundSignatureProfile is the process-wide authorized-fetch and
+// delivery HTTP-signature profile.
+func (relayConfig *RelayConfig) OutboundSignatureProfile() relayhttpsig.Profile {
+	if relayConfig == nil || relayConfig.outboundSignatureProfile == "" {
+		return relayhttpsig.ProfileLegacy
+	}
+	return relayConfig.outboundSignatureProfile
+}
+
 // ActorKey is API Worker's HTTPSignature private key.
 func (relayConfig *RelayConfig) ActorKey() *rsa.PrivateKey {
 	return relayConfig.actorKey
@@ -189,8 +209,9 @@ RELAY DOMAIN    : %s
 REDIS URL       : %s
 BIND ADDRESS    : %s
 OBSERVABILITY   : %s
+SIGNATURE PROFILE: %s
 JOB_CONCURRENCY : %s
-`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisDisplayURL, relayConfig.serverBind, observabilityBind, strconv.Itoa(relayConfig.jobConcurrency))
+`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisDisplayURL, relayConfig.serverBind, observabilityBind, relayConfig.OutboundSignatureProfile(), strconv.Itoa(relayConfig.jobConcurrency))
 }
 
 func redactedRedisURL(redisURL string) string {

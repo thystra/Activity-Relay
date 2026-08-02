@@ -289,6 +289,9 @@ MAX_ACTIVITY_BYTES: 1048576
 MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
 
+# Outbound authorized-fetch and delivery signing. Omitted defaults to legacy.
+OUTBOUND_SIGNATURE_PROFILE: legacy
+
 # RELAY_SUMMARY: |
 # Optional public relay branding. These are interoperability recommendations,
 # not protocol limits; clients may crop or rescale the supplied images.
@@ -302,6 +305,12 @@ MAX_QUEUE_JOBS: 100000
 
 Use `127.0.0.1:8080` instead when the relay and reverse proxy run directly on
 the same host.
+
+`OUTBOUND_SIGNATURE_PROFILE` accepts `legacy` or `rfc9421`. Empty or
+omitted configuration preserves the established legacy signatures. `dual` is
+rejected until destination-aware negotiation is implemented. The same value is
+used by the API server for signed remote GETs and by every worker for delivery
+POSTs.
 
 `RELAY_ICON` and `RELAY_IMAGE` are optional public metadata URLs. The suggested
 dimensions are compatibility-oriented recommendations rather than enforced
@@ -323,6 +332,7 @@ JOB_CONCURRENCY
 MAX_ACTIVITY_BYTES
 MAX_FANOUT_TARGETS
 MAX_QUEUE_JOBS
+OUTBOUND_SIGNATURE_PROFILE
 RELAY_SUMMARY
 RELAY_ICON
 RELAY_IMAGE
@@ -474,10 +484,13 @@ in `/actor`, `/relay`, `/friendica`, or another implementation-defined path.
 Legacy `/relay` and `/friendica` actors with incomplete type metadata remain
 supported.
 
-Outbound deliveries sign the same `Host` authority that is transmitted on the
-wire, including a non-default port. Bounded non-success response text is
-included in worker errors to make remote signature-verification failures
-diagnosable without logging unbounded response bodies.
+Outbound authorized fetches and deliveries use `OUTBOUND_SIGNATURE_PROFILE`.
+The default `legacy` profile preserves the established wire format. Explicit
+`rfc9421` selection uses RFC 9421 and RFC 9530 without changing the actor key or
+key ID. Both profiles sign the same authority transmitted on the wire,
+including a non-default port. Bounded non-success response text is included in
+worker errors to make remote signature-verification failures diagnosable
+without logging unbounded response bodies.
 
 ## Public Announce interoperability
 

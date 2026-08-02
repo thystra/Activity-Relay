@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
@@ -11,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/common-fate/httpsig/alg_rsa"
+	"github.com/common-fate/httpsig/contentdigest"
+	"github.com/common-fate/httpsig/sigbase"
+	"github.com/common-fate/httpsig/sigset"
 	"github.com/go-fed/httpsig"
 	"github.com/patrickmn/go-cache"
 	"github.com/thystra/Activity-Relay/internal/httpsignature"
@@ -193,5 +198,193 @@ func TestFetchRemoteJSONRequiresSigner(t *testing.T) {
 	_, err := fetchRemoteJSON("https://remote.example/actor", "test", &actor, nil)
 	if err == nil || !strings.Contains(err.Error(), "signer") {
 		t.Fatalf("expected missing signer error, got %v", err)
+	}
+}
+
+func newConfiguredRemoteSignerForTest(
+	t *testing.T,
+	profile httpsignature.Profile,
+) (*httpsignature.ConfiguredSigner, *rsa.PublicKey) {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := httpsignature.NewConfiguredSigner(
+		"https://relay.example/actor#main-key",
+		privateKey,
+		profile,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signer, &privateKey.PublicKey
+}
+
+func requireValidRFC9421RemoteGET(
+	request *http.Request,
+	publicKey *rsa.PublicKey,
+) error {
+	if request.Method != http.MethodGet {
+		return fmt.Errorf("method = %s; want GET", request.Method)
+	}
+	if request.Header.Get("Signature-Input") == "" {
+		return fmt.Errorf("missing Signature-Input")
+	}
+	if request.Header.Get("Digest") != "" ||
+		request.Header.Get("Content-Digest") != "" {
+		return fmt.Errorf("RFC 9421 GET carries a digest field")
+	}
+
+	wireRequest := request.Clone(request.Context())
+	wireURL := *request.URL
+	wireURL.Scheme = "http"
+	wireURL.Host = request.Host
+	wireRequest.URL = &wireURL
+	wireRequest.Host = request.Host
+
+	set, err := sigset.Unmarshal(wireRequest)
+	if err != nil {
+		return err
+	}
+	message, err := set.Find("activitypub")
+	if err != nil {
+		return err
+	}
+	base, err := sigbase.Derive(
+		message.Input,
+		nil,
+		wireRequest,
+		contentdigest.SHA256,
+	)
+	if err != nil {
+		return err
+	}
+	signingString, err := base.CanonicalString(message.Input)
+	if err != nil {
+		return err
+	}
+	return alg_rsa.NewRSAPKCS256Verifier(publicKey).Verify(
+		context.Background(),
+		signingString,
+		message.Signature,
+	)
+}
+
+func TestNewActivityPubActorFromRemoteActorSignsRFC9421GET(
+	t *testing.T,
+) {
+	signer, publicKey := newConfiguredRemoteSignerForTest(
+		t,
+		httpsignature.ProfileRFC9421,
+	)
+	server := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if err := requireValidRFC9421RemoteGET(
+				request,
+				publicKey,
+			); err != nil {
+				http.Error(
+					writer,
+					err.Error(),
+					http.StatusUnauthorized,
+				)
+				return
+			}
+			writer.Header().Set(
+				"Content-Type",
+				"application/activity+json",
+			)
+			fmt.Fprint(
+				writer,
+				`{"id":"`+serverURL(request)+`/actor","type":"Service"}`,
+			)
+		},
+	))
+	defer server.Close()
+
+	actor, err := NewActivityPubActorFromRemoteActor(
+		server.URL+"/actor",
+		"Activity-Relay test",
+		cache.New(5*time.Minute, 10*time.Minute),
+		signer,
+	)
+	if err != nil {
+		t.Fatalf("fetch RFC 9421 actor: %v", err)
+	}
+	if actor.ID != server.URL+"/actor" {
+		t.Fatalf("actor ID = %q; want %q", actor.ID, server.URL+"/actor")
+	}
+}
+
+func TestFetchRemoteJSONResignsRFC9421Redirect(t *testing.T) {
+	signer, publicKey := newConfiguredRemoteSignerForTest(
+		t,
+		httpsignature.ProfileRFC9421,
+	)
+	var verifiedRequests atomic.Int32
+
+	finalServer := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if err := requireValidRFC9421RemoteGET(
+				request,
+				publicKey,
+			); err != nil {
+				http.Error(
+					writer,
+					err.Error(),
+					http.StatusUnauthorized,
+				)
+				return
+			}
+			verifiedRequests.Add(1)
+			writer.Header().Set(
+				"Content-Type",
+				"application/activity+json",
+			)
+			fmt.Fprint(
+				writer,
+				`{"id":"`+serverURL(request)+`/actor","type":"Service"}`,
+			)
+		},
+	))
+	defer finalServer.Close()
+
+	redirectServer := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if err := requireValidRFC9421RemoteGET(
+				request,
+				publicKey,
+			); err != nil {
+				http.Error(
+					writer,
+					err.Error(),
+					http.StatusUnauthorized,
+				)
+				return
+			}
+			verifiedRequests.Add(1)
+			http.Redirect(
+				writer,
+				request,
+				finalServer.URL+"/actor",
+				http.StatusFound,
+			)
+		},
+	))
+	defer redirectServer.Close()
+
+	var actor Actor
+	if _, err := fetchRemoteJSON(
+		redirectServer.URL+"/actor",
+		"test",
+		&actor,
+		signer,
+	); err != nil {
+		t.Fatalf("fetch redirected RFC 9421 actor: %v", err)
+	}
+	if got := verifiedRequests.Load(); got != 2 {
+		t.Fatalf("verified RFC 9421 requests = %d; want 2", got)
 	}
 }

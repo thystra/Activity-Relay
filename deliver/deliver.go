@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/deliverymeta"
 	"github.com/thystra/Activity-Relay/internal/deliverypolicy"
+	"github.com/thystra/Activity-Relay/internal/httpsignature"
 	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
 )
@@ -27,10 +28,11 @@ var (
 	// RelayActor : Relay's Actor
 	RelayActor models.Actor
 
-	HttpClient         *http.Client
-	MachineryServer    *machinery.Server
-	RedisClient        *redis.Client
-	OperationalMetrics *observability.Recorder
+	HttpClient            *http.Client
+	MachineryServer       *machinery.Server
+	RedisClient           *redis.Client
+	OperationalMetrics    *observability.Recorder
+	OutboundRequestSigner *httpsignature.ConfiguredSigner
 )
 
 func recordDeliveryMetric(result, errorClass string) {
@@ -356,6 +358,14 @@ func initialize(globalConfig *models.RelayConfig) error {
 	HttpClient = &http.Client{Timeout: time.Duration(5) * time.Second}
 
 	RelayActor = models.NewActivityPubActorFromRelayConfig(globalConfig)
+	OutboundRequestSigner, err = httpsignature.NewConfiguredSigner(
+		RelayActor.PublicKey.ID,
+		globalConfig.ActorKey(),
+		globalConfig.OutboundSignatureProfile(),
+	)
+	if err != nil {
+		return err
+	}
 	newNullLogger := NewNullLogger()
 	log.DEBUG = newNullLogger
 

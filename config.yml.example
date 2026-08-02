@@ -11,6 +11,10 @@ JOB_CONCURRENCY: 50
 MAX_ACTIVITY_BYTES: 1048576
 MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
+# Outbound authorized-fetch GET and delivery POST signature profile.
+# Supported values: legacy and rfc9421. Empty or omitted preserves legacy.
+# dual is intentionally rejected until destination-aware negotiation exists.
+OUTBOUND_SIGNATURE_PROFILE: legacy
 
 # Single-disk defaults used by contrib/ops/resource-guard.py. These should
 # match RELAY_STORAGE_DIR and RELAY_CACHE_DIR in the deployment environment.

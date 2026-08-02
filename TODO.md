@@ -74,8 +74,8 @@ the retrospective FEP-ae0c relay profiles.
 - [x] Wire the inbound core into the ActivityPub decoder with authenticated
   actor-key retrieval, strict legacy/modern profile selection, bounded
   metrics, and a real-process signed inbound/replay/tamper probe.
-- [ ] Add explicit outbound `legacy` and `rfc9421` configuration with safe
-  startup validation and no default change.
+- [x] Add explicit outbound `legacy` and `rfc9421` configuration with safe
+  startup validation, shared server/worker wiring, and no default change.
 - [ ] Design and test destination-aware `dual` negotiation without ambiguous
   simultaneous `Signature` fields or blind duplicate POST delivery.
 - [ ] Run mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
