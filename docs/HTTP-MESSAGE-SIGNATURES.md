@@ -171,3 +171,22 @@ modern signature fields before re-signing the new request target.
 Selecting `rfc9421` is an explicit operator action. It does not probe a
 destination, retry a POST with another signature grammar, or fall back after a
 remote rejection.
+
+## Destination-aware negotiation core
+
+The negotiation core is documented in
+`docs/OUTBOUND-SIGNATURE-NEGOTIATION.md`.
+
+Capability identity is origin- and scope-specific. Fetch evidence and delivery
+evidence are not interchangeable. Positive RFC 9421 observations expire after
+fourteen days by default; explicit negative observations expire after one day.
+
+An unknown fetch plan may select RFC 9421 first and expose a legacy fallback,
+but the fallback is eligible only after a later runtime layer has explicitly
+classified a signature rejection. Transport errors and generic HTTP failures
+never authorize fallback.
+
+An unknown delivery plan remains legacy. Delivery plans never contain a
+fallback, preventing blind duplicate POST delivery.
+
+This tranche does not make `dual` a valid runtime configuration value.

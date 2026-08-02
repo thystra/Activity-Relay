@@ -76,8 +76,12 @@ the retrospective FEP-ae0c relay profiles.
   metrics, and a real-process signed inbound/replay/tamper probe.
 - [x] Add explicit outbound `legacy` and `rfc9421` configuration with safe
   startup validation, shared server/worker wiring, and no default change.
-- [ ] Design and test destination-aware `dual` negotiation without ambiguous
-  simultaneous `Signature` fields or blind duplicate POST delivery.
+- [x] Add the destination-aware negotiation core with origin- and
+  scope-specific expiring capability state, GET-only explicit-rejection
+  fallback planning, and a hard no-fallback invariant for delivery POSTs.
+- [ ] Wire `dual` runtime negotiation with validated `Accept-Signature`
+  evidence, one bounded GET fallback, stable delivery-profile selection across
+  retries, and no blind duplicate POST delivery.
 - [ ] Run mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
   interoperability before selecting the Activity-Relay 3.0 default.
 
@@ -119,6 +123,14 @@ the retrospective FEP-ae0c relay profiles.
 - Continue maintaining and rebasing the Redis-only Machinery fork for relevant
   upstream security and correctness fixes.
 
+- After RFC 9421/RFC 9530 work, design an opt-in ActivityPub Relay
+  Directory / Relay Phonebook protocol and separate server. Activity-Relay
+  registration must default to disabled, support one or more configured
+  directory URLs, send a signed daily heartbeat with jitter, avoid publishing
+  connected-site identities, and use RFC 9421 plus RFC 9530. The directory
+  should classify listings using configurable `healthy_before`, stale, dead,
+  and prune thresholds, with moderation, replay protection, and no active
+  default directory endpoints in the first release.
 ## Release gates for future versions
 
 Before any release:
