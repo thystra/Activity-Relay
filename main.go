@@ -26,6 +26,7 @@ YAML Format
 	RELAY_DOMAIN: relay.example.org
 	RELAY_SERVICENAME: Example ActivityPub Relay
 	JOB_CONCURRENCY: 50
+	OUTBOUND_SIGNATURE_PROFILE: legacy
 	RELAY_SUMMARY: |
 		Example ActivityPub Relay is powered by Activity-Relay
 	RELAY_ICON: https://example.com/example_icon.png
@@ -41,6 +42,7 @@ This is Optional : When config file not exist, use environment variables.
   - RELAY_DOMAIN
   - RELAY_SERVICENAME
   - JOB_CONCURRENCY
+  - OUTBOUND_SIGNATURE_PROFILE
   - RELAY_SUMMARY
   - RELAY_ICON
   - RELAY_IMAGE
@@ -177,6 +179,7 @@ func initConfig(cmd *cobra.Command) {
 		viper.BindEnv("MAX_ACTIVITY_BYTES")
 		viper.BindEnv("MAX_FANOUT_TARGETS")
 		viper.BindEnv("MAX_QUEUE_JOBS")
+		viper.BindEnv("OUTBOUND_SIGNATURE_PROFILE")
 	}
 
 	GlobalConfig, err = models.NewRelayConfig()

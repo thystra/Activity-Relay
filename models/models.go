@@ -57,6 +57,8 @@ func fetchRemoteJSON(address string, uaString string, destination interface{}, s
 		}
 		redirect.Header.Del("Date")
 		redirect.Header.Del("Digest")
+		redirect.Header.Del("Content-Digest")
+		redirect.Header.Del("Signature-Input")
 		redirect.Header.Del("Signature")
 		if err := signer.SignGET(redirect); err != nil {
 			return fmt.Errorf("sign redirected remote request: %w", err)

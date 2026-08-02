@@ -19,7 +19,19 @@ import (
 const maxDeliveryResponseBodyBytes int64 = 4096
 
 func appendSignature(request *http.Request, body *[]byte, KeyID string, privateKey *rsa.PrivateKey) error {
-	signer, err := httpsignature.NewSigner(KeyID, privateKey)
+	if OutboundRequestSigner != nil {
+		return OutboundRequestSigner.SignPOST(request, *body)
+	}
+
+	profile := httpsignature.ProfileLegacy
+	if GlobalConfig != nil {
+		profile = GlobalConfig.OutboundSignatureProfile()
+	}
+	signer, err := httpsignature.NewConfiguredSigner(
+		KeyID,
+		privateKey,
+		profile,
+	)
 	if err != nil {
 		return err
 	}

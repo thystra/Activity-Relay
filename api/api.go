@@ -27,7 +27,7 @@ var (
 
 	ActorCache             *cache.Cache
 	MachineryServer        *machinery.Server
-	RemoteRequestSigner    *httpsignature.Signer
+	RemoteRequestSigner    *httpsignature.ConfiguredSigner
 	InboundRFC9421Verifier *httpsignature.RFC9421Verifier
 	RelayState             models.RelayState
 	OperationalMetrics     *observability.Recorder
@@ -140,9 +140,10 @@ func initialize(globalConfig *models.RelayConfig) error {
 	}
 
 	RelayActor = models.NewActivityPubActorFromRelayConfig(globalConfig)
-	RemoteRequestSigner, err = httpsignature.NewSigner(
+	RemoteRequestSigner, err = httpsignature.NewConfiguredSigner(
 		RelayActor.PublicKey.ID,
 		globalConfig.ActorKey(),
+		globalConfig.OutboundSignatureProfile(),
 	)
 	if err != nil {
 		return err
