@@ -700,6 +700,8 @@ func classifyKey(key string) string {
 		return "retry"
 	case strings.HasPrefix(key, "relay:activity:"):
 		return "retained_activity"
+	case strings.HasPrefix(key, "relay:canonical:"):
+		return "canonical_marker"
 	default:
 		return "other"
 	}
@@ -1211,8 +1213,8 @@ func runProbe() (exitCode int) {
 		if current != lastCount {
 			lastCount = current
 			stableSince = time.Now()
-		} else if current > 0 && time.Since(stableSince) >= quietWindow {
-			if current == 1 {
+		} else if time.Since(stableSince) >= quietWindow {
+			if current == 0 {
 				classification = "no_reflection_observed"
 			} else {
 				classification = "reflection_settled"
@@ -1222,9 +1224,6 @@ func runProbe() (exitCode int) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	if classification == "" {
-		if generated.Load() == 0 {
-			fail(errors.New("seed produced no generated cross-relay delivery"))
-		}
 		classification = "reflection_active_at_timeout"
 	}
 

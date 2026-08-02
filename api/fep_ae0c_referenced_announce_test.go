@@ -135,6 +135,7 @@ func resetFEPAE0CReferencedAnnounceState(t *testing.T) {
 		"relay:follower:*",
 		"relay:publisher:*",
 		"relay:pending:*",
+		canonicalRelayKeyPrefix + "*",
 	}
 	keys := make([]string, 0)
 	for _, pattern := range patterns {
@@ -283,11 +284,41 @@ func TestFEPAE0CReferencedAnnounceFetchesSignedRemoteActivityAndQueuesRelayAnnou
 	waitForFEPAE0CRelayAnnounce(
 		t,
 		originActivity.ID,
-		2,
+		1,
 	)
-	if signedGETs.Load() != 2 {
+
+	duplicateRecorder := postFEPAE0CFixture(
+		t,
+		activity,
+		outerActor,
+		body,
+	)
+	if duplicateRecorder.Code != http.StatusAccepted {
 		t.Fatalf(
-			"signed remote GET count = %d; want 2 activity/actor fetches",
+			"duplicate status = %d, body = %q; want %d",
+			duplicateRecorder.Code,
+			strings.TrimSpace(duplicateRecorder.Body.String()),
+			http.StatusAccepted,
+		)
+	}
+	time.Sleep(250 * time.Millisecond)
+	activityKeys, err := models.ScanKeys(
+		context.Background(),
+		RelayState.RedisClient,
+		"relay:activity:*",
+	)
+	if err != nil {
+		t.Fatalf("scan relay activities after duplicate: %v", err)
+	}
+	if len(activityKeys) != 1 {
+		t.Fatalf(
+			"relay activity count after duplicate = %d; want 1",
+			len(activityKeys),
+		)
+	}
+	if signedGETs.Load() < 3 {
+		t.Fatalf(
+			"signed remote GET count = %d; want at least 3 across two requests",
 			signedGETs.Load(),
 		)
 	}

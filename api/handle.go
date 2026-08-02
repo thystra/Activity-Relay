@@ -272,7 +272,11 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 
 							return
 						}
-						executeAnnounceActivity(origActivity, origActor)
+						executeAnnounceActivity(
+							origActivity,
+							origActor,
+							normalizedActorDomain(actorID),
+						)
 					default:
 						logrus.Debug("Skipped Announce Activity : ", activity.Actor)
 					}

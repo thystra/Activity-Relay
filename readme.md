@@ -35,6 +35,9 @@ Compared with the upstream baseline, this fork includes:
 - A tested Redis-backed fan-out pipeline with bounded queue and response
   controls, leased in-flight task claims, and at-least-once recovery after
   abrupt worker termination.
+- Non-configurable relay-reflection protection that excludes the supplying
+  relay and deduplicates relay-authored wrappers by a hashed canonical
+  activity reference for the bounded delivery-retention horizon.
 - Multi-architecture `linux/amd64` and `linux/arm64` container releases on GHCR.
 - Native Ubuntu 24.04 `amd64` Debian packages with systemd units, a dedicated
   Redis instance, operational resource monitoring, and upgrade-safe identity

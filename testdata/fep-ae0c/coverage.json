@@ -7,6 +7,7 @@
     "existing-executable",
     "diagnostic-executable",
     "planned-integration",
+    "process-invariant",
     "future-protocol"
   ],
   "coverage": [
@@ -137,10 +138,11 @@
     },
     {
       "case_id": "repeat-id-two-relay-loop",
-      "status": "diagnostic-executable",
+      "status": "process-invariant",
       "tests": [],
-      "notes": "A bounded real-process diagnostic starts two API processes, two workers, two Redis containers, trusted TLS frontends, and a signed origin. Its machine-readable classification determines whether the next step is a passing invariant or a runtime loop-suppression fix.",
-      "command": "contrib/ops/test_fep_ae0c_two_relay_probe.sh"
+      "notes": "A required real-process invariant starts two API processes, two workers, two Redis containers, trusted TLS frontends, and a signed origin. It passes only when the seed produces no generated cross-relay response, all signatures validate, a canonical marker is retained, and both queues settle without delivery backlog.",
+      "command": "contrib/ops/test_fep_ae0c_two_relay_probe.sh",
+      "expected_classification": "no_reflection_observed"
     },
     {
       "case_id": "rfc9421-dual-profile-post",
