@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	relayhttpsig "github.com/thystra/Activity-Relay/internal/httpsignature"
 	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
 )
@@ -68,5 +69,36 @@ func TestEnqueueActivityRecordsNoTargets(t *testing.T) {
 	}
 	if value := ledger["queue_admissions_total|relay|skipped|no_targets"]; value == "" || value == "0" {
 		t.Fatalf("no-target queue metric missing: %#v", ledger)
+	}
+}
+
+func TestClassifyHTTPSignatureVerificationError(t *testing.T) {
+	tests := []struct {
+		err  error
+		want string
+	}{
+		{nil, "accepted"},
+		{relayhttpsig.ErrRFC9421Replay, "replay"},
+		{errors.New("Content-Digest mismatch"), "digest"},
+		{errors.New("signature is older than allowed"), "time"},
+		{errors.New("request authority mismatch"), "authority"},
+		{errors.New("public-key owner mismatch"), "actor"},
+		{errors.New("resolve RFC 9421 key"), "key"},
+		{errors.New("reserve RFC 9421 nonce: Redis unavailable"), "redis"},
+		{errors.New("required covered component is missing"), "policy"},
+		{errors.New("parse RFC 9421 signature fields"), "parse"},
+		{errors.New("verify RFC 9421 signature"), "crypto"},
+		{errors.New("invalid character in activity"), "activity"},
+		{errors.New("opaque"), "other"},
+	}
+	for _, test := range tests {
+		if got := classifyHTTPSignatureVerificationError(test.err); got != test.want {
+			t.Errorf(
+				"classifyHTTPSignatureVerificationError(%v) = %q; want %q",
+				test.err,
+				got,
+				test.want,
+			)
+		}
 	}
 }

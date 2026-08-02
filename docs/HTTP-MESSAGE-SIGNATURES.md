@@ -110,3 +110,43 @@ actor URL after scheme and authority case normalization.
 
 Runtime actor retrieval, inbox profile selection, metrics, and HTTP response
 classification remain for the next tranche.
+
+## Inbound runtime selection
+
+The public inbox now selects RFC 9421 verification whenever a
+`Signature-Input` field is present, including an empty malformed field. Once selected, verification failure is
+terminal for that request; Activity-Relay does not fall back to the legacy
+parser. Requests without `Signature-Input` continue through the established
+legacy verification path.
+
+The runtime key resolver fetches the key ID as an authenticated ActivityPub
+GET and requires:
+
+- a non-empty actor ID;
+- an embedded RSA public key;
+- the fetched public-key ID to exactly equal `keyid`;
+- a non-empty public-key owner; and
+- a parseable RSA public key.
+
+The core verifier then requires the public-key owner and resolved actor ID to
+match the activity actor exactly after URL scheme and authority case
+normalization. The activity actor document fetched for normal relay processing
+is checked through the same exact binding.
+
+The verifier is initialized from the relay's configured public HTTPS authority
+and existing Redis client. This is additive inbound support; outbound delivery
+and authorized fetch still use the legacy profile.
+
+## Inbound signature metrics
+
+The private metrics surface exports:
+
+```text
+activity_relay_http_signature_verifications_total
+```
+
+with bounded `profile`, `result`, and `reason` labels. Profiles are `legacy`
+and `rfc9421`. Results are `success` and `failure`. Reasons are bounded to
+accepted, parse, key, crypto, digest, replay, time, actor, authority, policy,
+Redis, activity, or other. Raw actor IDs, key IDs, nonce values, URLs, and
+error text are never metric labels.

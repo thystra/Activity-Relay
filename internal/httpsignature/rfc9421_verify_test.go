@@ -173,11 +173,15 @@ func TestRFC9421VerifierDoesNotConsumeNonceForTamperedBody(t *testing.T) {
 	body := []byte(`{"actor":"https://relay.example/actor","type":"Follow"}`)
 	request := signedInboundVerificationRequest(t, signer, body)
 
-	if _, err := verifier.VerifyPOST(
+	_, err := verifier.VerifyPOST(
 		request,
 		[]byte(`{"actor":"https://relay.example/actor","type":"Create"}`),
-	); err == nil {
+	)
+	if err == nil {
 		t.Fatal("tampered body unexpectedly verified")
+	}
+	if !strings.Contains(err.Error(), "Content-Digest") {
+		t.Fatalf("tampered body error = %v; want Content-Digest rejection", err)
 	}
 	if store.callCount() != 0 {
 		t.Fatalf(
