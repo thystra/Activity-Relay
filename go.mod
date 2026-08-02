@@ -4,6 +4,8 @@ go 1.23.0
 
 require (
 	github.com/Songmu/go-httpdate v1.0.0
+	github.com/common-fate/httpsig v0.2.1
+	github.com/dunglas/httpsfv v1.0.2
 	github.com/go-fed/httpsig v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/patrickmn/go-cache v2.1.1-0.20191004192108-46f407853014+incompatible
