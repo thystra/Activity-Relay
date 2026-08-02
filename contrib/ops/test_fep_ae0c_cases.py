@@ -12,6 +12,12 @@ from urllib.parse import urlparse
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CASES_PATH = REPOSITORY_ROOT / "testdata" / "fep-ae0c" / "cases.json"
 COVERAGE_PATH = REPOSITORY_ROOT / "testdata" / "fep-ae0c" / "coverage.json"
+TWO_RELAY_CONTRACT_PATH = (
+    REPOSITORY_ROOT
+    / "testdata"
+    / "fep-ae0c"
+    / "two-relay-probe-contract.json"
+)
 
 REQUIRED_CASE_FIELDS = {
     "id",
@@ -38,6 +44,9 @@ class FEPAE0CCasesTest(unittest.TestCase):
             COVERAGE_PATH.read_text(encoding="utf-8")
         )
         cls.coverage = cls.coverage_document["coverage"]
+        cls.two_relay_contract = json.loads(
+            TWO_RELAY_CONTRACT_PATH.read_text(encoding="utf-8")
+        )
 
     def test_document_metadata(self) -> None:
         self.assertEqual(self.document["schema_version"], 1)
@@ -141,6 +150,29 @@ class FEPAE0CCasesTest(unittest.TestCase):
                         )
                 else:
                     self.assertEqual(tests, [])
+
+    def test_two_relay_probe_contract(self) -> None:
+        contract = self.two_relay_contract
+        self.assertEqual(contract["schema_version"], 1)
+        self.assertEqual(
+            contract["fixture"],
+            "repeat-id-two-relay-loop",
+        )
+        topology = contract["topology"]
+        self.assertEqual(topology["relay_processes"], 2)
+        self.assertEqual(topology["worker_processes"], 2)
+        self.assertEqual(topology["redis_instances"], 2)
+        self.assertTrue(topology["independent_actor_keys"])
+        self.assertTrue(topology["trusted_tls_frontends"])
+        self.assertTrue(topology["signed_origin_server"])
+        self.assertIn(
+            "reflection_threshold_reached",
+            contract["classifications"],
+        )
+        self.assertGreaterEqual(
+            len(contract["required_observations"]),
+            6,
+        )
 
 
 if __name__ == "__main__":

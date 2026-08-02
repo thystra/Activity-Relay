@@ -149,6 +149,14 @@ The referenced-Announce and two-relay reflection cases require real process
 boundaries, separate Redis state, signed HTTP requests, and bounded delivery
 assertions before their coverage status may change to executable.
 
+### Two-relay probe implementation gate
+
+The implementation of the two-relay probe must satisfy
+`testdata/fep-ae0c/two-relay-probe-contract.json`. A simulated graph, shared
+Redis database, shared actor key, unsigned origin, or in-process handler pair
+does not satisfy this gate. The probe must preserve a machine-readable report
+and private process logs outside the repository.
+
 ## Promotion gate
 
 Do not tag a release candidate until both deployment forms pass the applicable

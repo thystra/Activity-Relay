@@ -56,8 +56,9 @@ the retrospective FEP-ae0c relay profiles.
   fixture-driven API tranche covers traditional and LitePub relationship
   handling, audience routing, exact-body forwarding, open publishers, NodeBB
   normalization guards, unsupported activity handling, and actor-path
-  compatibility. Referenced-Announce and true two-relay reflection coverage
-  remain separate process-level integration work.
+  compatibility. Referenced-Announce now has a signed-origin integration
+  test. The true two-relay reflection probe remains process-level work under
+  the frozen probe contract.
 - Resolve Public-in-`to` versus Public-only-in-`cc` through explicit
   configuration and real interoperability evidence rather than an implicit
   routing condition.
