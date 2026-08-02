@@ -323,6 +323,13 @@ func (verifier *RFC9421Verifier) VerifyPOST(
 		return nil, err
 	}
 
+	if err := VerifyRFC9530ContentDigestSHA256(
+		request.Header.Values("Content-Digest"),
+		body,
+	); err != nil {
+		return nil, err
+	}
+
 	resolved, err := verifier.keyResolver.ResolveRFC9421Key(
 		request.Context(),
 		message.Input.KeyID,
@@ -362,13 +369,6 @@ func (verifier *RFC9421Verifier) VerifyPOST(
 		message.Signature,
 	); err != nil {
 		return nil, fmt.Errorf("verify RFC 9421 signature: %w", err)
-	}
-
-	if err := VerifyRFC9530ContentDigestSHA256(
-		request.Header.Values("Content-Digest"),
-		body,
-	); err != nil {
-		return nil, err
 	}
 
 	reserved, err := verifier.nonceStore.ReserveRFC9421Nonce(

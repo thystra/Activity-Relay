@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	relayhttpsig "github.com/thystra/Activity-Relay/internal/httpsignature"
 	"github.com/thystra/Activity-Relay/internal/observability"
 	"github.com/thystra/Activity-Relay/models"
 )
@@ -53,6 +55,71 @@ func recordActivityMetric(result, activityType, reason string) {
 	}
 	if err := OperationalMetrics.RecordActivity(context.Background(), result, activityType, reason); err != nil {
 		logrus.WithError(err).Debug("Unable to record activity metric")
+	}
+}
+func recordHTTPSignatureVerification(profile, result, reason string) {
+	if OperationalMetrics == nil {
+		return
+	}
+	if err := OperationalMetrics.RecordHTTPSignatureVerification(
+		context.Background(),
+		profile,
+		result,
+		reason,
+	); err != nil {
+		logrus.WithError(err).Debug(
+			"Unable to record HTTP signature verification metric",
+		)
+	}
+}
+
+func classifyHTTPSignatureVerificationError(err error) string {
+	if err == nil {
+		return "accepted"
+	}
+	if errors.Is(err, relayhttpsig.ErrRFC9421Replay) {
+		return "replay"
+	}
+
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "content-digest") ||
+		strings.Contains(text, "digest header"):
+		return "digest"
+	case strings.Contains(text, "older than") ||
+		strings.Contains(text, "future") ||
+		strings.Contains(text, "expired") ||
+		strings.Contains(text, "expires") ||
+		strings.Contains(text, "created parameter"):
+		return "time"
+	case strings.Contains(text, "authority"):
+		return "authority"
+	case strings.Contains(text, "actor") ||
+		strings.Contains(text, "owner"):
+		return "actor"
+	case strings.Contains(text, "resolve") ||
+		strings.Contains(text, "public key") ||
+		strings.Contains(text, "keyid"):
+		return "key"
+	case strings.Contains(text, "reserve rfc 9421 nonce") ||
+		strings.Contains(text, "redis"):
+		return "redis"
+	case strings.Contains(text, "covered component") ||
+		strings.Contains(text, "algorithm") ||
+		strings.Contains(text, "nonce parameter"):
+		return "policy"
+	case strings.Contains(text, "parse rfc 9421") ||
+		strings.Contains(text, "find activitypub") ||
+		strings.Contains(text, "structured field"):
+		return "parse"
+	case strings.Contains(text, "verify rfc 9421 signature") ||
+		strings.Contains(text, "verification error"):
+		return "crypto"
+	case strings.Contains(text, "invalid character") ||
+		strings.Contains(text, "activity has no actor"):
+		return "activity"
+	default:
+		return "other"
 	}
 }
 

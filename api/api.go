@@ -25,11 +25,12 @@ var (
 	// WebfingerResources : Relay's Webfinger Resources
 	WebfingerResources []models.WebfingerResource
 
-	ActorCache          *cache.Cache
-	MachineryServer     *machinery.Server
-	RemoteRequestSigner *httpsignature.Signer
-	RelayState          models.RelayState
-	OperationalMetrics  *observability.Recorder
+	ActorCache             *cache.Cache
+	MachineryServer        *machinery.Server
+	RemoteRequestSigner    *httpsignature.Signer
+	InboundRFC9421Verifier *httpsignature.RFC9421Verifier
+	RelayState             models.RelayState
+	OperationalMetrics     *observability.Recorder
 )
 
 type httpServerBinding struct {
@@ -147,6 +148,10 @@ func initialize(globalConfig *models.RelayConfig) error {
 		return err
 	}
 	ActorCache = cache.New(5*time.Minute, 10*time.Minute)
+	InboundRFC9421Verifier, err = newInboundRFC9421Verifier(globalConfig)
+	if err != nil {
+		return err
+	}
 	Nodeinfo = models.GenerateNodeinfoResources(globalConfig.ServerHostname(), version)
 	WebfingerResources = append(WebfingerResources, RelayActor.GenerateWebfingerResource(globalConfig.ServerHostname()))
 

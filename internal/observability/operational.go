@@ -71,6 +71,24 @@ func (recorder *Recorder) RecordActivity(ctx context.Context, result, activityTy
 		normalizeActivityResult(result), normalizeActivityType(activityType), normalizeActivityReason(reason))
 }
 
+// RecordHTTPSignatureVerification records one bounded inbound signature
+// profile verification outcome.
+func (recorder *Recorder) RecordHTTPSignatureVerification(
+	ctx context.Context,
+	profile string,
+	result string,
+	reason string,
+) error {
+	return recorder.increment(
+		ctx,
+		"http_signature_verifications_total",
+		1,
+		normalizeHTTPSignatureProfile(profile),
+		normalizeHTTPSignatureResult(result),
+		normalizeHTTPSignatureReason(reason),
+	)
+}
+
 // RecordQueueAdmission records one queue-admission decision.
 func (recorder *Recorder) RecordQueueAdmission(ctx context.Context, kind, result, reason string) error {
 	return recorder.increment(ctx, "queue_admissions_total", 1,
@@ -172,6 +190,33 @@ func normalizeActivityType(value string) string {
 func normalizeActivityReason(value string) string {
 	return boundedValue(value, "other", "accepted", "invalid", "policy", "method", "internal", "unsupported")
 }
+func normalizeHTTPSignatureProfile(value string) string {
+	return boundedValue(value, "other", "legacy", "rfc9421")
+}
+
+func normalizeHTTPSignatureResult(value string) string {
+	return boundedValue(value, "other", "success", "failure")
+}
+
+func normalizeHTTPSignatureReason(value string) string {
+	return boundedValue(
+		value,
+		"other",
+		"accepted",
+		"parse",
+		"key",
+		"crypto",
+		"digest",
+		"replay",
+		"time",
+		"actor",
+		"authority",
+		"policy",
+		"redis",
+		"activity",
+	)
+}
+
 func normalizeQueueKind(value string) string {
 	return boundedValue(value, "other", "register", "relay")
 }
@@ -211,6 +256,7 @@ type OperationalCollector struct {
 	client       *redis.Client
 	snapshot     RuntimeSnapshotFunc
 	activities   *prometheus.Desc
+	signatures   *prometheus.Desc
 	queue        *prometheus.Desc
 	fanout       *prometheus.Desc
 	delivery     *prometheus.Desc
@@ -232,6 +278,7 @@ func NewOperationalCollector(client *redis.Client, snapshot RuntimeSnapshotFunc)
 		client:       client,
 		snapshot:     snapshot,
 		activities:   prometheus.NewDesc("activity_relay_activities_total", "Accepted, rejected, and ignored inbox activities.", []string{"result", "type", "reason"}, nil),
+		signatures:   prometheus.NewDesc("activity_relay_http_signature_verifications_total", "Inbound HTTP signature verification outcomes by bounded profile and reason.", []string{"profile", "result", "reason"}, nil),
 		queue:        prometheus.NewDesc("activity_relay_queue_admissions_total", "Queue admission decisions.", []string{"kind", "result", "reason"}, nil),
 		fanout:       prometheus.NewDesc("activity_relay_fanout_targets_total", "Fan-out targets by enqueue outcome.", []string{"result"}, nil),
 		delivery:     prometheus.NewDesc("activity_relay_delivery_attempts_total", "Relay fan-out delivery results.", []string{"result", "error_class"}, nil),
@@ -247,6 +294,7 @@ func NewOperationalCollector(client *redis.Client, snapshot RuntimeSnapshotFunc)
 
 func (collector *OperationalCollector) Describe(channel chan<- *prometheus.Desc) {
 	channel <- collector.activities
+	channel <- collector.signatures
 	channel <- collector.queue
 	channel <- collector.fanout
 	channel <- collector.delivery
@@ -326,6 +374,16 @@ func (collector *OperationalCollector) collectLedger(channel chan<- prometheus.M
 		case len(parts) == 4 && parts[0] == "activities_total":
 			add(collector.activities, parts[0], value,
 				normalizeActivityResult(parts[1]), normalizeActivityType(parts[2]), normalizeActivityReason(parts[3]))
+		case len(parts) == 4 &&
+			parts[0] == "http_signature_verifications_total":
+			add(
+				collector.signatures,
+				parts[0],
+				value,
+				normalizeHTTPSignatureProfile(parts[1]),
+				normalizeHTTPSignatureResult(parts[2]),
+				normalizeHTTPSignatureReason(parts[3]),
+			)
 		case len(parts) == 4 && parts[0] == "queue_admissions_total":
 			add(collector.queue, parts[0], value,
 				normalizeQueueKind(parts[1]), normalizeQueueResult(parts[2]), normalizeQueueReason(parts[3]))

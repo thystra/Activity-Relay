@@ -45,6 +45,14 @@ func TestOperationalRecorderAndCollector(t *testing.T) {
 	if err := recorder.RecordActivity(ctx, "invented", "PrivateType", "raw error text"); err != nil {
 		t.Fatal(err)
 	}
+	if err := recorder.RecordHTTPSignatureVerification(
+		ctx,
+		"rfc9421",
+		"failure",
+		"replay",
+	); err != nil {
+		t.Fatal(err)
+	}
 	if err := recorder.RecordQueueAdmission(ctx, "relay", "accepted", "accepted"); err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +88,7 @@ func TestOperationalRecorderAndCollector(t *testing.T) {
 	for _, expected := range []string{
 		`activity_relay_activities_total{reason="accepted",result="accepted",type="Create"} 1`,
 		`activity_relay_activities_total{reason="other",result="other",type="other"} 1`,
+		`activity_relay_http_signature_verifications_total{profile="rfc9421",reason="replay",result="failure"} 1`,
 		`activity_relay_queue_admissions_total{kind="relay",reason="accepted",result="accepted"} 1`,
 		`activity_relay_fanout_targets_total{result="queued"} 3`,
 		`activity_relay_delivery_attempts_total{error_class="http_5xx",result="failure"} 1`,
@@ -129,6 +138,7 @@ func TestOperationalCollectorBoundsExistingLedgerLabels(t *testing.T) {
 	if err := client.HSet(ctx, OperationalMetricsKey, map[string]interface{}{
 		"activities_total|invented|PrivateType|raw.example/path": 2,
 		"activities_total|other|other|other":                     3,
+		"http_signature_verifications_total|private|raw|secret":  4,
 	}).Err(); err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +156,19 @@ func TestOperationalCollectorBoundsExistingLedgerLabels(t *testing.T) {
 	if !strings.Contains(body, `activity_relay_activities_total{reason="other",result="other",type="other"} 5`) {
 		t.Fatalf("bounded ledger values were not combined\n%s", body)
 	}
-	for _, forbidden := range []string{"invented", "PrivateType", "raw.example"} {
+	if !strings.Contains(
+		body,
+		`activity_relay_http_signature_verifications_total{profile="other",reason="other",result="other"} 4`,
+	) {
+		t.Fatalf("bounded signature ledger values were not exported\n%s", body)
+	}
+	for _, forbidden := range []string{
+		"invented",
+		"PrivateType",
+		"raw.example",
+		"private",
+		"secret",
+	} {
 		if strings.Contains(body, forbidden) {
 			t.Fatalf("collector exposed unbounded ledger label %q", forbidden)
 		}

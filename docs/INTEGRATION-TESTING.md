@@ -239,3 +239,34 @@ The suite verifies:
 The inbox is not yet wired to select this verifier. A subsequent integration
 tranche must add an ActivityPub key resolver, dual legacy/modern decoder
 selection, metrics, and a real-process signed inbound probe.
+
+## RFC 9421 inbound runtime probe
+
+Run the real-process invariant with evidence outside the repository:
+
+```text
+contrib/ops/test_rfc9421_inbound_probe.sh /absolute/private/evidence/path
+```
+
+The probe starts:
+
+- one real Activity-Relay API process;
+- one independent Redis container;
+- a locally trusted TLS frontend for the relay;
+- a locally trusted signed ActivityPub actor origin; and
+- a private observability listener.
+
+It requires:
+
+- one valid RFC 9421 request to return 202;
+- the identical request replay to return 400;
+- a body-tampered request to return 400;
+- the original valid request after the tamper attempt to return 202, proving
+  the invalid body did not consume the nonce;
+- at least two valid relay-signed actor GETs;
+- zero invalid actor GET signatures;
+- exactly two temporary nonce markers; and
+- bounded success, replay, and digest metrics with expected counts.
+
+The evidence directory contains the exact relay configuration, process log,
+binary checksum, and machine-readable report.
