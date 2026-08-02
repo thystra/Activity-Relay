@@ -5,6 +5,7 @@
   "allowed_statuses": [
     "executable-new",
     "existing-executable",
+    "diagnostic-executable",
     "planned-integration",
     "future-protocol"
   ],
@@ -136,9 +137,10 @@
     },
     {
       "case_id": "repeat-id-two-relay-loop",
-      "status": "planned-integration",
+      "status": "diagnostic-executable",
       "tests": [],
-      "notes": "The required real-process topology, evidence, safety threshold, classifications, and promotion rule are frozen in testdata/fep-ae0c/two-relay-probe-contract.json."
+      "notes": "A bounded real-process diagnostic starts two API processes, two workers, two Redis containers, trusted TLS frontends, and a signed origin. Its machine-readable classification determines whether the next step is a passing invariant or a runtime loop-suppression fix.",
+      "command": "contrib/ops/test_fep_ae0c_two_relay_probe.sh"
     },
     {
       "case_id": "rfc9421-dual-profile-post",

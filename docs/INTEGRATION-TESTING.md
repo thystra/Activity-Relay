@@ -151,11 +151,23 @@ assertions before their coverage status may change to executable.
 
 ### Two-relay probe implementation gate
 
-The implementation of the two-relay probe must satisfy
-`testdata/fep-ae0c/two-relay-probe-contract.json`. A simulated graph, shared
-Redis database, shared actor key, unsigned origin, or in-process handler pair
-does not satisfy this gate. The probe must preserve a machine-readable report
-and private process logs outside the repository.
+The two-relay probe satisfies
+`testdata/fep-ae0c/two-relay-probe-contract.json` through
+`contrib/ops/test_fep_ae0c_two_relay_probe.sh`. A simulated graph, shared Redis
+database, shared actor key, unsigned origin, or in-process handler pair does not
+satisfy this gate. Run it with an absolute evidence directory outside the
+repository:
+
+```bash
+contrib/ops/test_fep_ae0c_two_relay_probe.sh /path/to/private/evidence
+```
+
+The report records cross-relay POSTs by destination and activity ID, legacy
+HTTP-signature verification, initial and final Redis key inventories, process
+configuration, and logs. A zero exit status means the infrastructure and
+observation completed; it does not mean the loop invariant passed. Review
+`report.json` and apply the contract promotion rule before changing fixture
+status or beginning protocol refactoring.
 
 ## Promotion gate
 

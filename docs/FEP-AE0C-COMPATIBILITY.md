@@ -258,12 +258,12 @@ canonical-activity GET and actor-document GET before returning either document.
 The test then verifies canonical publisher accounting and a relay-authored
 `Announce` queued for both receiver styles.
 
-One case remains intentionally outside executable coverage:
-
-1. `repeat-id-two-relay-loop` needs two independently configured relay
-   processes and independent Redis databases. An in-memory graph simulation
-   would not prove the actual storage, queue, signature, retry, or reflection
-   behavior and is therefore not accepted as completion evidence.
+The `repeat-id-two-relay-loop` case now has diagnostic executable coverage.
+The diagnostic uses two independently configured API processes, two workers,
+two Redis instances, independent actor keys, trusted TLS frontends, and a
+signed origin. Diagnostic execution is not yet a passing invariant: the
+machine-readable classification determines whether the observed behavior is
+bounded or requires a runtime loop-suppression fix.
 
 The RFC 9421 dual-profile fixture remains future protocol coverage. External
 review feedback may add or refine fixtures without changing these frozen v2.5
@@ -273,12 +273,18 @@ characterization assertions.
 
 The remaining repeated-ID/reflection audit is specified in
 [`testdata/fep-ae0c/two-relay-probe-contract.json`](../testdata/fep-ae0c/two-relay-probe-contract.json).
-The future probe must use two API processes, two workers, two Redis instances,
-independent actor keys, locally trusted TLS frontends, and a signed origin. It
-must cap cross-relay POSTs so discovery of a reflection cycle cannot run
-indefinitely. Successful probe execution is not itself a passing invariant;
-the resulting classification controls whether the next step is an assertion or
-a loop-suppression fix.
+The implemented probe is run through
+`contrib/ops/test_fep_ae0c_two_relay_probe.sh`. It uses two API processes, two
+workers, two Redis instances, independent actor keys, locally trusted TLS
+frontends, and a signed origin. It records every cross-relay inbox POST, signed
+remote GET evidence, process configuration and logs, and initial/final Redis
+key inventories. A hard POST threshold prevents a discovered reflection cycle
+from running indefinitely.
+
+Successful command execution is not itself a passing invariant. Only
+`no_reflection_observed`, or a separately reviewed and explicitly bounded
+`reflection_settled`, may be promoted to passing coverage. Active or
+threshold-reaching reflection requires a runtime loop-suppression fix first.
 
 ## Fixture status
 

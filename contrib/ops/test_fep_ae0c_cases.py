@@ -127,7 +127,7 @@ class FEPAE0CCasesTest(unittest.TestCase):
         self.assertEqual(len(coverage_ids), len(set(coverage_ids)))
         self.assertEqual(case_ids, set(coverage_ids))
 
-    def test_coverage_statuses_and_test_names(self) -> None:
+    def test_coverage_statuses_and_evidence(self) -> None:
         allowed_statuses = set(
             self.coverage_document["allowed_statuses"]
         )
@@ -143,13 +143,23 @@ class FEPAE0CCasesTest(unittest.TestCase):
 
                 if entry["status"] in EXECUTABLE_COVERAGE:
                     self.assertGreater(len(tests), 0)
+                    self.assertNotIn("command", entry)
                     for test_name in tests:
                         self.assertRegex(
                             test_name,
                             r"^Test[A-Za-z0-9_]+$",
                         )
+                elif entry["status"] == "diagnostic-executable":
+                    self.assertEqual(tests, [])
+                    command = entry.get("command")
+                    self.assertIsInstance(command, str)
+                    self.assertTrue(command.strip())
+                    command_path = REPOSITORY_ROOT / command
+                    self.assertTrue(command_path.is_file(), command)
+                    self.assertTrue(command_path.stat().st_mode & 0o111)
                 else:
                     self.assertEqual(tests, [])
+                    self.assertNotIn("command", entry)
 
     def test_two_relay_probe_contract(self) -> None:
         contract = self.two_relay_contract
