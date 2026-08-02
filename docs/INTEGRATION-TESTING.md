@@ -188,3 +188,28 @@ repeated.
 After the stable tag is published, verify the release assets, internal Debian
 version, checksums, packaged examples, multi-architecture container manifests,
 stable semantic tags, and `latest` before declaring publication complete.
+
+## RFC 9421 and RFC 9530 standards core
+
+The standards-core tranche is exercised by:
+
+```text
+go test ./internal/httpsignature
+```
+
+The focused suite freezes:
+
+- empty profile configuration preserving `legacy`;
+- `dual` being rejected by the primitive layer until a delivery policy exists;
+- exact RFC 9530 SHA-256 serialization and verification;
+- exact wire authority including non-default ports;
+- required GET and POST covered-component order;
+- RSA `rsa-v1_5-sha256` signature verification;
+- random nonce and `created` signature parameters;
+- POST body preservation;
+- rejection of tampered bodies by both the signature and content digest; and
+- unchanged legacy `Digest` and `Signature` behavior.
+
+This tranche does not alter a server, worker, delivery, resolver, package, or
+production configuration path. Runtime interoperability probes are required in
+the next tranche.

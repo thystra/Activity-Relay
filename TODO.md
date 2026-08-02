@@ -25,7 +25,6 @@ website content, and supported deployment models.
   no final queue backlog.
 
 ## v2.5.0 completed
-## v2.5.0 completed
 
 - Relay-signed actor and object `GET` requests for Mastodon authorized-fetch and
   secure-mode interoperability.
@@ -64,6 +63,20 @@ website content, and supported deployment models.
 
 The next active protocol milestone is a modern signing architecture informed by
 the retrospective FEP-ae0c relay profiles.
+
+### RFC 9421 / RFC 9530 implementation tranches
+
+- [x] Add pinned RFC 9421 structured-field, RSA-signing, and RFC 9530 digest
+  primitives while preserving every existing runtime call site on `legacy`.
+- [ ] Add inbound RFC 9421 verification with actor/key binding, required
+  component policy, bounded time validation, and Redis-backed nonce replay
+  prevention.
+- [ ] Add explicit outbound `legacy` and `rfc9421` configuration with safe
+  startup validation and no default change.
+- [ ] Design and test destination-aware `dual` negotiation without ambiguous
+  simultaneous `Signature` fields or blind duplicate POST delivery.
+- [ ] Run mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
+  interoperability before selecting the Activity-Relay 3.0 default.
 
 - Land and maintain `docs/FEP-AE0C-COMPATIBILITY.md` and the machine-readable
   fixture catalog before changing runtime behavior.
