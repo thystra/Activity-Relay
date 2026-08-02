@@ -301,3 +301,27 @@ contrib/ops/test_fep_ae0c_two_relay_probe.sh /absolute/private/evidence/path
 
 The first preserves the modern-inbound/legacy-outbound boundary. The second
 must retain `no_reflection_observed` with legacy wire signatures.
+
+## Destination negotiation core
+
+Run the focused Redis-backed suite:
+
+```text
+REDIS_URL=redis://127.0.0.1:6381 go test -count=1 ./internal/httpsignature
+```
+
+The suite requires:
+
+- normalized origin identity with default-port removal;
+- separate fetch and delivery capability keys;
+- hashed Redis key names without raw origins;
+- bounded positive and negative TTLs;
+- stale observations unable to overwrite newer state;
+- fixed profiles not consulting capability state;
+- unknown fetch selecting RFC 9421 with only an explicit-rejection fallback;
+- transport and generic server failures not permitting fallback;
+- unknown delivery selecting legacy with no fallback;
+- cached modern and legacy preferences selecting one wire profile; and
+- expired state returning to unknown-scope rules.
+
+No public endpoint or outbound runtime behavior changes in this tranche.
