@@ -84,3 +84,57 @@ The next tranche must:
 5. record successful modern fetch and delivery observations;
 6. preserve one selected profile across delayed delivery retries; and
 7. add mixed legacy/RFC 9421 real-process fixtures.
+
+## Runtime wiring
+
+`OUTBOUND_SIGNATURE_PROFILE=dual` is now accepted after RelayConfig constructs
+the Redis capability store and destination negotiator. Fixed `legacy` and
+`rfc9421` modes continue to bypass capability selection.
+
+### Authorized fetch
+
+The configured signer owns initial and redirected GET signing. For an unknown
+origin it sends RFC 9421 first. A single legacy fallback is permitted only when
+the final response is `401` or `403` and a `WWW-Authenticate` field explicitly
+contains the `Signature` authentication scheme.
+
+The rejected response body is drained only to a small bound and closed before
+the fallback. The fallback is executed once; its response cannot trigger
+another negotiation fallback. Redirects are re-planned and re-signed for their
+own normalized destination origin.
+
+### Accept-Signature evidence
+
+A successful response can advertise RFC 9421 support with
+`Accept-Signature`. Activity-Relay accepts the field as evidence only when it
+contains exactly one `activitypub` member whose covered components exactly
+match the current fetch or delivery profile.
+
+The supported request parameters are:
+
+- bare `created`;
+- `alg="rsa-v1_5-sha256"`;
+- the relay's exact `keyid`; and
+- `tag="activitypub"`.
+
+Parameters may be omitted because the signer can add them. `expires`, a
+receiver-selected `nonce`, unknown parameters, component parameters, additional
+signature labels, malformed structured fields, a different key, algorithm, or
+tag, and a different component order are ignored as capability evidence.
+
+### Delivery profile persistence
+
+New `register` and `relay-v2` Machinery tasks contain a third
+`signatureProfile` string argument with the concrete `legacy` or `rfc9421`
+wire profile selected before enqueueing. Machinery retries reuse the same task
+signature, so delayed retries cannot renegotiate or change profiles.
+
+Workers remain compatible with existing two-argument tasks. A legacy queued
+task uses the fixed configured profile when it is concrete; under `dual`, an
+old task safely resolves to the unknown-delivery rule, `legacy`.
+
+A delivery response can update capability state for future tasks, but the
+current POST is never resent. A successful RFC 9421 delivery records positive
+evidence. A successful legacy delivery with a compatible `Accept-Signature`
+also records positive evidence. A modern delivery receiving the narrow explicit
+legacy challenge records a short-lived legacy preference for future tasks.

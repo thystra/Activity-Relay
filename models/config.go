@@ -24,23 +24,24 @@ import (
 
 // RelayConfig contains valid configuration.
 type RelayConfig struct {
-	actorKey                 *rsa.PrivateKey
-	domain                   *url.URL
-	redisClient              *redis.Client
-	redisOptions             *redis.Options
-	redisURL                 string
-	redisDisplayURL          string
-	serverBind               string
-	observabilityBind        string
-	serviceName              string
-	serviceSummary           string
-	serviceIconURL           *url.URL
-	serviceImageURL          *url.URL
-	jobConcurrency           int
-	maxActivityBytes         int64
-	maxFanoutTargets         int
-	maxQueueJobs             int64
-	outboundSignatureProfile relayhttpsig.Profile
+	actorKey                    *rsa.PrivateKey
+	domain                      *url.URL
+	redisClient                 *redis.Client
+	redisOptions                *redis.Options
+	redisURL                    string
+	redisDisplayURL             string
+	serverBind                  string
+	observabilityBind           string
+	serviceName                 string
+	serviceSummary              string
+	serviceIconURL              *url.URL
+	serviceImageURL             *url.URL
+	jobConcurrency              int
+	maxActivityBytes            int64
+	maxFanoutTargets            int
+	maxQueueJobs                int64
+	outboundSignatureProfile    relayhttpsig.Profile
+	outboundSignatureNegotiator *relayhttpsig.DestinationNegotiator
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
@@ -113,6 +114,29 @@ func NewRelayConfig() (*RelayConfig, error) {
 		_ = redisClient.Close()
 		return nil, errors.New("REDIS_URL: " + err.Error())
 	}
+	capabilityStore, err :=
+		relayhttpsig.NewRedisDestinationCapabilityStore(
+			redisClient,
+			"",
+		)
+	if err != nil {
+		_ = redisClient.Close()
+		return nil, errors.New(
+			"HTTP SIGNATURE CAPABILITY STORE: " + err.Error(),
+		)
+	}
+	outboundSignatureNegotiator, err :=
+		relayhttpsig.NewDestinationNegotiator(
+			relayhttpsig.DestinationNegotiatorOptions{
+				Store: capabilityStore,
+			},
+		)
+	if err != nil {
+		_ = redisClient.Close()
+		return nil, errors.New(
+			"HTTP SIGNATURE NEGOTIATOR: " + err.Error(),
+		)
+	}
 
 	serverBind := viper.GetString("RELAY_BIND")
 	observabilityBind := strings.TrimSpace(viper.GetString("OBSERVABILITY_BIND"))
@@ -123,23 +147,24 @@ func NewRelayConfig() (*RelayConfig, error) {
 	}
 
 	return &RelayConfig{
-		actorKey:                 privateKey,
-		domain:                   domain,
-		redisClient:              redisClient,
-		redisOptions:             redisOptions,
-		redisURL:                 redisURL,
-		redisDisplayURL:          redactedRedisURL(redisURL),
-		serverBind:               serverBind,
-		observabilityBind:        observabilityBind,
-		serviceName:              viper.GetString("RELAY_SERVICENAME"),
-		serviceSummary:           viper.GetString("RELAY_SUMMARY"),
-		serviceIconURL:           iconURL,
-		serviceImageURL:          imageURL,
-		jobConcurrency:           jobConcurrency,
-		maxActivityBytes:         maxActivityBytes,
-		maxFanoutTargets:         maxFanoutTargets,
-		maxQueueJobs:             maxQueueJobs,
-		outboundSignatureProfile: outboundSignatureProfile,
+		actorKey:                    privateKey,
+		domain:                      domain,
+		redisClient:                 redisClient,
+		redisOptions:                redisOptions,
+		redisURL:                    redisURL,
+		redisDisplayURL:             redactedRedisURL(redisURL),
+		serverBind:                  serverBind,
+		observabilityBind:           observabilityBind,
+		serviceName:                 viper.GetString("RELAY_SERVICENAME"),
+		serviceSummary:              viper.GetString("RELAY_SUMMARY"),
+		serviceIconURL:              iconURL,
+		serviceImageURL:             imageURL,
+		jobConcurrency:              jobConcurrency,
+		maxActivityBytes:            maxActivityBytes,
+		maxFanoutTargets:            maxFanoutTargets,
+		maxQueueJobs:                maxQueueJobs,
+		outboundSignatureProfile:    outboundSignatureProfile,
+		outboundSignatureNegotiator: outboundSignatureNegotiator,
 	}, nil
 }
 
@@ -184,6 +209,15 @@ func (relayConfig *RelayConfig) OutboundSignatureProfile() relayhttpsig.Profile 
 		return relayhttpsig.ProfileLegacy
 	}
 	return relayConfig.outboundSignatureProfile
+}
+
+// OutboundSignatureNegotiator returns the shared destination-capability
+// planner constructed from the validated Redis connection.
+func (relayConfig *RelayConfig) OutboundSignatureNegotiator() *relayhttpsig.DestinationNegotiator {
+	if relayConfig == nil {
+		return nil
+	}
+	return relayConfig.outboundSignatureNegotiator
 }
 
 // ActorKey is API Worker's HTTPSignature private key.

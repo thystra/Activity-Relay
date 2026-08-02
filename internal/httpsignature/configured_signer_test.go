@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestParseOutboundProfile(t *testing.T) {
@@ -28,9 +29,9 @@ func TestParseOutboundProfile(t *testing.T) {
 			want:  ProfileRFC9421,
 		},
 		{
-			name:      "dual rejected",
-			input:     "dual",
-			wantError: ErrDualProfileRequiresDeliveryPolicy,
+			name:  "dual",
+			input: "dual",
+			want:  ProfileDual,
 		},
 		{
 			name:      "unknown rejected",
@@ -143,5 +144,26 @@ func TestConfiguredSignerRejectsDual(t *testing.T) {
 	)
 	if !errors.Is(err, ErrDualProfileRequiresDeliveryPolicy) {
 		t.Fatalf("dual configured signer error = %v", err)
+	}
+}
+
+func TestNegotiatingSignerAcceptsDual(t *testing.T) {
+	baseSigner, _ := newTestSigner(t)
+	negotiator := testNegotiator(
+		t,
+		&memoryDestinationCapabilityStore{save: true},
+		time.Now().UTC(),
+	)
+	signer, err := NewNegotiatingSigner(
+		baseSigner.keyID,
+		baseSigner.privateKey,
+		ProfileDual,
+		negotiator,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if signer.Profile() != ProfileDual {
+		t.Fatalf("profile = %q; want dual", signer.Profile())
 	}
 }

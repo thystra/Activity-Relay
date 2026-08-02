@@ -172,6 +172,21 @@ return changed`
 	}
 }
 
+func deliveryProfileFromArgs(
+	args []string,
+) (httpsignature.Profile, error) {
+	if len(args) >= 3 {
+		return httpsignature.ParseWireProfile(args[2])
+	}
+	if GlobalConfig != nil {
+		profile := GlobalConfig.OutboundSignatureProfile()
+		if profile != httpsignature.ProfileDual && profile != "" {
+			return httpsignature.ParseWireProfile(profile.String())
+		}
+	}
+	return httpsignature.ProfileLegacy, nil
+}
+
 func relayActivityV2(ctx context.Context, args ...string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("relay-v2 requires inbox URL and activity storage ID")
@@ -179,6 +194,13 @@ func relayActivityV2(ctx context.Context, args ...string) error {
 
 	inboxURL := args[0]
 	activityStorageID := args[1]
+	signatureProfile, err := deliveryProfileFromArgs(args)
+	if err != nil {
+		return fmt.Errorf(
+			"relay-v2 signature profile: %w",
+			err,
+		)
+	}
 	attempt := currentDeliveryAttempt(ctx)
 	receiverDomain, _ := models.ReceiverDomainFromInboxURL(inboxURL)
 
@@ -190,6 +212,7 @@ func relayActivityV2(ctx context.Context, args ...string) error {
 		"attempt":             attempt.Attempt,
 		"max_attempts":        attempt.MaxAttempts,
 		"retries_remaining":   attempt.RetriesRemaining,
+		"signature_profile":   signatureProfile,
 	}
 
 	body, err := RedisClient.HGet(
@@ -242,12 +265,29 @@ func relayActivityV2(ctx context.Context, args ...string) error {
 	logrus.WithFields(fields).Debug("Relay delivery attempt started")
 	started := time.Now()
 
-	response, deliveryErr := sendActivityWithResponse(
+	response, deliveryErr := sendActivityWithResponseProfile(
 		inboxURL,
 		RelayActor.PublicKey.ID,
 		[]byte(body),
 		GlobalConfig.ActorKey(),
+		signatureProfile,
 	)
+	if OutboundRequestSigner != nil {
+		if observationErr := OutboundRequestSigner.ObserveResponse(
+			ctx,
+			httpsignature.DestinationScopeDelivery,
+			inboxURL,
+			signatureProfile,
+			response.StatusCode,
+			response.Header,
+		); observationErr != nil {
+			logrus.WithError(observationErr).
+				WithField("receiver", inboxURL).
+				Debug(
+					"Unable to store delivery signature capability evidence",
+				)
+		}
+	}
 
 	elapsed := time.Since(started)
 	fields["elapsed_ms"] = elapsed.Milliseconds()
@@ -306,10 +346,44 @@ func relayActivityV2(ctx context.Context, args ...string) error {
 }
 
 func registerActivity(args ...string) error {
+	if len(args) < 2 {
+		return errors.New(
+			"register requires inbox URL and activity body",
+		)
+	}
 	inboxURL := args[0]
 	body := args[1]
-	err := sendActivity(inboxURL, RelayActor.PublicKey.ID, []byte(body), GlobalConfig.ActorKey())
-	return err
+	profile, err := deliveryProfileFromArgs(args)
+	if err != nil {
+		return fmt.Errorf(
+			"register signature profile: %w",
+			err,
+		)
+	}
+	response, deliveryErr := sendActivityWithResponseProfile(
+		inboxURL,
+		RelayActor.PublicKey.ID,
+		[]byte(body),
+		GlobalConfig.ActorKey(),
+		profile,
+	)
+	if OutboundRequestSigner != nil {
+		if observationErr := OutboundRequestSigner.ObserveResponse(
+			context.Background(),
+			httpsignature.DestinationScopeDelivery,
+			inboxURL,
+			profile,
+			response.StatusCode,
+			response.Header,
+		); observationErr != nil {
+			logrus.WithError(observationErr).
+				WithField("receiver", inboxURL).
+				Debug(
+					"Unable to store registration signature capability evidence",
+				)
+		}
+	}
+	return deliveryErr
 }
 
 func Entrypoint(g *models.RelayConfig, v string) error {
@@ -358,10 +432,11 @@ func initialize(globalConfig *models.RelayConfig) error {
 	HttpClient = &http.Client{Timeout: time.Duration(5) * time.Second}
 
 	RelayActor = models.NewActivityPubActorFromRelayConfig(globalConfig)
-	OutboundRequestSigner, err = httpsignature.NewConfiguredSigner(
+	OutboundRequestSigner, err = httpsignature.NewNegotiatingSigner(
 		RelayActor.PublicKey.ID,
 		globalConfig.ActorKey(),
 		globalConfig.OutboundSignatureProfile(),
+		globalConfig.OutboundSignatureNegotiator(),
 	)
 	if err != nil {
 		return err
