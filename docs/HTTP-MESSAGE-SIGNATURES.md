@@ -74,3 +74,39 @@ The standards core is not runtime-selectable yet. The next tranches must add:
 5. mixed-version interoperability tests before changing the default.
 
 Linked Data proofs remain separate from HTTP request authentication.
+
+## Inbound verification core
+
+The inbound core verifies the modern ActivityPub POST profile without changing
+the active inbox decoder yet.
+
+The verifier requires:
+
+- HTTP `POST`;
+- the configured public scheme and exact authority;
+- exactly one signature carrying `tag="activitypub"`;
+- `keyid`, `created`, and nonce parameters;
+- the registered `rsa-v1_5-sha256` algorithm;
+- every required ActivityPub POST component;
+- a `created` value no older than five minutes and no more than thirty seconds
+  in the future;
+- a non-expired `expires` value when one is supplied;
+- a valid RSA signature;
+- an RFC 9530 `sha-256` digest matching the exact body bytes; and
+- an atomic nonce reservation.
+
+Additional covered components are permitted, but duplicate covered components
+are rejected.
+
+The nonce is reserved only after both cryptographic signature verification and
+body-digest verification succeed. This prevents unauthenticated requests from
+burning a valid sender's nonce. Redis stores only a SHA-256-derived key over the
+key ID and nonce, never either raw value. The default replay marker lifetime is
+ten minutes.
+
+A successful verification result carries the resolved key owner and actor
+identity. `BindActivityActor` requires both identities to match the activity's
+actor URL after scheme and authority case normalization.
+
+Runtime actor retrieval, inbox profile selection, metrics, and HTTP response
+classification remain for the next tranche.

@@ -213,3 +213,29 @@ The focused suite freezes:
 This tranche does not alter a server, worker, delivery, resolver, package, or
 production configuration path. Runtime interoperability probes are required in
 the next tranche.
+
+## RFC 9421 inbound verification core
+
+Run the focused inbound suite with Redis available:
+
+```text
+REDIS_URL=redis://127.0.0.1:6381 go test -count=1 ./internal/httpsignature
+```
+
+The suite verifies:
+
+- successful RFC 9421 RSA verification;
+- required ActivityPub POST covered components;
+- exact public authority enforcement;
+- bounded old and future `created` values;
+- RFC 9530 body-tamper rejection;
+- nonce reservation only after signature and digest success;
+- replay rejection;
+- actor, public-key owner, and resolved actor binding;
+- atomic Redis `SET NX` behavior;
+- positive replay-marker TTL; and
+- absence of raw key IDs and nonce values from Redis key names.
+
+The inbox is not yet wired to select this verifier. A subsequent integration
+tranche must add an ActivityPub key resolver, dual legacy/modern decoder
+selection, metrics, and a real-process signed inbound probe.

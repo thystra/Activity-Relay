@@ -68,9 +68,12 @@ the retrospective FEP-ae0c relay profiles.
 
 - [x] Add pinned RFC 9421 structured-field, RSA-signing, and RFC 9530 digest
   primitives while preserving every existing runtime call site on `legacy`.
-- [ ] Add inbound RFC 9421 verification with actor/key binding, required
-  component policy, bounded time validation, and Redis-backed nonce replay
-  prevention.
+- [x] Add the inbound RFC 9421 verification core with actor/key binding,
+  required component policy, bounded time validation, and Redis-backed nonce
+  replay prevention.
+- [ ] Wire the inbound core into the ActivityPub decoder with authenticated
+  actor-key retrieval, legacy/modern profile selection, metrics, and a
+  real-process signed inbound probe.
 - [ ] Add explicit outbound `legacy` and `rfc9421` configuration with safe
   startup validation and no default change.
 - [ ] Design and test destination-aware `dual` negotiation without ambiguous
