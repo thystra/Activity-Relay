@@ -22,6 +22,12 @@ type RemoteRequestSigner interface {
 	SignGET(*http.Request) error
 }
 
+// RemoteRequestExecutor owns redirect signing, bounded negotiation fallback,
+// and capability observation when implemented by the runtime signer.
+type RemoteRequestExecutor interface {
+	DoGET(*http.Client, *http.Request) (*http.Response, error)
+}
+
 var remoteHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
 	Transport: func() http.RoundTripper {
@@ -47,25 +53,36 @@ func fetchRemoteJSON(address string, uaString string, destination interface{}, s
 	if signer == nil {
 		return nil, errors.New("remote request signer is not configured")
 	}
-	if err := signer.SignGET(req); err != nil {
-		return nil, fmt.Errorf("sign remote request: %w", err)
-	}
 	client := *remoteHTTPClient
-	client.CheckRedirect = func(redirect *http.Request, via []*http.Request) error {
-		if len(via) >= 10 {
-			return errors.New("stopped after 10 redirects")
+	var resp *http.Response
+	if executor, ok := signer.(RemoteRequestExecutor); ok {
+		resp, err = executor.DoGET(&client, req)
+	} else {
+		if err := signer.SignGET(req); err != nil {
+			return nil, fmt.Errorf("sign remote request: %w", err)
 		}
-		redirect.Header.Del("Date")
-		redirect.Header.Del("Digest")
-		redirect.Header.Del("Content-Digest")
-		redirect.Header.Del("Signature-Input")
-		redirect.Header.Del("Signature")
-		if err := signer.SignGET(redirect); err != nil {
-			return fmt.Errorf("sign redirected remote request: %w", err)
+		client.CheckRedirect = func(
+			redirect *http.Request,
+			via []*http.Request,
+		) error {
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			redirect.Header.Del("Date")
+			redirect.Header.Del("Digest")
+			redirect.Header.Del("Content-Digest")
+			redirect.Header.Del("Signature-Input")
+			redirect.Header.Del("Signature")
+			if err := signer.SignGET(redirect); err != nil {
+				return fmt.Errorf(
+					"sign redirected remote request: %w",
+					err,
+				)
+			}
+			return nil
 		}
-		return nil
+		resp, err = client.Do(req)
 	}
-	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

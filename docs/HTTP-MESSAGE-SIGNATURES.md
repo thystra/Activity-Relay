@@ -190,3 +190,18 @@ An unknown delivery plan remains legacy. Delivery plans never contain a
 fallback, preventing blind duplicate POST delivery.
 
 This tranche does not make `dual` a valid runtime configuration value.
+
+## Runtime dual negotiation
+
+`OUTBOUND_SIGNATURE_PROFILE=dual` is destination-aware and never a wire format.
+The API server and worker both initialize the same Redis-backed planner.
+
+Authorized fetch may make one legacy fallback after an explicit legacy
+`Signature` authentication challenge. Delivery never falls back. New delivery
+tasks persist one concrete profile across every delayed retry, while old
+two-argument tasks remain readable.
+
+Successful compatible `Accept-Signature` responses and successful RFC 9421
+requests create positive capability evidence. Generic status codes, body text,
+network failures, and malformed or incompatible `Accept-Signature` fields do
+not.

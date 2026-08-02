@@ -54,7 +54,6 @@ func TestNewRelayConfig(t *testing.T) {
 			"OBSERVABILITY_BIND@missingPort":     "127.0.0.1",
 			"OBSERVABILITY_BIND@zeroPort":        "127.0.0.1:0",
 			"OUTBOUND_SIGNATURE_PROFILE@unknown": "automatic",
-			"OUTBOUND_SIGNATURE_PROFILE@dual":    "dual",
 		}
 
 		for key, value := range invalidConfig {
@@ -145,5 +144,19 @@ func TestRelayConfigOutboundSignatureProfile(t *testing.T) {
 	relayConfig := createRelayConfig(t)
 	if got := relayConfig.OutboundSignatureProfile(); got != relayhttpsig.ProfileRFC9421 {
 		t.Fatalf("outbound profile = %q; want rfc9421", got)
+	}
+}
+
+func TestRelayConfigDualSignatureProfile(t *testing.T) {
+	previous := viper.Get("OUTBOUND_SIGNATURE_PROFILE")
+	defer viper.Set("OUTBOUND_SIGNATURE_PROFILE", previous)
+
+	viper.Set("OUTBOUND_SIGNATURE_PROFILE", "dual")
+	relayConfig := createRelayConfig(t)
+	if got := relayConfig.OutboundSignatureProfile(); got != relayhttpsig.ProfileDual {
+		t.Fatalf("outbound profile = %q; want dual", got)
+	}
+	if relayConfig.OutboundSignatureNegotiator() == nil {
+		t.Fatal("dual config has no destination negotiator")
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/deliverypolicy"
+	relayhttpsig "github.com/thystra/Activity-Relay/internal/httpsignature"
 	"github.com/thystra/Activity-Relay/models"
 )
 
@@ -105,7 +106,32 @@ return remaining`
 		recordRedisOperationFailure("api", "queue_release")
 	}
 }
+func plannedDeliveryProfile(
+	inboxURL string,
+) (relayhttpsig.Profile, error) {
+	if RemoteRequestSigner == nil {
+		return relayhttpsig.ProfileLegacy, nil
+	}
+	plan, err := RemoteRequestSigner.Plan(
+		context.Background(),
+		relayhttpsig.DestinationScopeDelivery,
+		inboxURL,
+	)
+	if err != nil {
+		return "", err
+	}
+	return plan.Primary, nil
+}
+
 func enqueueRegisterActivity(inboxURL string, body []byte) {
+	profile, err := plannedDeliveryProfile(inboxURL)
+	if err != nil {
+		logrus.WithError(err).
+			WithField("receiver", inboxURL).
+			Error("Unable to plan registration delivery signature")
+		recordQueueAdmission("register", "error", "signature_plan")
+		return
+	}
 	accepted, reason := reserveQueueCapacityWithReason(1)
 	if !accepted {
 		recordQueueAdmission("register", "rejected", reason)
@@ -126,6 +152,11 @@ func enqueueRegisterActivity(inboxURL string, body []byte) {
 				Type:  "string",
 				Value: string(body),
 			},
+			{
+				Name:  "signatureProfile",
+				Type:  "string",
+				Value: profile.String(),
+			},
 		},
 	}
 	if _, err := MachineryServer.SendTask(job); err != nil {
@@ -135,7 +166,11 @@ func enqueueRegisterActivity(inboxURL string, body []byte) {
 	}
 	recordQueueAdmission("register", "accepted", "accepted")
 }
-func relayTask(inboxURL string, activityID string) *tasks.Signature {
+func relayTaskWithProfile(
+	inboxURL string,
+	activityID string,
+	profile relayhttpsig.Profile,
+) *tasks.Signature {
 	return &tasks.Signature{
 		Name:         "relay-v2",
 		RetryCount:   deliverypolicy.RetryCount,
@@ -151,8 +186,36 @@ func relayTask(inboxURL string, activityID string) *tasks.Signature {
 				Type:  "string",
 				Value: activityID,
 			},
+			{
+				Name:  "signatureProfile",
+				Type:  "string",
+				Value: profile.String(),
+			},
 		},
 	}
+}
+
+func relayTask(inboxURL string, activityID string) *tasks.Signature {
+	return relayTaskWithProfile(
+		inboxURL,
+		activityID,
+		relayhttpsig.ProfileLegacy,
+	)
+}
+
+func negotiatedRelayTask(
+	inboxURL string,
+	activityID string,
+) (*tasks.Signature, error) {
+	profile, err := plannedDeliveryProfile(inboxURL)
+	if err != nil {
+		return nil, err
+	}
+	return relayTaskWithProfile(
+		inboxURL,
+		activityID,
+		profile,
+	), nil
 }
 
 func storeRelayActivity(activityID string, body []byte, targetCount int) error {
@@ -224,15 +287,35 @@ func enqueueActivityExcept(
 	}
 	defer releaseQueueCapacity(len(targets))
 	activityID := uuid.NewString()
-	if err := storeRelayActivity(activityID, body, len(targets)); err != nil {
+	signatures := make([]*tasks.Signature, 0, len(targets))
+	for _, target := range targets {
+		signature, err := negotiatedRelayTask(
+			target.InboxURL,
+			activityID,
+		)
+		if err != nil {
+			logrus.WithError(err).
+				WithField("receiver", target.InboxURL).
+				Error("Unable to plan relay delivery signature")
+			recordQueueAdmission(
+				"relay",
+				"error",
+				"signature_plan",
+			)
+			recordFanoutTargets("error", len(targets))
+			return false
+		}
+		signatures = append(signatures, signature)
+	}
+	if err := storeRelayActivity(
+		activityID,
+		body,
+		len(targets),
+	); err != nil {
 		logrus.Error("Unable to store relay activity: ", err)
 		recordQueueAdmission("relay", "error", "store")
 		recordFanoutTargets("error", len(targets))
 		return false
-	}
-	signatures := make([]*tasks.Signature, 0, len(targets))
-	for _, target := range targets {
-		signatures = append(signatures, relayTask(target.InboxURL, activityID))
 	}
 	group, err := tasks.NewGroup(signatures...)
 	if err != nil {

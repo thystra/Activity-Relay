@@ -325,3 +325,36 @@ The suite requires:
 - expired state returning to unknown-scope rules.
 
 No public endpoint or outbound runtime behavior changes in this tranche.
+
+## Runtime signature negotiation
+
+Focused validation includes:
+
+```text
+REDIS_URL=redis://127.0.0.1:6381 \
+  go test -count=1 -p 1 \
+  ./internal/httpsignature ./models ./api ./deliver
+```
+
+The real-process mixed-profile probe is:
+
+```text
+contrib/ops/test_signature_negotiation_runtime_probe.sh \
+  redis://127.0.0.1:6381 \
+  /absolute/private/evidence/path
+```
+
+Its required classification is
+`signature_negotiation_runtime_pass`. The probe requires:
+
+- an unknown GET to use RFC 9421 and then exactly one legacy fallback after an
+  explicit legacy `Signature` challenge;
+- a generic unauthorized response to receive no fallback;
+- an unknown delivery to select legacy with no fallback;
+- a successful compatible delivery `Accept-Signature` response to select RFC
+  9421 for a future delivery;
+- one rejected RFC 9421 POST, with no duplicate send; and
+- that explicit rejection to select legacy only for future delivery plans.
+
+Queue tests must also prove the third concrete profile argument is present on
+new tasks and that old two-argument tasks remain accepted.

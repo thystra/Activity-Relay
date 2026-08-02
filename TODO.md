@@ -79,9 +79,10 @@ the retrospective FEP-ae0c relay profiles.
 - [x] Add the destination-aware negotiation core with origin- and
   scope-specific expiring capability state, GET-only explicit-rejection
   fallback planning, and a hard no-fallback invariant for delivery POSTs.
-- [ ] Wire `dual` runtime negotiation with validated `Accept-Signature`
-  evidence, one bounded GET fallback, stable delivery-profile selection across
-  retries, and no blind duplicate POST delivery.
+- [x] Wire `dual` runtime negotiation with validated `Accept-Signature`
+  evidence, one bounded explicit-challenge GET fallback, stable queued
+  delivery-profile selection across retries, and no blind duplicate POST
+  delivery.
 - [ ] Run mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
   interoperability before selecting the Activity-Relay 3.0 default.
 

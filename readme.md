@@ -306,11 +306,19 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 Use `127.0.0.1:8080` instead when the relay and reverse proxy run directly on
 the same host.
 
-`OUTBOUND_SIGNATURE_PROFILE` accepts `legacy` or `rfc9421`. Empty or
-omitted configuration preserves the established legacy signatures. `dual` is
-rejected until destination-aware negotiation is implemented. The same value is
-used by the API server for signed remote GETs and by every worker for delivery
-POSTs.
+`OUTBOUND_SIGNATURE_PROFILE` accepts `legacy`, `rfc9421`, or `dual`.
+Empty or omitted configuration preserves the established legacy signatures.
+The same value is used by the API server for signed remote GETs and by every
+worker for delivery POSTs.
+
+`dual` uses expiring Redis capability evidence scoped separately to fetches and
+deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback only
+after a `401` or `403` response containing an explicit
+`WWW-Authenticate: Signature` challenge. Generic HTTP failures, response body
+text, DNS failures, and timeouts do not trigger fallback. An unknown delivery
+uses legacy. Every newly queued delivery records one concrete wire profile,
+which remains unchanged across delayed retries; a POST is never resent under a
+different signature profile.
 
 `RELAY_ICON` and `RELAY_IMAGE` are optional public metadata URLs. The suggested
 dimensions are compatibility-oriented recommendations rather than enforced

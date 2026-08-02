@@ -140,10 +140,11 @@ func initialize(globalConfig *models.RelayConfig) error {
 	}
 
 	RelayActor = models.NewActivityPubActorFromRelayConfig(globalConfig)
-	RemoteRequestSigner, err = httpsignature.NewConfiguredSigner(
+	RemoteRequestSigner, err = httpsignature.NewNegotiatingSigner(
 		RelayActor.PublicKey.ID,
 		globalConfig.ActorKey(),
 		globalConfig.OutboundSignatureProfile(),
+		globalConfig.OutboundSignatureNegotiator(),
 	)
 	if err != nil {
 		return err
