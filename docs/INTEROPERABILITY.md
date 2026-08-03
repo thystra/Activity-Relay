@@ -128,6 +128,19 @@ The relay deliberately does not fan out:
 Those activities remain publisher-accounting events. This avoids relay loops
 and unintended amplification of ordinary boosts.
 
+## NodeBB category actor fetch negotiation
+
+NodeBB 4.14.5 may return a generic HTTP `400` when an unknown remote client uses
+an RFC 9421 signed `GET` for a category actor, while returning the same valid
+ActivityPub `Group` actor for an unsigned or legacy-signed `GET`. In `dual` mode,
+Activity-Relay treats that exact `400` as a bounded compatibility signal for an
+unknown idempotent fetch and retries once with the legacy profile. It records a
+short-lived legacy preference only when the retry succeeds.
+
+This compatibility path does not parse response text, does not apply to other
+status codes or transport failures, and never retries a delivery `POST` under a
+different signature profile.
+
 ## Signatures and actor keys
 
 Outbound HTTP signatures bind the signed `Host` value to the exact authority

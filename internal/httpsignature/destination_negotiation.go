@@ -44,6 +44,7 @@ const (
 	CapabilityEvidenceSuccessfulRFC9421        CapabilityEvidence = "successful_rfc9421"
 	CapabilityEvidenceAcceptSignature          CapabilityEvidence = "accept_signature"
 	CapabilityEvidenceExplicitRFC9421Rejection CapabilityEvidence = "explicit_rfc9421_rejection"
+	CapabilityEvidenceSuccessfulLegacyFallback CapabilityEvidence = "successful_legacy_fallback"
 )
 
 func (evidence CapabilityEvidence) Validate(profile Profile) error {
@@ -58,7 +59,8 @@ func (evidence CapabilityEvidence) Validate(profile Profile) error {
 			)
 		}
 		return nil
-	case CapabilityEvidenceExplicitRFC9421Rejection:
+	case CapabilityEvidenceExplicitRFC9421Rejection,
+		CapabilityEvidenceSuccessfulLegacyFallback:
 		if profile != ProfileLegacy {
 			return fmt.Errorf(
 				"capability evidence %q requires profile %q",
@@ -204,6 +206,7 @@ type NegotiationOutcome string
 const (
 	NegotiationOutcomeSuccess                    NegotiationOutcome = "success"
 	NegotiationOutcomeExplicitSignatureRejection NegotiationOutcome = "explicit_signature_rejection"
+	NegotiationOutcomeAmbiguousClientRejection   NegotiationOutcome = "ambiguous_client_rejection"
 	NegotiationOutcomeTransportFailure           NegotiationOutcome = "transport_failure"
 	NegotiationOutcomeServerFailure              NegotiationOutcome = "server_failure"
 	NegotiationOutcomeOtherFailure               NegotiationOutcome = "other_failure"
@@ -223,16 +226,20 @@ func (plan NegotiationPlan) HasFallback() bool {
 	return plan.Fallback != ""
 }
 
-// ShouldFallback is intentionally narrow. It never permits POST fallback and
-// never treats transport or generic HTTP failure as a signature negotiation
-// signal.
+// ShouldFallback is intentionally narrow. It never permits POST fallback,
+// transport-failure fallback, or broad status-code probing. An unknown RFC 9421
+// GET may retry once with the legacy profile after an explicit signature
+// challenge or the bounded HTTP 400 compatibility signal.
 func (plan NegotiationPlan) ShouldFallback(
 	outcome NegotiationOutcome,
 ) bool {
-	return plan.Scope == DestinationScopeFetch &&
-		plan.Primary == ProfileRFC9421 &&
-		plan.Fallback == ProfileLegacy &&
-		outcome == NegotiationOutcomeExplicitSignatureRejection
+	if plan.Scope != DestinationScopeFetch ||
+		plan.Primary != ProfileRFC9421 ||
+		plan.Fallback != ProfileLegacy {
+		return false
+	}
+	return outcome == NegotiationOutcomeExplicitSignatureRejection ||
+		outcome == NegotiationOutcomeAmbiguousClientRejection
 }
 
 // DestinationNegotiatorOptions configures the reusable planning core.
@@ -471,6 +478,24 @@ func (negotiator *DestinationNegotiator) ObserveExplicitRFC9421Rejection(
 		destination,
 		ProfileLegacy,
 		CapabilityEvidenceExplicitRFC9421Rejection,
+		negotiator.negativeTTL,
+	)
+}
+
+// ObserveSuccessfulLegacyFallback records a short-lived legacy preference only
+// after an unknown-destination RFC 9421 GET received the bounded HTTP 400
+// compatibility signal and the one permitted legacy retry succeeded.
+func (negotiator *DestinationNegotiator) ObserveSuccessfulLegacyFallback(
+	ctx context.Context,
+	scope DestinationScope,
+	destination string,
+) (DestinationCapability, bool, error) {
+	return negotiator.saveObservation(
+		ctx,
+		scope,
+		destination,
+		ProfileLegacy,
+		CapabilityEvidenceSuccessfulLegacyFallback,
 		negotiator.negativeTTL,
 	)
 }
