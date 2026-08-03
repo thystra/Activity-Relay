@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add `PUBLIC_ADDRESS_DISTRIBUTION_POLICY` with `explicit_public_only` and `public_and_unlisted` values, fatal validation for unknown values, and effective-policy startup reporting.
+
+### Changed
+
+- Fresh example configurations explicitly select `explicit_public_only`; omitted configuration retains the pre-3.0 `public_and_unlisted` behavior for upgrade compatibility.
+- Under `explicit_public_only`, Public appearing only in `cc` is acknowledged and publisher-accounted without public relay fan-out. Explicit relay-addressed relationship traffic remains separate.
+
 ### Fixed
 
 - Retry an unknown idempotent RFC 9421 actor or object fetch once with the

@@ -37,6 +37,13 @@ func TestNewRelayConfig(t *testing.T) {
 		if relayConfig.serviceImageURL.String() != "https://example.com/example_image.png" {
 			t.Errorf("Expected RelayConfig.serviceImageURL to be 'https://example.com/example_image.png', but got '%s'", relayConfig.serviceImageURL.String())
 		}
+		if relayConfig.PublicAddressDistributionPolicy() != PublicAddressPublicAndUnlisted {
+			t.Errorf(
+				"Expected configured public-address policy to be %q, got %q",
+				PublicAddressPublicAndUnlisted,
+				relayConfig.PublicAddressDistributionPolicy(),
+			)
+		}
 		if relayConfig.OutboundSignatureProfile() != relayhttpsig.ProfileLegacy {
 			t.Errorf(
 				"Expected omitted outbound profile to be legacy, got %q",
@@ -47,13 +54,14 @@ func TestNewRelayConfig(t *testing.T) {
 
 	t.Run("Fail to load invalid configuration", func(t *testing.T) {
 		invalidConfig := map[string]string{
-			"ACTOR_PEM@notFound":                 "../misc/test/notfound.pem",
-			"ACTOR_PEM@invalidKey":               "../misc/test/actor.dh.pem",
-			"REDIS_URL@invalidURL":               "",
-			"REDIS_URL@unreachableHost":          "redis://localhost:6380",
-			"OBSERVABILITY_BIND@missingPort":     "127.0.0.1",
-			"OBSERVABILITY_BIND@zeroPort":        "127.0.0.1:0",
-			"OUTBOUND_SIGNATURE_PROFILE@unknown": "automatic",
+			"ACTOR_PEM@notFound":                         "../misc/test/notfound.pem",
+			"ACTOR_PEM@invalidKey":                       "../misc/test/actor.dh.pem",
+			"REDIS_URL@invalidURL":                       "",
+			"REDIS_URL@unreachableHost":                  "redis://localhost:6380",
+			"OBSERVABILITY_BIND@missingPort":             "127.0.0.1",
+			"OBSERVABILITY_BIND@zeroPort":                "127.0.0.1:0",
+			"OUTBOUND_SIGNATURE_PROFILE@unknown":         "automatic",
+			"PUBLIC_ADDRESS_DISTRIBUTION_POLICY@unknown": "everything",
 		}
 
 		for key, value := range invalidConfig {
@@ -110,14 +118,15 @@ func TestRelayConfig_DumpWelcomeMessage(t *testing.T) {
 	w := relayConfig.DumpWelcomeMessage("Testing", "")
 
 	informations := map[string]string{
-		"module NAME":       "Testing",
-		"RELAY NAME":        relayConfig.serviceName,
-		"RELAY DOMAIN":      relayConfig.domain.Host,
-		"REDIS URL":         relayConfig.redisDisplayURL,
-		"BIND ADDRESS":      relayConfig.serverBind,
-		"OBSERVABILITY":     "disabled",
-		"SIGNATURE PROFILE": relayhttpsig.ProfileLegacy.String(),
-		"JOB_CONCURRENCY":   strconv.Itoa(relayConfig.jobConcurrency),
+		"module NAME":           "Testing",
+		"RELAY NAME":            relayConfig.serviceName,
+		"RELAY DOMAIN":          relayConfig.domain.Host,
+		"REDIS URL":             relayConfig.redisDisplayURL,
+		"BIND ADDRESS":          relayConfig.serverBind,
+		"OBSERVABILITY":         "disabled",
+		"SIGNATURE PROFILE":     relayhttpsig.ProfileLegacy.String(),
+		"PUBLIC ADDRESS POLICY": PublicAddressPublicAndUnlisted.String(),
+		"JOB_CONCURRENCY":       strconv.Itoa(relayConfig.jobConcurrency),
 	}
 
 	for key, information := range informations {
