@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Retry an unknown idempotent RFC 9421 actor or object fetch once with the
+  legacy HTTP-signature profile when a remote implementation returns a generic
+  HTTP 400, and cache the short-lived legacy preference only after that retry
+  succeeds.
+- Remove URI fragments such as `#main-key` from RFC 9421 request targets
+  before signing and sending, so `@target-uri` matches the fragment-free HTTP
+  target verified by secure-mode ActivityPub servers.
+
 ## [2.5.1] - 2026-08-02
 ### Fixed
 - Prevent authenticated relay-to-relay `Announce` reflection by excluding

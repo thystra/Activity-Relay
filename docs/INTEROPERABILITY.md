@@ -128,6 +128,33 @@ The relay deliberately does not fan out:
 Those activities remain publisher-accounting events. This avoids relay loops
 and unintended amplification of ordinary boosts.
 
+## NodeBB category actor fetch negotiation
+
+NodeBB 4.14.5 may return a generic HTTP `400` when an unknown remote client uses
+an RFC 9421 signed `GET` for a category actor, while returning the same valid
+ActivityPub `Group` actor for an unsigned or legacy-signed `GET`. In `dual` mode,
+Activity-Relay treats that exact `400` as a bounded compatibility signal for an
+unknown idempotent fetch and retries once with the legacy profile. It records a
+short-lived legacy preference only when the retry succeeds.
+
+This compatibility path does not parse response text, does not apply to other
+status codes or transport failures, and never retries a delivery `POST` under a
+different signature profile.
+
+## Fragment-bearing actor key IDs
+
+ActivityPub public-key identifiers commonly append a fragment such as
+`#main-key` to the actor URL. URI fragments are not transmitted as part of an
+HTTP request target. Before deriving an RFC 9421 `@target-uri`, Activity-Relay
+therefore removes `Fragment` and `RawFragment` from the request URL while
+preserving the original key ID used to locate and bind the published key.
+
+This distinction is required for secure-mode Mastodon interoperability: signing
+the fragment-bearing identifier while sending the fragment-free actor request
+causes the receiver to reconstruct a different signature base and reject the
+request. The established legacy `(request-target)` profile was not affected
+because its request-target component already excludes the fragment.
+
 ## Signatures and actor keys
 
 Outbound HTTP signatures bind the signed `Host` value to the exact authority

@@ -136,7 +136,7 @@ func TestFixedProfilesDoNotRequireCapabilityStore(t *testing.T) {
 	}
 }
 
-func TestUnknownDualFetchMayFallbackOnlyAfterExplicitRejection(
+func TestUnknownDualFetchUsesOnlyBoundedFallbackSignals(
 	t *testing.T,
 ) {
 	negotiator := testNegotiator(
@@ -168,10 +168,13 @@ func TestUnknownDualFetchMayFallbackOnlyAfterExplicitRejection(
 			t.Fatalf("fallback allowed for outcome %q", outcome)
 		}
 	}
-	if !plan.ShouldFallback(
+	for _, outcome := range []NegotiationOutcome{
 		NegotiationOutcomeExplicitSignatureRejection,
-	) {
-		t.Fatal("explicit signature rejection did not allow GET fallback")
+		NegotiationOutcomeAmbiguousClientRejection,
+	} {
+		if !plan.ShouldFallback(outcome) {
+			t.Fatalf("bounded fallback signal %q was rejected", outcome)
+		}
 	}
 }
 
@@ -195,10 +198,13 @@ func TestUnknownDualDeliveryNeverFallsBack(t *testing.T) {
 		plan.Reason != NegotiationReasonUnknownDeliveryLegacy {
 		t.Fatalf("unknown delivery plan = %+v", plan)
 	}
-	if plan.ShouldFallback(
+	for _, outcome := range []NegotiationOutcome{
 		NegotiationOutcomeExplicitSignatureRejection,
-	) {
-		t.Fatal("delivery plan permitted fallback")
+		NegotiationOutcomeAmbiguousClientRejection,
+	} {
+		if plan.ShouldFallback(outcome) {
+			t.Fatalf("delivery plan permitted fallback for %q", outcome)
+		}
 	}
 }
 
@@ -302,6 +308,22 @@ func TestCapabilityObservationsUseBoundedTTLs(t *testing.T) {
 		negative.Profile != ProfileLegacy ||
 		negative.ExpiresAt.Sub(negative.ObservedAt) != 24*time.Hour {
 		t.Fatalf("negative observation = %+v, saved=%v", negative, saved)
+	}
+
+	fallback, saved, err :=
+		negotiator.ObserveSuccessfulLegacyFallback(
+			context.Background(),
+			DestinationScopeFetch,
+			"https://nodebb.example/category/5",
+		)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved ||
+		fallback.Profile != ProfileLegacy ||
+		fallback.Evidence != CapabilityEvidenceSuccessfulLegacyFallback ||
+		fallback.ExpiresAt.Sub(fallback.ObservedAt) != 24*time.Hour {
+		t.Fatalf("fallback observation = %+v, saved=%v", fallback, saved)
 	}
 }
 

@@ -312,8 +312,28 @@ func (signer *ConfiguredSigner) observeBestEffort(
 	}
 }
 
+func (signer *ConfiguredSigner) observeLegacyFallbackBestEffort(
+	ctx context.Context,
+	destination string,
+) {
+	if signer == nil || signer.negotiator == nil {
+		return
+	}
+	_, _, err := signer.negotiator.ObserveSuccessfulLegacyFallback(
+		ctx,
+		DestinationScopeFetch,
+		destination,
+	)
+	if err != nil {
+		logrus.WithError(err).
+			WithField("destination", destination).
+			Debug("Unable to store successful legacy fallback evidence")
+	}
+}
+
 // DoGET executes one signed GET. An unknown dual destination may make one
-// legacy fallback only after an explicit legacy Signature challenge.
+// legacy fallback after an explicit legacy Signature challenge or the bounded
+// HTTP 400 compatibility signal.
 func (signer *ConfiguredSigner) DoGET(
 	client *http.Client,
 	request *http.Request,
@@ -371,9 +391,8 @@ func (signer *ConfiguredSigner) DoGET(
 		response.Header,
 	)
 
-	if !finalPlan.ShouldFallback(
-		classifyNegotiationOutcome(response),
-	) {
+	outcome := classifyNegotiationOutcome(response)
+	if !finalPlan.ShouldFallback(outcome) {
 		return response, nil
 	}
 
@@ -420,6 +439,14 @@ func (signer *ConfiguredSigner) DoGET(
 		fallbackResponse.StatusCode,
 		fallbackResponse.Header,
 	)
+	if outcome == NegotiationOutcomeAmbiguousClientRejection &&
+		appliedPlan.Primary == ProfileLegacy &&
+		fallbackResponse.StatusCode/100 == 2 {
+		signer.observeLegacyFallbackBestEffort(
+			fallbackRequest.Context(),
+			fallbackResponse.Request.URL.String(),
+		)
+	}
 	return fallbackResponse, nil
 }
 
@@ -437,6 +464,9 @@ func classifyNegotiationOutcome(
 		response.Header,
 	) {
 		return NegotiationOutcomeExplicitSignatureRejection
+	}
+	if response.StatusCode == http.StatusBadRequest {
+		return NegotiationOutcomeAmbiguousClientRejection
 	}
 	if response.StatusCode/100 == 5 {
 		return NegotiationOutcomeServerFailure

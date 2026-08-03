@@ -195,6 +195,48 @@ func TestSignGETWithRFC9421Profile(t *testing.T) {
 	}
 }
 
+func TestSignGETWithRFC9421ProfileRemovesURLFragment(t *testing.T) {
+	signer, publicKey := newTestSigner(t)
+	request, err := http.NewRequest(
+		http.MethodGet,
+		"https://remote.example/users/alan#main-key",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.URL.Fragment != "main-key" {
+		t.Fatalf(
+			"precondition fragment = %q; want main-key",
+			request.URL.Fragment,
+		)
+	}
+
+	if err := signer.SignGETWithProfile(
+		request,
+		ProfileRFC9421,
+	); err != nil {
+		t.Fatalf("sign fragment-bearing RFC 9421 GET: %v", err)
+	}
+	if request.URL.Fragment != "" || request.URL.RawFragment != "" {
+		t.Fatalf(
+			"signed URL retained fragment=%q raw_fragment=%q",
+			request.URL.Fragment,
+			request.URL.RawFragment,
+		)
+	}
+	if got := request.URL.String(); got !=
+		"https://remote.example/users/alan" {
+		t.Fatalf("signed URL = %q", got)
+	}
+	if got := request.URL.RequestURI(); got != "/users/alan" {
+		t.Fatalf("request URI = %q", got)
+	}
+	if err := verifyRFC9421Request(request, publicKey); err != nil {
+		t.Fatalf("verify fragment-normalized RFC 9421 GET: %v", err)
+	}
+}
+
 func TestSignPOSTWithRFC9421Profile(t *testing.T) {
 	signer, publicKey := newTestSigner(t)
 	body := []byte(`{"type":"Follow"}`)

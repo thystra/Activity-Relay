@@ -312,13 +312,15 @@ The same value is used by the API server for signed remote GETs and by every
 worker for delivery POSTs.
 
 `dual` uses expiring Redis capability evidence scoped separately to fetches and
-deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback only
-after a `401` or `403` response containing an explicit
-`WWW-Authenticate: Signature` challenge. Generic HTTP failures, response body
-text, DNS failures, and timeouts do not trigger fallback. An unknown delivery
-uses legacy. Every newly queued delivery records one concrete wire profile,
-which remains unchanged across delayed retries; a POST is never resent under a
-different signature profile.
+deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback after
+either a `401` or `403` response containing an explicit
+`WWW-Authenticate: Signature` challenge, or a generic HTTP `400` compatibility
+response. The `400` path is limited to unknown idempotent fetches, and a
+short-lived legacy preference is recorded only when the legacy retry succeeds.
+Other generic HTTP failures, response body text, DNS failures, and timeouts do
+not trigger fallback. An unknown delivery uses legacy. Every newly queued
+delivery records one concrete wire profile, which remains unchanged across
+delayed retries; a POST is never resent under a different signature profile.
 
 `RELAY_ICON` and `RELAY_IMAGE` are optional public metadata URLs. The suggested
 dimensions are compatibility-oriented recommendations rather than enforced
