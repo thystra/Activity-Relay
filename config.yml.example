@@ -17,6 +17,13 @@ MAX_QUEUE_JOBS: 100000
 # one GET fallback after an explicit legacy Signature challenge, and never
 # retries a delivery POST under another profile.
 OUTBOUND_SIGNATURE_PROFILE: legacy
+# Controls which broadly addressable activities enter public relay fan-out.
+# explicit_public_only relays only when Public is in the primary `to` field.
+# public_and_unlisted also relays when Public appears only in `cc`, preserving
+# pre-3.0 behavior. Neither value makes followers-only or direct activities
+# eligible unless they are explicitly addressed to the relay through another
+# supported protocol path.
+PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
 # Single-disk defaults used by contrib/ops/resource-guard.py. These should
 # match RELAY_STORAGE_DIR and RELAY_CACHE_DIR in the deployment environment.

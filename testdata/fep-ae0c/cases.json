@@ -116,14 +116,14 @@
         }
       },
       "current_v2_5": "Queues the original received body for relay fan-out.",
-      "v3_assertion": "Unsigned public activities use a relay-authored Announce; exact-body forwarding is preserved only for the historical Mastodon LD-signature shape."
+      "v3_assertion": "Both policies relay Public in the primary to audience. Unsigned source activities use a relay-authored Announce; the historical Mastodon LD-signature shape retains exact-body forwarding to traditional subscribers."
     },
     {
       "id": "traditional-create-public-cc",
       "description": "Create addresses Public only in cc, commonly interpreted as unlisted.",
       "profile": "mastodon",
-      "status": "specified",
-      "decision": "investigate",
+      "status": "covered",
+      "decision": "document-extension",
       "distribution": "relay-announce",
       "activity": {
         "@context": "https://www.w3.org/ns/activitystreams",
@@ -144,7 +144,7 @@
         }
       },
       "current_v2_5": "Routes identically to Public in to and fans out the original body.",
-      "v3_assertion": "Under the current broad public policy, unsigned cc-only Public activities use a relay-authored Announce; the configurable v3 distribution policy remains separate work."
+      "v3_assertion": "explicit_public_only acknowledges and publisher-accounts the activity without public fan-out; public_and_unlisted preserves relay-authored Announce fan-out for Public only in cc."
     },
     {
       "id": "traditional-forward-preserves-ld-proof",
@@ -221,7 +221,7 @@
         }
       },
       "current_v2_5": "Creates one relay-authored Announce referencing the canonical object ID for all receiver styles.",
-      "v3_assertion": "Preserve signer/actor alignment and same-origin restriction."
+      "v3_assertion": "Preserve signer/actor alignment and the same-origin restriction. A cc-only Public NodeBB activity requires public_and_unlisted unless it is also explicitly addressed through a supported relay relationship path."
     },
     {
       "id": "public-announce-url-only",

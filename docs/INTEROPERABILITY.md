@@ -35,6 +35,25 @@ characterization cases are maintained in
 an input to the Activity-Relay 3.0 design; v2.5.0 behavior remains unchanged by
 that design document.
 
+## Public-address distribution policy
+
+Activity-Relay 3.0 distinguishes an explicitly public primary audience from an
+activity that places the ActivityStreams Public collection only in `cc`.
+
+`PUBLIC_ADDRESS_DISTRIBUTION_POLICY` accepts:
+
+- `explicit_public_only`: public fan-out requires Public in `to`; Public only in
+  `cc` is acknowledged and publisher-accounted without relay fan-out.
+- `public_and_unlisted`: Public in either `to` or `cc` enters public fan-out,
+  preserving the pre-3.0 behavior.
+
+The fresh configuration example selects `explicit_public_only`. Omitted
+configuration falls back to `public_and_unlisted` for compatibility, and an
+upgrade retaining the old behavior should set that value explicitly. The
+broader value does not make followers-only or direct activities eligible.
+Explicitly relay-addressed LitePub traffic is evaluated through its own
+relationship path before the cc-only exclusion.
+
 ## Subscription models
 
 Activity-Relay supports both common relay subscription models:

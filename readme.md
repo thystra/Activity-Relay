@@ -292,6 +292,10 @@ MAX_QUEUE_JOBS: 100000
 # Outbound authorized-fetch and delivery signing. Omitted defaults to legacy.
 OUTBOUND_SIGNATURE_PROFILE: legacy
 
+# Fresh-install default. Existing installations can retain the
+# pre-3.0 behavior with public_and_unlisted.
+PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
+
 # RELAY_SUMMARY: |
 # Optional public relay branding. These are interoperability recommendations,
 # not protocol limits; clients may crop or rescale the supplied images.
@@ -305,6 +309,8 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 
 Use `127.0.0.1:8080` instead when the relay and reverse proxy run directly on
 the same host.
+
+`PUBLIC_ADDRESS_DISTRIBUTION_POLICY` accepts `explicit_public_only` or `public_and_unlisted`. `explicit_public_only` distributes activities only when the ActivityStreams Public collection appears in the primary `to` audience. A Public address appearing only in `cc` is acknowledged and publisher-accounted but is not distributed through public fan-out. `public_and_unlisted` preserves the pre-3.0 behavior by including Public from either `to` or `cc`; it does not make followers-only or direct activities eligible. The fresh configuration example explicitly selects `explicit_public_only`. An omitted value falls back to `public_and_unlisted` for compatibility, but upgrade configurations should set that value explicitly when retaining the old behavior.
 
 `OUTBOUND_SIGNATURE_PROFILE` accepts `legacy`, `rfc9421`, or `dual`.
 Empty or omitted configuration preserves the established legacy signatures.
@@ -343,6 +349,7 @@ MAX_ACTIVITY_BYTES
 MAX_FANOUT_TARGETS
 MAX_QUEUE_JOBS
 OUTBOUND_SIGNATURE_PROFILE
+PUBLIC_ADDRESS_DISTRIBUTION_POLICY
 RELAY_SUMMARY
 RELAY_ICON
 RELAY_IMAGE

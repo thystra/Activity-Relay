@@ -80,7 +80,7 @@ Mastodon's historical Linked Data `RsaSignature2017` document proof.
 | Relationship | One-way subscription | Reciprocal follow | Supports both receiver types | Preserve |
 | Distribution form | Forward eligible body | Relay-authored `Announce` | Both, plus NodeBB normalization | Preserve and document extension |
 | Public in `to` | Public | Public | Forwarded | Preserve |
-| Public only in `cc` | Commonly interpreted as unlisted | Not central | Forwarded as public relay traffic | Investigate and make policy explicit |
+| Public only in `cc` | Commonly interpreted as unlisted | Not central | Configurable: exclude from public fan-out or preserve pre-3.0 fan-out | Explicit policy with compatibility mode |
 | Original document proof | Historical Mastodon flow uses an embedded LD proof | Not central | Preserved if already in a forwarded body; not generated or verified | Document separately from HTTP signatures |
 | HTTP request authentication | Historical Fediverse `Signature` | Historical Fediverse `Signature` | Required inbound and outbound | Preserve; add RFC 9421 and RFC 9530 additively |
 | Sender must be receiver | Commonly coupled to subscription | Commonly coupled to reciprocal follow | Open signed publishers are supported | Preserve as an Activity-Relay extension |
@@ -96,29 +96,26 @@ Mastodon's historical Linked Data `RsaSignature2017` document proof.
 
 ### Public in `to` versus `cc`
 
-The current routing condition treats the Public URI in `to` and `cc`
-identically. Mastodon commonly maps Public in `to` to public visibility and
-Public only in `cc` to unlisted visibility. Relaying both can therefore broaden
-the distribution of content whose author expected public accessibility but not
-public-timeline amplification.
-
-The 3.0 design should expose an explicit policy rather than retain an accidental
-condition:
+Activity-Relay 3.0 exposes the routing decision explicitly:
 
 ```yaml
-relay_policy:
-  traditional_visibility: public_to_or_cc
+PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 ```
 
-Candidate values are:
+Supported values are:
 
-- `public_to_only`
-- `public_to_or_cc`
+- `explicit_public_only`: public fan-out requires Public in the primary `to`
+  audience. Public only in `cc` is acknowledged and publisher-accounted without
+  relay fan-out.
+- `public_and_unlisted`: Public in either `to` or `cc` enters public fan-out,
+  preserving the pre-3.0 behavior.
 
-The 3.0 default remains undecided until characterization and interoperability
-tests demonstrate the consequences for Mastodon, Friendica, NodeBB, and
-LitePub-family software. Migration documentation must state whether an existing
-installation retains its v2.5 behavior.
+Fresh example configurations select `explicit_public_only`. Omitted
+configuration falls back to `public_and_unlisted` for compatibility, while
+upgrade documentation instructs operators retaining the old behavior to set it
+explicitly. The broader value does not make followers-only or direct activities
+eligible. Explicitly relay-addressed LitePub traffic retains its separate
+relationship path.
 
 ### Linked Data proofs and HTTP message signatures
 
@@ -210,6 +207,8 @@ executable unit and multi-relay integration coverage.
   tests; RFC-only must not become the default until interoperability supports
   it.
 - Keep open publisher ingestion and its actor-host security checks.
+- Use `explicit_public_only` in fresh examples; preserve omitted and explicit
+  `public_and_unlisted` as the upgrade-compatible behavior.
 - Keep NodeBB normalization as a documented extension rather than presenting it
   as FEP-ae0c behavior.
 - Do not add Linked Data proof generation as an incidental part of RFC 9421
@@ -239,7 +238,8 @@ Fixture-driven API tests now freeze:
 
 - traditional Public-collection subscription;
 - LitePub-style follow and reciprocal `Accept`;
-- v2.5 forwarding for Public in `to` and Public only in `cc`;
+- public-address policy coverage for Public in `to`, Public only in `cc`,
+  compatibility fallback, and policy exclusion without fan-out;
 - byte-for-byte forwarding of a body containing an existing
   `RsaSignature2017` proof, without claiming proof verification;
 - open publisher fan-out without receiver membership;

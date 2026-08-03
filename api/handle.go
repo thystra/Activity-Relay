@@ -104,6 +104,52 @@ func logInboxDecodeFailure(request *http.Request, err error) {
 	}).Warn("Rejected inbox activity")
 }
 
+func configuredPublicAddressDistributionPolicy() models.PublicAddressDistributionPolicy {
+	if GlobalConfig == nil {
+		return models.PublicAddressPublicAndUnlisted
+	}
+	return GlobalConfig.PublicAddressDistributionPolicy()
+}
+
+func shouldDistributeByPublicAddress(
+	activity *models.Activity,
+	policy models.PublicAddressDistributionPolicy,
+) bool {
+	if activity == nil {
+		return false
+	}
+	return policy.Allows(activity.To, activity.Cc)
+}
+
+func isPublicOnlyInCCExcluded(
+	activity *models.Activity,
+	policy models.PublicAddressDistributionPolicy,
+) bool {
+	if activity == nil {
+		return false
+	}
+	return policy.ExcludesPublicOnlyInCC(activity.To, activity.Cc)
+}
+
+func executePolicyExcludedPublicActivity(
+	activity *models.Activity,
+	actor *models.Actor,
+	policy models.PublicAddressDistributionPolicy,
+) error {
+	switch activity.Type {
+	case "Create", "Update", "Delete", "Move", "Announce":
+		if err := recordPublisherActivity(activity, actor); err != nil {
+			return err
+		}
+		logrus.WithFields(logrus.Fields{
+			"actor":  activity.Actor,
+			"policy": policy,
+			"type":   activity.Type,
+		}).Debug("Skipped public fan-out: Public is only in cc")
+	}
+	return nil
+}
+
 func shouldFanOutPublicAnnounce(activity *models.Activity) bool {
 	if activity == nil || activity.Type != "Announce" {
 		return false
@@ -161,7 +207,10 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 			activityType = activity.Type
 			actorID, _ := url.Parse(activity.Actor)
 			switch {
-			case contains(activity.To, "https://www.w3.org/ns/activitystreams#Public"), contains(activity.Cc, "https://www.w3.org/ns/activitystreams#Public"):
+			case shouldDistributeByPublicAddress(
+				activity,
+				configuredPublicAddressDistributionPolicy(),
+			):
 				// Mastodon Traditional Style (Activity Transfer)
 				switch activity.Type {
 				case "Create", "Update", "Delete", "Move":
@@ -286,6 +335,22 @@ func handleInbox(writer http.ResponseWriter, request *http.Request, activityDeco
 					writer.WriteHeader(202)
 					writer.Write(nil)
 				}
+			case isPublicOnlyInCCExcluded(
+				activity,
+				configuredPublicAddressDistributionPolicy(),
+			):
+				err = executePolicyExcludedPublicActivity(
+					activity,
+					actor,
+					configuredPublicAddressDistributionPolicy(),
+				)
+				if err != nil {
+					writer.WriteHeader(http.StatusUnauthorized)
+					writer.Write([]byte(err.Error()))
+					return
+				}
+				writer.WriteHeader(http.StatusAccepted)
+				writer.Write(nil)
 			default:
 				// Follow, Unfollow Only
 				switch activity.Type {

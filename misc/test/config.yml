@@ -5,6 +5,7 @@ RELAY_BIND: 0.0.0.0:8080
 RELAY_DOMAIN: relay.toot.yukimochi.jp
 RELAY_SERVICENAME: YUKIMOCHI Toot Relay Service
 JOB_CONCURRENCY: 50
+PUBLIC_ADDRESS_DISTRIBUTION_POLICY: public_and_unlisted
 RELAY_SUMMARY: YUKIMOCHI Toot Relay Service is Running by Activity-Relay
 RELAY_ICON: https://example.com/example_icon.png
 RELAY_IMAGE: https://example.com/example_image.png

@@ -24,28 +24,38 @@ import (
 
 // RelayConfig contains valid configuration.
 type RelayConfig struct {
-	actorKey                    *rsa.PrivateKey
-	domain                      *url.URL
-	redisClient                 *redis.Client
-	redisOptions                *redis.Options
-	redisURL                    string
-	redisDisplayURL             string
-	serverBind                  string
-	observabilityBind           string
-	serviceName                 string
-	serviceSummary              string
-	serviceIconURL              *url.URL
-	serviceImageURL             *url.URL
-	jobConcurrency              int
-	maxActivityBytes            int64
-	maxFanoutTargets            int
-	maxQueueJobs                int64
-	outboundSignatureProfile    relayhttpsig.Profile
-	outboundSignatureNegotiator *relayhttpsig.DestinationNegotiator
+	actorKey                        *rsa.PrivateKey
+	domain                          *url.URL
+	redisClient                     *redis.Client
+	redisOptions                    *redis.Options
+	redisURL                        string
+	redisDisplayURL                 string
+	serverBind                      string
+	observabilityBind               string
+	serviceName                     string
+	serviceSummary                  string
+	serviceIconURL                  *url.URL
+	serviceImageURL                 *url.URL
+	jobConcurrency                  int
+	maxActivityBytes                int64
+	maxFanoutTargets                int
+	maxQueueJobs                    int64
+	publicAddressDistributionPolicy PublicAddressDistributionPolicy
+	outboundSignatureProfile        relayhttpsig.Profile
+	outboundSignatureNegotiator     *relayhttpsig.DestinationNegotiator
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
 func NewRelayConfig() (*RelayConfig, error) {
+	publicAddressDistributionPolicy, err := ParsePublicAddressDistributionPolicy(
+		viper.GetString("PUBLIC_ADDRESS_DISTRIBUTION_POLICY"),
+	)
+	if err != nil {
+		return nil, errors.New(
+			"PUBLIC_ADDRESS_DISTRIBUTION_POLICY: " + err.Error(),
+		)
+	}
+
 	outboundSignatureProfile, err := relayhttpsig.ParseOutboundProfile(
 		viper.GetString("OUTBOUND_SIGNATURE_PROFILE"),
 	)
@@ -147,24 +157,25 @@ func NewRelayConfig() (*RelayConfig, error) {
 	}
 
 	return &RelayConfig{
-		actorKey:                    privateKey,
-		domain:                      domain,
-		redisClient:                 redisClient,
-		redisOptions:                redisOptions,
-		redisURL:                    redisURL,
-		redisDisplayURL:             redactedRedisURL(redisURL),
-		serverBind:                  serverBind,
-		observabilityBind:           observabilityBind,
-		serviceName:                 viper.GetString("RELAY_SERVICENAME"),
-		serviceSummary:              viper.GetString("RELAY_SUMMARY"),
-		serviceIconURL:              iconURL,
-		serviceImageURL:             imageURL,
-		jobConcurrency:              jobConcurrency,
-		maxActivityBytes:            maxActivityBytes,
-		maxFanoutTargets:            maxFanoutTargets,
-		maxQueueJobs:                maxQueueJobs,
-		outboundSignatureProfile:    outboundSignatureProfile,
-		outboundSignatureNegotiator: outboundSignatureNegotiator,
+		actorKey:                        privateKey,
+		domain:                          domain,
+		redisClient:                     redisClient,
+		redisOptions:                    redisOptions,
+		redisURL:                        redisURL,
+		redisDisplayURL:                 redactedRedisURL(redisURL),
+		serverBind:                      serverBind,
+		observabilityBind:               observabilityBind,
+		serviceName:                     viper.GetString("RELAY_SERVICENAME"),
+		serviceSummary:                  viper.GetString("RELAY_SUMMARY"),
+		serviceIconURL:                  iconURL,
+		serviceImageURL:                 imageURL,
+		jobConcurrency:                  jobConcurrency,
+		maxActivityBytes:                maxActivityBytes,
+		maxFanoutTargets:                maxFanoutTargets,
+		maxQueueJobs:                    maxQueueJobs,
+		publicAddressDistributionPolicy: publicAddressDistributionPolicy,
+		outboundSignatureProfile:        outboundSignatureProfile,
+		outboundSignatureNegotiator:     outboundSignatureNegotiator,
 	}, nil
 }
 
@@ -201,6 +212,15 @@ func (relayConfig *RelayConfig) MaxFanoutTargets() int { return relayConfig.maxF
 
 // MaxQueueJobs limits admission based on the Redis broker backlog.
 func (relayConfig *RelayConfig) MaxQueueJobs() int64 { return relayConfig.maxQueueJobs }
+
+// PublicAddressDistributionPolicy returns the effective public-address
+// fan-out policy.
+func (relayConfig *RelayConfig) PublicAddressDistributionPolicy() PublicAddressDistributionPolicy {
+	if relayConfig == nil || relayConfig.publicAddressDistributionPolicy == "" {
+		return PublicAddressPublicAndUnlisted
+	}
+	return relayConfig.publicAddressDistributionPolicy
+}
 
 // OutboundSignatureProfile is the process-wide authorized-fetch and
 // delivery HTTP-signature profile.
@@ -244,8 +264,9 @@ REDIS URL       : %s
 BIND ADDRESS    : %s
 OBSERVABILITY   : %s
 SIGNATURE PROFILE: %s
+PUBLIC ADDRESS POLICY: %s
 JOB_CONCURRENCY : %s
-`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisDisplayURL, relayConfig.serverBind, observabilityBind, relayConfig.OutboundSignatureProfile(), strconv.Itoa(relayConfig.jobConcurrency))
+`, version, moduleName, relayConfig.serviceName, relayConfig.domain.Host, relayConfig.redisDisplayURL, relayConfig.serverBind, observabilityBind, relayConfig.OutboundSignatureProfile(), relayConfig.PublicAddressDistributionPolicy(), strconv.Itoa(relayConfig.jobConcurrency))
 }
 
 func redactedRedisURL(redisURL string) string {
