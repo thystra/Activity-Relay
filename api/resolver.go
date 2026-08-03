@@ -254,13 +254,6 @@ func enqueueActivityExcept(
 	body []byte,
 	excludedDomains ...string,
 ) bool {
-	if len(subscriptions) > GlobalConfig.MaxFanoutTargets() {
-		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
-		recordQueueAdmission("relay", "rejected", "fanout_limit")
-		recordFanoutTargets("rejected", len(subscriptions))
-		return false
-	}
-
 	excluded := make(map[string]struct{}, len(excludedDomains))
 	for _, domain := range excludedDomains {
 		normalized := normalizedStoredDomain(domain)
@@ -269,16 +262,46 @@ func enqueueActivityExcept(
 		}
 	}
 
+	// A server can appear in both the traditional subscriber set and the
+	// follower-style receiver set. Deliver once per normalized domain so one
+	// relay-authored activity cannot be duplicated merely because the server
+	// supports both registration styles. Subscriber entries are loaded first
+	// and therefore remain the preferred route for an overlapping domain.
+	seen := make(map[string]struct{}, len(subscriptions))
 	targets := make([]models.Subscriber, 0, len(subscriptions))
 	for _, subscription := range subscriptions {
-		if _, skip := excluded[normalizedStoredDomain(subscription.Domain)]; !skip {
-			targets = append(targets, subscription)
+		domain := normalizedStoredDomain(subscription.Domain)
+		if _, skip := excluded[domain]; skip {
+			continue
 		}
+
+		dedupeKey := domain
+		if dedupeKey == "" {
+			dedupeKey = strings.ToLower(
+				strings.TrimSpace(subscription.InboxURL),
+			)
+		}
+		if dedupeKey != "" {
+			if _, duplicate := seen[dedupeKey]; duplicate {
+				continue
+			}
+			seen[dedupeKey] = struct{}{}
+		}
+
+		targets = append(targets, subscription)
+	}
+
+	if len(targets) > GlobalConfig.MaxFanoutTargets() {
+		logrus.Warn("Skipped relay activity: fan-out exceeds MAX_FANOUT_TARGETS")
+		recordQueueAdmission("relay", "rejected", "fanout_limit")
+		recordFanoutTargets("rejected", len(targets))
+		return false
 	}
 	if len(targets) < 1 {
 		recordQueueAdmission("relay", "skipped", "no_targets")
 		return true
 	}
+
 	accepted, reason := reserveQueueCapacityWithReason(len(targets))
 	if !accepted {
 		recordQueueAdmission("relay", "rejected", reason)
@@ -286,6 +309,7 @@ func enqueueActivityExcept(
 		return false
 	}
 	defer releaseQueueCapacity(len(targets))
+
 	activityID := uuid.NewString()
 	signatures := make([]*tasks.Signature, 0, len(targets))
 	for _, target := range targets {
@@ -641,32 +665,161 @@ func executeEmbeddedAnnounceActivity(activity *models.Activity, actor *models.Ac
 	return nil
 }
 
-func executeRelayActivity(activity *models.Activity, actor *models.Actor, body []byte) error {
+func hasMastodonLinkedDataSignature(body []byte) bool {
+	var envelope struct {
+		Signature json.RawMessage `json:"signature"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return false
+	}
+
+	rawSignature := strings.TrimSpace(string(envelope.Signature))
+	if rawSignature == "" || rawSignature == "null" {
+		return false
+	}
+
+	// This is deliberately only a shape check. Activity-Relay preserves the
+	// exact source bytes so the receiving Mastodon-style server can perform
+	// the actual LD-signature verification with the originating actor's key.
+	var signature struct {
+		Type           string `json:"type"`
+		Creator        string `json:"creator"`
+		Created        string `json:"created"`
+		SignatureValue string `json:"signatureValue"`
+	}
+	if err := json.Unmarshal(envelope.Signature, &signature); err != nil {
+		return false
+	}
+
+	return signature.Type == "RsaSignature2017" &&
+		strings.TrimSpace(signature.Creator) != "" &&
+		strings.TrimSpace(signature.Created) != "" &&
+		strings.TrimSpace(signature.SignatureValue) != ""
+}
+
+func executeRelayActivity(
+	activity *models.Activity,
+	actor *models.Actor,
+	body []byte,
+) error {
 	actorID, err := url.Parse(actor.ID)
 	if err != nil || normalizedActorDomain(actorID) == "" {
 		return errors.New("activity actor has an invalid ID")
 	}
+	sourceDomain := normalizedActorDomain(actorID)
 	if isActorBlocked(actorID) {
-		return errors.New(normalizedActorDomain(actorID) + " is blocked")
+		return errors.New(sourceDomain + " is blocked")
 	}
-	if isActorAbleToRelay(actor) {
-		if err := recordPublisherActivity(activity, actor); err != nil {
-			return err
-		}
-		go enqueueActivityForSubscriber(normalizedActorDomain(actorID), body)
-
-		var innnerObjectId, err = activity.UnwrapInnerObjectId()
-		if err != nil {
-			logrus.Debug("Accepted Relay Activity (Announce Failed) : ", activity.Actor)
-		} else {
-			announce := models.NewActivityPubActivity(RelayActor, []string{RelayActor.Followers()}, innnerObjectId, "Announce")
-			jsonData, _ := json.Marshal(&announce)
-			go enqueueActivityForFollower(normalizedActorDomain(actorID), jsonData)
-			logrus.Debug("Accepted Relay Activity : ", activity.Actor)
-		}
-	} else {
+	if !isActorAbleToRelay(actor) {
 		logrus.Debug("Skipped Relay Activity : ", activity.Actor)
+		return nil
 	}
+	if err := recordPublisherActivity(activity, actor); err != nil {
+		return err
+	}
+
+	snapshot := RelayState.Snapshot()
+	preserveOriginal := hasMastodonLinkedDataSignature(body)
+
+	// Mastodon-style direct forwarding is safe only when the source body
+	// carries the historical LD-signature shape. Preserve those bytes exactly;
+	// the receiver, not the relay, verifies the document proof.
+	if preserveOriginal {
+		go enqueueActivity(
+			snapshot.Subscribers,
+			sourceDomain,
+			body,
+		)
+	}
+
+	objectID, err := activity.UnwrapInnerObjectId()
+	if err != nil {
+		if preserveOriginal {
+			logrus.WithFields(logrus.Fields{
+				"actor": activity.Actor,
+				"type":  activity.Type,
+			}).Debug(
+				"Accepted LD-signed relay activity without follower wrapper: object has no ID",
+			)
+			return nil
+		}
+
+		// An unsigned source activity cannot be forwarded under the relay's
+		// HTTP signature because signer and JSON actor would differ.
+		logrus.WithFields(logrus.Fields{
+			"actor": activity.Actor,
+			"type":  activity.Type,
+		}).Debug("Skipped unsigned relay fan-out: activity object has no ID")
+		return nil
+	}
+
+	announce := models.NewActivityPubActivity(
+		RelayActor,
+		[]string{RelayActor.Followers()},
+		objectID,
+		"Announce",
+	)
+	jsonData, err := json.Marshal(&announce)
+	if err != nil {
+		return err
+	}
+
+	if preserveOriginal {
+		// Traditional subscribers get the exact LD-signed source body.
+		// Follower-style receivers get the relay-authored Announce. If a
+		// domain is registered through both styles, prefer the traditional
+		// route and suppress the duplicate follower delivery.
+		followerTargets := make(
+			[]models.Subscriber,
+			0,
+			len(snapshot.Followers),
+		)
+		for _, follower := range snapshot.Followers {
+			followerTargets = append(
+				followerTargets,
+				models.Subscriber{
+					Domain:     follower.Domain,
+					InboxURL:   follower.InboxURL,
+					ActivityID: follower.ActivityID,
+					ActorID:    follower.ActorID,
+				},
+			)
+		}
+
+		excludedDomains := make(
+			[]string,
+			0,
+			len(snapshot.Subscribers)+1,
+		)
+		excludedDomains = append(excludedDomains, sourceDomain)
+		for _, subscriber := range snapshot.Subscribers {
+			excludedDomains = append(
+				excludedDomains,
+				subscriber.Domain,
+			)
+		}
+
+		go enqueueActivityExcept(
+			followerTargets,
+			jsonData,
+			excludedDomains...,
+		)
+	} else {
+		// Unsigned activities use one relay-authored Announce for every
+		// receiver style, aligning the JSON actor with the HTTP signer.
+		go enqueueActivity(
+			snapshot.SubscribersAndFollowers,
+			sourceDomain,
+			jsonData,
+		)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"actor":             activity.Actor,
+		"object":            objectID,
+		"type":              activity.Type,
+		"preserved_ld_body": preserveOriginal,
+	}).Debug("Accepted Relay Activity")
 	return nil
 }
 

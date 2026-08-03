@@ -361,7 +361,6 @@ func TestFEPAE0CTraditionalPublicAudienceFixtures(t *testing.T) {
 				)
 			})
 			addFEPTraditionalReceiver(t, receiverDomain)
-
 			activity, body := fixtureActivity(t, identifier)
 			actor := actorForFixtureActivity(t, activity, "Person")
 			recorder := postFEPAE0CFixture(t, activity, actor, body)
@@ -373,9 +372,36 @@ func TestFEPAE0CTraditionalPublicAudienceFixtures(t *testing.T) {
 					http.StatusAccepted,
 				)
 			}
-			waitForFEPStoredBody(t, body)
+
+			objectID, err := activity.UnwrapInnerObjectId()
+			if err != nil {
+				t.Fatalf("fixture object ID: %v", err)
+			}
+			_, targetCount, found := waitForRelayWrapper(
+				t,
+				objectID,
+			)
+			if !found {
+				t.Fatal(
+					"unsigned fixture did not produce relay-authored Announce",
+				)
+			}
+			if targetCount < 1 {
+				t.Fatalf(
+					"relay Announce target count = %d; want at least 1",
+					targetCount,
+				)
+			}
+			if storedRelayBodyEquals(t, body) {
+				t.Fatal(
+					"unsigned fixture body must not be forwarded unchanged",
+				)
+			}
 			if !RelayState.IsPublisher(sourceDomain) {
-				t.Fatalf("source %s was not recorded as publisher", sourceDomain)
+				t.Fatalf(
+					"source %s was not recorded as publisher",
+					sourceDomain,
+				)
 			}
 		})
 	}
@@ -507,7 +533,6 @@ func TestFEPAE0COpenPublisherCreate(t *testing.T) {
 	activity, body := fixtureActivity(t, "open-publisher-public-create")
 	actor := actorForFixtureActivity(t, activity, "Person")
 	recorder := postFEPAE0CFixture(t, activity, actor, body)
-
 	if recorder.Code != http.StatusAccepted {
 		t.Fatalf(
 			"status = %d; want %d",
@@ -522,7 +547,28 @@ func TestFEPAE0COpenPublisherCreate(t *testing.T) {
 			sourceDomain,
 		)
 	}
-	waitForFEPStoredBody(t, body)
+
+	objectID, err := activity.UnwrapInnerObjectId()
+	if err != nil {
+		t.Fatalf("fixture object ID: %v", err)
+	}
+	_, targetCount, found := waitForRelayWrapper(t, objectID)
+	if !found {
+		t.Fatal(
+			"unsigned open-publisher fixture did not produce relay Announce",
+		)
+	}
+	if targetCount < 1 {
+		t.Fatalf(
+			"relay Announce target count = %d; want at least 1",
+			targetCount,
+		)
+	}
+	if storedRelayBodyEquals(t, body) {
+		t.Fatal(
+			"unsigned open-publisher body must not be forwarded unchanged",
+		)
+	}
 	if !RelayState.IsPublisher(sourceDomain) {
 		t.Fatalf("open publisher %s was not recorded", sourceDomain)
 	}
