@@ -141,6 +141,20 @@ This compatibility path does not parse response text, does not apply to other
 status codes or transport failures, and never retries a delivery `POST` under a
 different signature profile.
 
+## Fragment-bearing actor key IDs
+
+ActivityPub public-key identifiers commonly append a fragment such as
+`#main-key` to the actor URL. URI fragments are not transmitted as part of an
+HTTP request target. Before deriving an RFC 9421 `@target-uri`, Activity-Relay
+therefore removes `Fragment` and `RawFragment` from the request URL while
+preserving the original key ID used to locate and bind the published key.
+
+This distinction is required for secure-mode Mastodon interoperability: signing
+the fragment-bearing identifier while sending the fragment-free actor request
+causes the receiver to reconstruct a different signature base and reject the
+request. The established legacy `(request-target)` profile was not affected
+because its request-target component already excludes the fragment.
+
 ## Signatures and actor keys
 
 Outbound HTTP signatures bind the signed `Host` value to the exact authority

@@ -150,6 +150,11 @@ func (signer *Signer) signRFC9421(
 	if request == nil || request.URL == nil || request.URL.Host == "" {
 		return errors.New("signed request has no URL host")
 	}
+	// URI fragments are client-side identifiers and are never part of the
+	// HTTP request target. Remove them before deriving RFC 9421 components so
+	// @target-uri matches the exact fragment-free URI seen by the receiver.
+	request.URL.Fragment = ""
+	request.URL.RawFragment = ""
 	if request.Header == nil {
 		request.Header = make(http.Header)
 	}

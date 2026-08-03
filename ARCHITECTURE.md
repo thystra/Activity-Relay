@@ -74,9 +74,12 @@ and ActivityPub object resolution also uses the relay actor identity. In `dual`
 mode, an unknown idempotent fetch probes RFC 9421 and may retry once with the
 legacy profile after an explicit signature challenge or a generic HTTP `400`.
 A legacy preference is cached only after that retry succeeds. Redirected fetches
-are re-signed for the new request target and authority. Delivery `POST` requests
-never change signature profile after queueing. Both paths sign the exact `Host`
-authority transmitted on the wire. Each `relay-v2` target receives one initial attempt and five delayed retries
+are re-signed for the new request target and authority. URI fragments are
+removed before RFC 9421 signing because they are not part of the HTTP request
+target; this keeps `@target-uri` identical to what the receiver verifies.
+Delivery `POST` requests never change signature profile after queueing. Both
+paths sign the exact `Host` authority transmitted on the wire. Each `relay-v2`
+target receives one initial attempt and five delayed retries
 using Machinery's Fibonacci schedule. The shared activity body remains in Redis
 for fifteen minutes, which exceeds the complete retry horizon. A target reduces
 the shared `remain_count` only after success or final retry exhaustion, so one
