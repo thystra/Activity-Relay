@@ -98,8 +98,8 @@
       "description": "Public Create addresses Public in to.",
       "profile": "mastodon",
       "status": "covered",
-      "decision": "preserve",
-      "distribution": "forward-original",
+      "decision": "document-extension",
+      "distribution": "relay-announce",
       "activity": {
         "@context": "https://www.w3.org/ns/activitystreams",
         "id": "https://publisher.example/activities/create-public",
@@ -116,7 +116,7 @@
         }
       },
       "current_v2_5": "Queues the original received body for relay fan-out.",
-      "v3_assertion": "Preserve public forwarding and exact-body characterization."
+      "v3_assertion": "Unsigned public activities use a relay-authored Announce; exact-body forwarding is preserved only for the historical Mastodon LD-signature shape."
     },
     {
       "id": "traditional-create-public-cc",
@@ -124,7 +124,7 @@
       "profile": "mastodon",
       "status": "specified",
       "decision": "investigate",
-      "distribution": "forward-original",
+      "distribution": "relay-announce",
       "activity": {
         "@context": "https://www.w3.org/ns/activitystreams",
         "id": "https://publisher.example/activities/create-unlisted",
@@ -144,7 +144,7 @@
         }
       },
       "current_v2_5": "Routes identically to Public in to and fans out the original body.",
-      "v3_assertion": "Measure receiver behavior and select an explicit configurable policy."
+      "v3_assertion": "Under the current broad public policy, unsigned cc-only Public activities use a relay-authored Announce; the configurable v3 distribution policy remains separate work."
     },
     {
       "id": "traditional-forward-preserves-ld-proof",
@@ -293,7 +293,7 @@
       "profile": "activity-relay-extension",
       "status": "covered",
       "decision": "preserve",
-      "distribution": "forward-original",
+      "distribution": "relay-announce",
       "activity": {
         "@context": "https://www.w3.org/ns/activitystreams",
         "id": "https://blog.example/activities/create-1",
@@ -310,7 +310,7 @@
         }
       },
       "current_v2_5": "May fan out after HTTP-signature, actor-host, and domain-policy validation without adding receiver membership.",
-      "v3_assertion": "Preserve and repeat the security matrix under every signing profile."
+      "v3_assertion": "Preserve open-publisher acceptance while wrapping unsigned source activities; repeat the security matrix under every HTTP signing profile."
     },
     {
       "id": "server-actor-arbitrary-path",
