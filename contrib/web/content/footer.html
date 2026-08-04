@@ -1,4 +1,11 @@
 <footer class="site-footer">
+    <section class="relay-policy-status" data-relay-policy-status data-status-url="{{STATUS_URL}}" aria-live="polite">
+      <p class="relay-policy-summary">
+        <strong>Public-post distribution:</strong>
+        <span id="relay-policy-label">Loading current policy…</span>
+      </p>
+      <p class="muted relay-policy-description" id="relay-policy-description">The effective public-address policy is loaded from this relay's public status endpoint.</p>
+    </section>
     <p>Operated by {{OPERATOR_ID_HTML}} · <a href="{{CONTACT_URL}}">Contact</a> · <a href="{{SOURCE_URL}}">Source</a></p>
     <p class="muted">Generated {{YEAR}}. ActivityPub is a decentralized social networking protocol.</p>
   </footer>

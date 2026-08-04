@@ -49,6 +49,18 @@ func (policy PublicAddressDistributionPolicy) String() string {
 	return string(policy)
 }
 
+// DisplayName returns a stable human-readable public label for the policy.
+func (policy PublicAddressDistributionPolicy) DisplayName() string {
+	switch policy {
+	case PublicAddressExplicitPublicOnly:
+		return "Explicitly public posts only"
+	case PublicAddressPublicAndUnlisted:
+		return "Public and unlisted posts"
+	default:
+		return "Unknown"
+	}
+}
+
 // Allows reports whether the activity enters public-address fan-out.
 func (policy PublicAddressDistributionPolicy) Allows(
 	to []string,

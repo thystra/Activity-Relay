@@ -2,10 +2,13 @@
   "use strict";
 
   const dashboard = document.querySelector("[data-relay-dashboard]");
-  if (!dashboard) return;
+  const policyStatus = document.querySelector("[data-relay-policy-status]");
+  if (!dashboard && !policyStatus) return;
 
   const byId = (id) => document.getElementById(id);
-  const statusURL = dashboard.dataset.statusUrl || "/status.json";
+  const statusURL = dashboard?.dataset.statusUrl
+    || policyStatus?.dataset.statusUrl
+    || "/status.json";
   const health = byId("relay-health");
   const registration = byId("relay-registration");
   const count = byId("relay-instance-count");
@@ -21,7 +24,18 @@
   const publisherList = byId("publisher-list");
   const publisherEmpty = byId("publisher-empty");
   const publisherSearch = byId("publisher-search");
-
+  const policyLabel = byId("relay-policy-label");
+  const policyDescription = byId("relay-policy-description");
+  const policyPresentations = Object.freeze({
+    explicit_public_only: {
+      label: "Explicitly public posts only",
+      description: "This relay redistributes posts only when ActivityStreams Public appears in the primary “to” audience. Posts with Public only in “cc” are received but not redistributed."
+    },
+    public_and_unlisted: {
+      label: "Public and unlisted posts",
+      description: "This relay redistributes posts when ActivityStreams Public appears in either the primary “to” audience or the secondary “cc” audience."
+    }
+  });
   let domains = [];
   let publishers = [];
 
@@ -39,6 +53,52 @@
     if (!message) return;
     message.textContent = value;
     message.hidden = hidden;
+  }
+
+  function renderPolicy(data) {
+    if (!policyStatus) return;
+
+    const policy = String(
+      data.public_address_distribution_policy ?? ""
+    ).trim();
+    const presentation = policyPresentations[policy];
+    const reportedLabel = String(
+      data.public_address_distribution_label ?? ""
+    ).trim();
+
+    if (!policy) {
+      setText(policyLabel, "Not reported");
+      setText(
+        policyDescription,
+        "This relay version does not report its effective public-post distribution policy."
+      );
+      policyStatus.dataset.policy = "not-reported";
+      return;
+    }
+
+    if (!presentation) {
+      setText(policyLabel, reportedLabel || "Unknown");
+      setText(
+        policyDescription,
+        "This relay reported an unrecognized public-post distribution policy."
+      );
+      policyStatus.dataset.policy = "unknown";
+      return;
+    }
+
+    setText(policyLabel, reportedLabel || presentation.label);
+    setText(policyDescription, presentation.description);
+    policyStatus.dataset.policy = policy;
+  }
+
+  function renderPolicyUnavailable() {
+    if (!policyStatus) return;
+    setText(policyLabel, "Status unavailable");
+    setText(
+      policyDescription,
+      "The relay's current public-post distribution policy could not be loaded."
+    );
+    policyStatus.dataset.policy = "unavailable";
   }
 
   function renderDomains(filter = "") {
@@ -73,7 +133,6 @@
       String(publisher.domain ?? "").toLowerCase().includes(needle)
     );
     publisherList.replaceChildren();
-
     for (const publisher of visible) {
       const item = document.createElement("li");
       const heading = document.createElement("strong");
@@ -89,7 +148,6 @@
       item.append(heading, meta);
       publisherList.appendChild(item);
     }
-
     if (publisherEmpty) publisherEmpty.hidden = visible.length !== 0;
   }
 
@@ -144,7 +202,6 @@
       );
       setText(inbox, data.endpoints?.inbox ?? "/inbox");
       setText(actor, data.endpoints?.actor ?? "/actor");
-
       domains = Array.isArray(data.connected_instances?.domains)
         ? data.connected_instances.domains.map(
           (domain) => String(domain).toLowerCase()
@@ -153,9 +210,9 @@
       publishers = Array.isArray(data.publishers?.entries)
         ? data.publishers.entries
         : [];
-
       renderDomains();
       renderPublishers();
+      renderPolicy(data);
       setStatusMessage("", true);
     })
     .catch((error) => {
@@ -166,14 +223,13 @@
       setText(receivingCount, "—");
       setText(publisherCount, "—");
       setText(version, "—");
-
       if (list) {
         list.innerHTML = '<li class="muted">The live participating-server list is temporarily unavailable.</li>';
       }
       if (publisherList) {
         publisherList.innerHTML = '<li class="muted">The live publisher list is temporarily unavailable.</li>';
       }
-
+      renderPolicyUnavailable();
       setStatusMessage(
         `Unable to load relay status: ${error.message}`,
         false

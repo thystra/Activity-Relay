@@ -51,6 +51,38 @@ func TestParsePublicAddressDistributionPolicyRejectsUnknown(t *testing.T) {
 	}
 }
 
+func TestPublicAddressDistributionPolicyDisplayName(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy PublicAddressDistributionPolicy
+		want   string
+	}{
+		{
+			name:   "explicit public only",
+			policy: PublicAddressExplicitPublicOnly,
+			want:   "Explicitly public posts only",
+		},
+		{
+			name:   "public and unlisted",
+			policy: PublicAddressPublicAndUnlisted,
+			want:   "Public and unlisted posts",
+		},
+		{
+			name:   "unknown fails closed",
+			policy: PublicAddressDistributionPolicy("future-policy"),
+			want:   "Unknown",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.policy.DisplayName(); got != test.want {
+				t.Fatalf("DisplayName() = %q; want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestPublicAddressDistributionPolicyAllows(t *testing.T) {
 	public := activityStreamsPublicAddress
 	followers := "https://publisher.example/actor/followers"

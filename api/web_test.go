@@ -77,8 +77,26 @@ func TestHandleRelayStatus(t *testing.T) {
 	if got.Registration != "open" || got.ManualApproval {
 		t.Errorf("registration = %q, manual_approval = %v", got.Registration, got.ManualApproval)
 	}
-	if got.SchemaVersion != 4 {
-		t.Errorf("schema version = %d; want 4", got.SchemaVersion)
+	wantPublicAddressPolicy := models.PublicAddressPublicAndUnlisted
+	if GlobalConfig != nil {
+		wantPublicAddressPolicy = GlobalConfig.PublicAddressDistributionPolicy()
+	}
+	if got.PublicAddressDistributionPolicy != wantPublicAddressPolicy {
+		t.Errorf(
+			"public-address policy = %q; want %q",
+			got.PublicAddressDistributionPolicy,
+			wantPublicAddressPolicy,
+		)
+	}
+	if got.PublicAddressDistributionLabel != wantPublicAddressPolicy.DisplayName() {
+		t.Errorf(
+			"public-address label = %q; want %q",
+			got.PublicAddressDistributionLabel,
+			wantPublicAddressPolicy.DisplayName(),
+		)
+	}
+	if got.SchemaVersion != 5 {
+		t.Errorf("schema version = %d; want 5", got.SchemaVersion)
 	}
 
 	wantParticipating := []string{"a.example", "publisher.example", "z.example"}

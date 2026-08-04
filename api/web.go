@@ -56,18 +56,20 @@ type relayStatusPublishers struct {
 }
 
 type relayStatusResponse struct {
-	SchemaVersion      int                           `json:"schema_version"`
-	Status             string                        `json:"status"`
-	Name               string                        `json:"name"`
-	Domain             string                        `json:"domain"`
-	Registration       string                        `json:"registration"`
-	ManualApproval     bool                          `json:"manual_approval"`
-	PersonOnly         bool                          `json:"person_only"`
-	Endpoints          relayStatusEndpoints          `json:"endpoints"`
-	ConnectedInstances relayStatusInstances          `json:"connected_instances"`
-	ReceivingInstances relayStatusReceivingInstances `json:"receiving_instances"`
-	Publishers         relayStatusPublishers         `json:"publishers"`
-	Software           relayStatusSoftware           `json:"software"`
+	SchemaVersion                   int                                    `json:"schema_version"`
+	Status                          string                                 `json:"status"`
+	Name                            string                                 `json:"name"`
+	Domain                          string                                 `json:"domain"`
+	Registration                    string                                 `json:"registration"`
+	ManualApproval                  bool                                   `json:"manual_approval"`
+	PersonOnly                      bool                                   `json:"person_only"`
+	PublicAddressDistributionPolicy models.PublicAddressDistributionPolicy `json:"public_address_distribution_policy"`
+	PublicAddressDistributionLabel  string                                 `json:"public_address_distribution_label"`
+	Endpoints                       relayStatusEndpoints                   `json:"endpoints"`
+	ConnectedInstances              relayStatusInstances                   `json:"connected_instances"`
+	ReceivingInstances              relayStatusReceivingInstances          `json:"receiving_instances"`
+	Publishers                      relayStatusPublishers                  `json:"publishers"`
+	Software                        relayStatusSoftware                    `json:"software"`
 }
 
 func normalizedStatusDomain(domain string) string {
@@ -87,9 +89,11 @@ func buildRelayStatus() relayStatusResponse {
 	snapshot := RelayState.Snapshot()
 	baseURL := ""
 	name := RelayActor.Name
+	publicAddressPolicy := models.PublicAddressPublicAndUnlisted
 
 	if GlobalConfig != nil {
 		baseURL = strings.TrimRight(GlobalConfig.ServerHostname().String(), "/")
+		publicAddressPolicy = GlobalConfig.PublicAddressDistributionPolicy()
 		if name == "" {
 			name = GlobalConfig.ServerServiceName()
 		}
@@ -173,13 +177,15 @@ func buildRelayStatus() relayStatusResponse {
 	}
 
 	return relayStatusResponse{
-		SchemaVersion:  4,
-		Status:         "ok",
-		Name:           name,
-		Domain:         strings.TrimPrefix(baseURL, "https://"),
-		Registration:   registration,
-		ManualApproval: snapshot.RelayConfig.ManuallyAccept,
-		PersonOnly:     snapshot.RelayConfig.PersonOnly,
+		SchemaVersion:                   5,
+		Status:                          "ok",
+		Name:                            name,
+		Domain:                          strings.TrimPrefix(baseURL, "https://"),
+		Registration:                    registration,
+		ManualApproval:                  snapshot.RelayConfig.ManuallyAccept,
+		PersonOnly:                      snapshot.RelayConfig.PersonOnly,
+		PublicAddressDistributionPolicy: publicAddressPolicy,
+		PublicAddressDistributionLabel:  publicAddressPolicy.DisplayName(),
 		Endpoints: relayStatusEndpoints{
 			Inbox: baseURL + "/inbox",
 			Actor: baseURL + "/actor",
