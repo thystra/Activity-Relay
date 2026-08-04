@@ -27,7 +27,8 @@ Compared with the upstream baseline, this fork includes:
   publishers, including WordPress ActivityPub sites.
 - Publisher first-seen, last-seen, activity-type, and accepted-activity
   counters.
-- `/status.json` schema version 4 with:
+- `/status.json` schema version 5 with:
+  - `public_address_distribution_policy` and its human-readable label;
   - `connected_instances`: all unique participating domains;
   - `receiving_instances`: domains that receive relay fan-out, with current
     delivery-health timestamps and counters;
@@ -558,7 +559,8 @@ The API server exposes:
 GET /status.json
 ```
 
-Schema version 4 reports relay identity and policy, endpoints, software version,
+Schema version 5 reports relay identity and policy, endpoints, software version,
+the effective `public_address_distribution_policy`, its human-readable label,
 and three related domain views:
 
 - `connected_instances`: the deduplicated set of domains that receive relay
@@ -585,6 +587,8 @@ matching, blocked and limited-domain policy, and person-only policy.
 ## Optional public website
 
 The bundled frontend is optional and has no effect on relay operation.
+The default generated footer reads the configured status endpoint at runtime and
+discloses the effective public-address distribution policy on every page.
 Operators may:
 
 1. use the bundled generated site;

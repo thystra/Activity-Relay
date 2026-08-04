@@ -59,6 +59,13 @@ class BuildSiteTest(unittest.TestCase):
 
         self.assertIn("Participating servers", index)
         self.assertIn('id="relay-receiving-count"', index)
+        self.assertIn("data-relay-policy-status", index)
+        self.assertIn('id="relay-policy-label"', index)
+        self.assertIn('id="relay-policy-description"', index)
+        self.assertGreaterEqual(
+            index.count('data-status-url="/status.json"'),
+            2,
+        )
         self.assertRegex(index, r"/assets/relay\.css\?v=[0-9a-f]{16}")
         self.assertRegex(index, r"/assets/relay\.js\?v=[0-9a-f]{16}")
         self.assertIn(
@@ -70,6 +77,13 @@ class BuildSiteTest(unittest.TestCase):
             index,
         )
         self.assertIn("receiving_instances", javascript)
+        self.assertIn("public_address_distribution_policy", javascript)
+        self.assertIn("public_address_distribution_label", javascript)
+        self.assertIn("explicit_public_only", javascript)
+        self.assertIn("public_and_unlisted", javascript)
+        self.assertIn("if (!dashboard && !policyStatus) return;", javascript)
+        self.assertIn("renderPolicy(data);", javascript)
+        self.assertIn("renderPolicyUnavailable();", javascript)
         self.assertIn("if (!publisherList) return;", javascript)
         self.assertIn('setStatusMessage("", true);', javascript)
         self.assertIn(
@@ -79,6 +93,15 @@ class BuildSiteTest(unittest.TestCase):
         self.assertNotIn(
             "Status loaded from ${statusURL}.",
             javascript,
+        )
+
+    def test_footer_uses_configured_status_url(self) -> None:
+        index, _ = self.build_site(
+            {"status_url": "/alternate-status.json"}
+        )
+        self.assertGreaterEqual(
+            index.count('data-status-url="/alternate-status.json"'),
+            2,
         )
 
     def test_activitypub_contact_is_optional(self) -> None:

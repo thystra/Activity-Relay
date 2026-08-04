@@ -62,6 +62,9 @@ input[type="search"] { min-width: 16rem; padding: 0.65rem 0.75rem; border: 1px s
 .publisher-meta { color: var(--muted); font-size: 0.9rem; }
 .prose { max-width: 52rem; }
 .site-footer { padding: 2rem 0 3rem; border-top: 1px solid var(--border); }
+.relay-policy-status { margin-bottom: 1.25rem; padding: 1rem; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--surface); }
+.relay-policy-status p { margin: 0; }
+.relay-policy-status .relay-policy-description { margin-top: 0.35rem; max-width: 52rem; }
 .status-good { color: var(--success); }
 .status-warning { color: var(--warning); }
 

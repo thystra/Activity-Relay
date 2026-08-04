@@ -7,6 +7,7 @@ The public website and the relay runtime are separate:
 
 - The Go relay exposes ActivityPub endpoints and `/status.json`.
 - `build-site.py` generates static HTML, CSS, and JavaScript.
+- The default generated footer reads the configured `status_url` at runtime and displays the relay's effective public-address distribution policy on every page.
 - Nginx, Apache, Caddy, or another reverse proxy serves the chosen frontend and
   proxies the relay endpoints to the Go service.
 
@@ -65,7 +66,11 @@ location / {
 
 Point the web server document root at the custom generated or hand-written
 files. A custom page may read `/status.json` from the same hostname without CORS
-configuration.
+configuration. Schema version 5 includes `public_address_distribution_policy`
+and `public_address_distribution_label`. The default footer uses the raw policy
+to select its explanation and the server-provided label for display. When the
+status endpoint is unavailable or an older schema omits the fields, it reports
+that state rather than displaying a static policy.
 
 A minimal CSP-compatible example is provided in:
 
