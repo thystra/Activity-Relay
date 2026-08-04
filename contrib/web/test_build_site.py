@@ -145,6 +145,106 @@ class BuildSiteTest(unittest.TestCase):
             result.stderr,
         )
 
+
+    def test_operator_name_content_token_is_rendered(self) -> None:
+        source = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = root / "site.json"
+            output = root / "public"
+            config.write_text(
+                json.dumps(
+                    {
+                        "site_name": "Test Relay",
+                        "tagline": "A test relay",
+                        "operator_name": "Test Operator",
+                        "contact_url": "mailto:test@example.com",
+                        "source_url": (
+                            "https://github.com/thystra/Activity-Relay"
+                        ),
+                        "status_url": "/status.json",
+                        "language": "en",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [
+                    "python3",
+                    str(source / "build-site.py"),
+                    "--source",
+                    str(source),
+                    "--config",
+                    str(config),
+                    "--output",
+                    str(output),
+                ],
+                check=True,
+            )
+            about = (output / "about/index.html").read_text(
+                encoding="utf-8"
+            )
+            privacy = (output / "privacy/index.html").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Test Operator", about)
+            self.assertIn("Test Operator", privacy)
+            self.assertNotIn("{{OPERATOR_NAME}}", about)
+            self.assertNotIn("{{OPERATOR_NAME}}", privacy)
+
+    def test_unknown_content_token_is_rejected(self) -> None:
+        source = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = root / "site.json"
+            output = root / "public"
+            overrides = root / "content"
+            overrides.mkdir()
+            (overrides / "home.html").write_text(
+                "<p>{{UNKNOWN_TOKEN}}</p>",
+                encoding="utf-8",
+            )
+            config.write_text(
+                json.dumps(
+                    {
+                        "site_name": "Test Relay",
+                        "tagline": "A test relay",
+                        "operator_name": "Test Operator",
+                        "contact_url": "mailto:test@example.com",
+                        "source_url": (
+                            "https://github.com/thystra/Activity-Relay"
+                        ),
+                        "status_url": "/status.json",
+                        "language": "en",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(source / "build-site.py"),
+                    "--source",
+                    str(source),
+                    "--config",
+                    str(config),
+                    "--output",
+                    str(output),
+                    "--content-overrides",
+                    str(overrides),
+                ],
+                text=True,
+                capture_output=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                (
+                    "Unresolved website template tokens in "
+                    "home.html: UNKNOWN_TOKEN"
+                ),
+                result.stderr,
+            )
+
     def test_container_includes_website_source(self) -> None:
         source = Path(__file__).resolve().parent
         dockerfile = source.parents[1] / "Dockerfile"
