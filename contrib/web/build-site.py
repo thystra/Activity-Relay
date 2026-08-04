@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import html
 import json
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -310,6 +311,7 @@ def main() -> int:
         "SOURCE_URL": html.escape(config["source_url"], quote=True),
         "STATUS_URL": html.escape(config["status_url"], quote=True),
         "LANGUAGE": html.escape(config["language"], quote=True),
+        "OPERATOR_NAME": html.escape(config["operator_name"]),
         "YEAR": str(datetime.now(timezone.utc).year),
         "ASSET_VERSION": asset_version(source, args.asset_overrides),
         "OPERATOR_ID_HTML": operator_html(
@@ -369,6 +371,16 @@ def main() -> int:
         values["CONTENT"] = content
         values["FOOTER"] = footer
         rendered = replace_tokens(page_template, values)
+        unresolved_tokens = sorted(
+            set(re.findall(r"{{([A-Z_][A-Z_]*)}}", rendered))
+        )
+        if unresolved_tokens:
+            raise SystemExit(
+                "Unresolved website template tokens in "
+                + content_file
+                + ": "
+                + ", ".join(unresolved_tokens)
+            )
 
         destination = output if slug == "" else output / slug
         destination.mkdir(parents=True, exist_ok=True)

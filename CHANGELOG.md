@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- Render the configured `operator_name` for `{{OPERATOR_NAME}}` website content tokens, and reject generated pages that retain unresolved uppercase template tokens.
 - Retry an unknown idempotent RFC 9421 actor or object fetch once with the
   legacy HTTP-signature profile when a remote implementation returns a generic
   HTTP 400, and cache the short-lived legacy preference only after that retry
