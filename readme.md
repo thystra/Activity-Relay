@@ -266,6 +266,17 @@ Management CLI:
 relay --config /path/to/config.yml control
 ```
 
+Manual directory lifecycle commands:
+
+```bash
+relay --config /path/to/config.yml directory status
+relay --config /path/to/config.yml directory status https://directory.example.org
+relay --config /path/to/config.yml directory register https://directory.example.org
+relay --config /path/to/config.yml directory heartbeat https://directory.example.org
+relay --config /path/to/config.yml directory sync https://directory.example.org
+relay --config /path/to/config.yml directory unregister https://directory.example.org
+```
+
 Version:
 
 ```bash
@@ -297,7 +308,7 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 # pre-3.0 behavior with public_and_unlisted.
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
-# Optional directory configuration remains dormant in this tranche.
+# Optional directory configuration is used only by explicit manual commands.
 # DIRECTORIES:
 #   - origin: https://directory.example.org
 #     enabled: false
@@ -326,11 +337,30 @@ worker for delivery POSTs.
 `DIRECTORIES` is an optional list of at most eight canonical HTTPS origins.
 Origins cannot contain credentials, paths, queries, fragments, or the explicit
 default port. Each entry has its own `enabled` boolean; omission means there are
-no directory endpoints, and an omitted boolean is false. The current tranche
-validates and stores this configuration and provides a dormant strict client
-package only. It does not add a CLI command, start a scheduler, register on
-startup, or change ActivityPub signing. See
+no directory endpoints, and an omitted boolean is false. Register, heartbeat,
+and sync require the selected entry to be enabled. No scheduler, startup
+registration, or ActivityPub signing change is present. See
 [`docs/DIRECTORY-CLIENT.md`](docs/DIRECTORY-CLIENT.md).
+
+`directory status` without an origin lists local entry state. With an origin it
+retrieves that Directory's strict public version 2 status document. `sync`
+performs a heartbeat and only reconciles registration for the explicit
+`relay_not_registered` result.
+
+For a regular file-backed configuration, `directory unregister` first
+atomically changes the selected entry to `enabled: false`, preserves ownership,
+mode, unrelated YAML, and comments, and writes a recoverable sibling backup
+ending in `.activity-relay.bak`. Only after that durable local change does it
+send the signed unregister request. A remote failure returns nonzero and leaves
+the entry disabled. `--remove` removes the disabled entry only after remote
+success while retaining the pre-disable backup.
+
+When the configuration file is absent, manual commands may read `ACTOR_PEM`,
+`RELAY_DOMAIN`, and a YAML or JSON `DIRECTORIES` sequence from the environment.
+Because Activity-Relay cannot mutate an external configuration source,
+environment-only unregister refuses to proceed unless
+`--acknowledge-external-disable` is supplied. Disable that external entry before
+restarting the relay.
 
 `dual` uses expiring Redis capability evidence scoped separately to fetches and
 deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback after

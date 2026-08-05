@@ -403,3 +403,54 @@ func TestContentDigestIsOverExactBody(t *testing.T) {
 		t.Fatal("test body mutation guard failed")
 	}
 }
+
+func TestStatusIsStrictBoundedAndUnsigned(t *testing.T) {
+	client := newTestClient(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method != http.MethodGet || request.URL.Path != statusPath ||
+			request.Header.Get("Signature") != "" || request.Header.Get("Signature-Input") != "" {
+			t.Fatalf("status request = %#v", request)
+		}
+		return jsonHTTPResponse(http.StatusOK, `{"schema_version":2,"service":"activity-relay-directory","version":"test","public_base_url":"https://directory.example","lifecycle_enabled":true,"lifecycle_available":true,"enrollment_open":false}`), nil
+	}), func() (string, error) { return "unused", nil })
+
+	status, err := client.Status(context.Background())
+	if err != nil || status.Version != "test" || !status.LifecycleAvailable || status.EnrollmentOpen {
+		t.Fatalf("Status() = (%#v, %v)", status, err)
+	}
+}
+
+func TestProtocolErrorCarriesOnlyBoundedRetryAfter(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		value string
+		want  time.Duration
+		err   error
+	}{
+		{name: "absent"},
+		{name: "seconds", value: "7", want: 7 * time.Second},
+		{name: "bounded", value: "999", want: MaximumRetryAfter},
+		{name: "invalid", value: "tomorrow", err: ErrDirectoryResponse},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := newTestClient(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+				response := jsonHTTPResponse(http.StatusTooManyRequests, protocolErrorBody(ErrorRateLimited))
+				if test.value != "" {
+					response.Header.Set("Retry-After", test.value)
+				}
+				return response, nil
+			}), func() (string, error) { return "nonce", nil })
+			_, err := client.Register(context.Background())
+			if test.err != nil {
+				if !errors.Is(err, test.err) {
+					t.Fatalf("Register() error = %v", err)
+				}
+				return
+			}
+			var protocolError *ProtocolError
+			if !errors.As(err, &protocolError) || protocolError.RetryAfter != test.want ||
+				protocolError.Code != ErrorRateLimited {
+				t.Fatalf("Register() error = %#v", err)
+			}
+		})
+	}
+}

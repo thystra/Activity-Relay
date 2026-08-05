@@ -15,6 +15,10 @@ CLI Management Utility
 
 	./Activity-Relay --config /path/to/config.yml control
 
+Manual Directory Lifecycle Utility
+
+	./Activity-Relay --config /path/to/config.yml directory status
+
 # Config
 
 YAML Format
@@ -61,6 +65,7 @@ import (
 	"github.com/thystra/Activity-Relay/api"
 	"github.com/thystra/Activity-Relay/control"
 	"github.com/thystra/Activity-Relay/deliver"
+	"github.com/thystra/Activity-Relay/internal/directorycommand"
 	"github.com/thystra/Activity-Relay/models"
 )
 
@@ -149,6 +154,7 @@ func buildCommand() *cobra.Command {
 	app.AddCommand(worker)
 	app.AddCommand(command)
 	app.AddCommand(generateKey)
+	app.AddCommand(directorycommand.BuildCommand())
 
 	return app
 }

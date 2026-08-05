@@ -78,6 +78,12 @@ func readPrivateKeyRSA(keyPath string) (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+// LoadActorPrivateKey reads the operator-owned relay identity for command
+// integrations that do not require Redis-backed runtime configuration.
+func LoadActorPrivateKey(keyPath string) (*rsa.PrivateKey, error) {
+	return readPrivateKeyRSA(keyPath)
+}
+
 func generatePublicKeyPEMString(publicKey *rsa.PublicKey) string {
 	if publicKey == nil {
 		return ""

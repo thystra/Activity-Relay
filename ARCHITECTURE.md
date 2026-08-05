@@ -99,7 +99,7 @@ baseline. RFC 9421 verification and signing are planned as an additive security
 workstream; they must not remove established signature support without an
 explicit compatibility decision. See `docs/SECURITY.md`.
 
-### Dormant directory client
+### Manual directory client
 
 `internal/directoryclient` defines the separate Activity-Relay Directory
 version 1 transport profile without changing ActivityPub delivery behavior.
@@ -111,8 +111,17 @@ are refused. Only `relay_not_registered` can trigger one register
 reconciliation.
 
 Configuration accepts at most eight canonical HTTPS origins with independent
-`enabled` booleans. The list is absent by default and no command, startup hook,
-worker, or scheduler consumes it yet. See `docs/DIRECTORY-CLIENT.md`.
+`enabled` booleans. The list is absent by default. Only explicit
+`relay directory` commands consume it; no startup hook, worker, or scheduler
+does so.
+
+File-backed unregister first rewrites the selected entry to `enabled: false`
+through a structural YAML edit. The replacement and recoverable backup are
+written in the configuration directory, retain file metadata, are individually
+synced, and become visible through atomic rename plus directory sync. Remote
+failure cannot restore the enabled state. Environment-only configuration
+requires an explicit acknowledgement because the process cannot mutate its
+external source. See `docs/DIRECTORY-CLIENT.md`.
 
 ### Observability
 

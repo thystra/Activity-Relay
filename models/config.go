@@ -208,8 +208,8 @@ func NewRelayConfig() (*RelayConfig, error) {
 	}, nil
 }
 
-// Directories returns the validated dormant directory configuration. Network
-// behavior remains absent until a later command or scheduler tranche.
+// Directories returns the validated directory configuration. Only explicit
+// operator commands consume it; scheduled behavior remains absent.
 func (relayConfig *RelayConfig) Directories() []DirectoryConfig {
 	if relayConfig == nil {
 		return nil

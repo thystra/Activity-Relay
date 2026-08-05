@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -19,9 +20,11 @@ const (
 	registerPath          = "/v1/relays/register"
 	heartbeatPath         = "/v1/relays/heartbeat"
 	unregisterPath        = "/v1/relays/unregister"
+	statusPath            = "/v1/status"
 	maximumResponseBytes  = int64(16 * 1024)
 	maximumErrorMessage   = 256
 	defaultRequestTimeout = 15 * time.Second
+	MaximumRetryAfter     = 30 * time.Second
 )
 
 var (
@@ -35,6 +38,18 @@ var (
 type ProtocolError struct {
 	StatusCode int
 	Code       ErrorCode
+	RetryAfter time.Duration
+}
+
+// Status is the validated public Directory status document.
+type Status struct {
+	SchemaVersion      int    `json:"schema_version"`
+	Service            string `json:"service"`
+	Version            string `json:"version"`
+	PublicBaseURL      string `json:"public_base_url"`
+	LifecycleEnabled   bool   `json:"lifecycle_enabled"`
+	LifecycleAvailable bool   `json:"lifecycle_available"`
+	EnrollmentOpen     bool   `json:"enrollment_open"`
 }
 
 func (err *ProtocolError) Error() string {
@@ -143,6 +158,42 @@ func (client *Client) Unregister(ctx context.Context) (Response, error) {
 	})
 }
 
+// Status retrieves the unsigned public status document using the same bounded,
+// redirect-refusing transport and strict response decoder as lifecycle calls.
+func (client *Client) Status(ctx context.Context) (Status, error) {
+	if client == nil || client.origin == nil || client.httpClient == nil || ctx == nil {
+		return Status{}, ErrDirectoryConfiguration
+	}
+	target := *client.origin
+	target.Path = statusPath
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return Status{}, ErrDirectoryConfiguration
+	}
+	response, err := client.httpClient.Do(request)
+	if err != nil {
+		return Status{}, ErrDirectoryTransport
+	}
+	defer response.Body.Close()
+	body, err := readResponseBody(response.Body)
+	if err != nil {
+		return Status{}, err
+	}
+	if !validJSONMediaType(response.Header.Get("Content-Type")) {
+		return Status{}, ErrDirectoryResponse
+	}
+	if response.StatusCode != http.StatusOK {
+		return Status{}, decodeProtocolError(response.StatusCode, response.Header, body)
+	}
+	var status Status
+	if err := decodeStrictJSON(body, &status); err != nil || status.SchemaVersion != 2 ||
+		status.Service != "activity-relay-directory" || status.Version == "" ||
+		status.PublicBaseURL != client.origin.String() {
+		return Status{}, ErrDirectoryResponse
+	}
+	return status, nil
+}
+
 // HeartbeatWithRegisterReconciliation performs one register reconciliation
 // only for the explicit relay_not_registered result, then makes one final
 // heartbeat attempt. No other error class triggers registration.
@@ -203,7 +254,7 @@ func (client *Client) send(
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		return decodeSuccess(response.StatusCode, operation, client.relayActor, responseBody)
 	}
-	return Response{}, decodeProtocolError(response.StatusCode, responseBody)
+	return Response{}, decodeProtocolError(response.StatusCode, response.Header, responseBody)
 }
 
 func operationPath(operation Operation) string {
@@ -258,7 +309,7 @@ func decodeSuccess(
 	return response, nil
 }
 
-func decodeProtocolError(status int, body []byte) error {
+func decodeProtocolError(status int, header http.Header, body []byte) error {
 	var response errorResponse
 	if err := decodeStrictJSON(body, &response); err != nil ||
 		response.ProtocolVersion != ProtocolVersion || !response.Error.Code.valid() ||
@@ -266,7 +317,34 @@ func decodeProtocolError(status int, body []byte) error {
 		!errorStatusMatches(response.Error.Code, status) {
 		return ErrDirectoryResponse
 	}
-	return &ProtocolError{StatusCode: status, Code: response.Error.Code}
+	retryAfter, err := boundedRetryAfter(response.Error.Code, header)
+	if err != nil {
+		return ErrDirectoryResponse
+	}
+	return &ProtocolError{
+		StatusCode: status,
+		Code:       response.Error.Code,
+		RetryAfter: retryAfter,
+	}
+}
+
+func boundedRetryAfter(code ErrorCode, header http.Header) (time.Duration, error) {
+	if code != ErrorRateLimited {
+		return 0, nil
+	}
+	value := header.Get("Retry-After")
+	if value == "" {
+		return 0, nil
+	}
+	seconds, err := strconv.ParseUint(value, 10, 31)
+	if err != nil || seconds == 0 {
+		return 0, ErrDirectoryResponse
+	}
+	delay := time.Duration(seconds) * time.Second
+	if delay > MaximumRetryAfter {
+		delay = MaximumRetryAfter
+	}
+	return delay, nil
 }
 
 func errorStatusMatches(code ErrorCode, status int) bool {

@@ -2,8 +2,8 @@
 
 ## Scope and activation
 
-The `internal/directoryclient` package is a dormant version 1 transport
-foundation. It does not add a public endpoint, CLI command, startup
+The `internal/directoryclient` package is the version 1 transport foundation
+for explicit operator commands. It does not add a public endpoint, startup
 registration, heartbeat scheduler, Redis state, worker task, or deployment
 setting. Existing ActivityPub fetch and delivery signing remains unchanged.
 
@@ -17,8 +17,42 @@ DIRECTORIES:
 
 Each origin must be one canonical HTTPS origin with no credentials, path,
 query, fragment, or explicit port 443. Origins must be unique. The list is
-absent by default and each omitted `enabled` value is false. Later commands and
-scheduling must refuse lifecycle traffic for a disabled entry.
+absent by default and each omitted `enabled` value is false. Register,
+heartbeat, and sync refuse lifecycle traffic for a disabled entry.
+
+## Manual commands
+
+The frozen command surface is:
+
+```text
+relay directory status [origin]
+relay directory register origin
+relay directory heartbeat origin
+relay directory unregister origin [--remove]
+relay directory sync origin
+```
+
+Status without an origin lists local entries. Status with an origin retrieves
+the strict public status document. Sync performs heartbeat reconciliation only
+for the explicit `relay_not_registered` result. Authentication, enrollment,
+suspension, lifecycle, and malformed-response errors are not retried.
+Transport and `internal_error` failures receive at most three attempts with
+bounded backoff. HTTP 429 may use an integer `Retry-After`, capped at thirty
+seconds. Every attempt constructs a new request with a fresh nonce and
+signature.
+
+File-backed unregister structurally edits YAML and durably disables the
+selected entry before sending network traffic. It rejects symlinks and
+non-regular files, preserves unrelated keys and comments plus ownership and
+mode, writes and syncs a same-directory temporary replacement, saves the
+original as `CONFIG.activity-relay.bak`, atomically renames, and syncs the
+directory. Remote failure leaves the entry disabled and returns retry guidance.
+`--remove` is allowed only after remote success and retains the original
+pre-disable backup.
+
+Environment-only unregister cannot make that durable edit. It requires
+`--acknowledge-external-disable` and warns that the operator must disable the
+entry in the external configuration source before restart.
 
 ## Request profile
 

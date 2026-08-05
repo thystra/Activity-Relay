@@ -4,11 +4,17 @@
 
 ### Added
 
-- Add a dormant Activity-Relay Directory version 1 client contract with a
+- Add an opt-in Activity-Relay Directory version 1 client contract with a
   separate expiring RFC 9421/RFC 9530 profile, strict bounded responses,
   redirect refusal, and a shared server-accepted cryptographic fixture.
 - Accept at most eight independently enabled canonical HTTPS `DIRECTORIES`
-  entries while retaining an empty, inactive default and no runtime scheduler.
+  entries while retaining an empty default and no runtime scheduler.
+- Add explicit `relay directory status`, `register`, `heartbeat`, `unregister`,
+  and `sync` commands with strict enabled-entry gates, bounded retry behavior,
+  and fresh signed requests for every attempt.
+- Make file-backed unregister durably disable its entry before network traffic,
+  preserve unrelated YAML and file metadata, retain a recoverable backup, and
+  optionally remove the entry only after remote success.
 - Add `PUBLIC_ADDRESS_DISTRIBUTION_POLICY` with `explicit_public_only` and `public_and_unlisted` values, fatal validation for unknown values, and effective-policy startup reporting.
 - Expose the effective public-address distribution policy and human-readable label through `/status.json` schema version 5, and display them in the default generated website footer on every page.
 

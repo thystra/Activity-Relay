@@ -92,10 +92,12 @@ Never run tests against production Redis.
 - Debian packages must not enable or start services automatically.
 - Keep existing ActivityPub endpoints and stored Redis data compatible unless a
   documented major release intentionally changes them.
-- Directory integration must remain absent and disabled by default until its
-  command or scheduler tranche is explicitly reviewed. Directory signatures
-  use their own expiring nonce-bearing application profile and shared fixture;
-  they must not change the ActivityPub signing profile.
+- Directory integration remains absent and disabled by default. Only explicit
+  operator commands may use enabled entries; no scheduler or startup hook may
+  do so until its tranche is reviewed. File-backed unregister must durably
+  disable the entry before remote traffic. Directory signatures use their own
+  expiring nonce-bearing application profile and shared fixture; they must not
+  change the ActivityPub signing profile.
 - Open publisher ingestion must retain HTTP-signature, actor-host, blocked
   domain, limited-domain, and person-only policy enforcement.
 - The bundled public website is optional. Relay operation must not depend on

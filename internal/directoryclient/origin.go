@@ -12,15 +12,15 @@ const MaximumDirectories = 8
 
 var ErrDirectoryConfiguration = errors.New("directory client configuration is invalid")
 
-// Directory configures one independent directory origin. Entries are dormant
-// unless Enabled is explicitly true.
+// Directory configures one independent directory origin. Lifecycle commands
+// refuse it unless Enabled is explicitly true.
 type Directory struct {
 	Origin  string `mapstructure:"origin" yaml:"origin"`
 	Enabled bool   `mapstructure:"enabled" yaml:"enabled"`
 }
 
-// ParseDirectories validates a bounded, duplicate-free list without enabling
-// any network behavior.
+// ParseDirectories validates a bounded, duplicate-free list. Parsing never
+// performs network behavior.
 func ParseDirectories(entries []Directory) ([]Directory, error) {
 	if len(entries) > MaximumDirectories {
 		return nil, ErrDirectoryConfiguration

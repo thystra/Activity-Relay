@@ -124,14 +124,16 @@ the retrospective FEP-ae0c relay profiles.
 - Continue maintaining and rebasing the Redis-only Machinery fork for relevant
   upstream security and correctness fixes.
 
-- The opt-in Activity-Relay Directory version 1 client contract is implemented:
+- The opt-in Activity-Relay Directory version 1 client contract and explicit
+  manual commands are implemented:
   bounded independently enabled origins, strict lifecycle documents, a
   directory-specific RFC 9421/RFC 9530 profile, bounded closed responses,
   redirect refusal, one explicit not-registered reconciliation, and a shared
   server-accepted cryptographic fixture. No endpoint is active by default.
-  Remaining work is the reviewed manual command surface, durable unregister
-  configuration semantics, API-process scheduler/lease, health and public
-  directory behavior, and cross-repository staging soak.
+  File-backed unregister durably disables an entry before its remote request;
+  no scheduler or startup registration exists. Remaining work is the
+  API-process scheduler/lease, health and public directory behavior, and
+  cross-repository staging soak.
 ## Release gates for future versions
 
 Before any release:

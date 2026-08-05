@@ -1,5 +1,5 @@
-// Package directoryclient implements the dormant Activity-Relay Directory
-// version 1 client contract. It is not wired into commands or scheduling.
+// Package directoryclient implements the opt-in Activity-Relay Directory
+// version 1 client contract. Only explicit commands use it; scheduling is absent.
 package directoryclient
 
 const ProtocolVersion = 1
