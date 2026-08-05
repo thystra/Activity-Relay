@@ -32,6 +32,10 @@ YAML Format
 	JOB_CONCURRENCY: 50
 	OUTBOUND_SIGNATURE_PROFILE: legacy
 	PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
+	DIRECTORY_SCHEDULER_ENABLED: false
+	# DIRECTORIES:
+	#   - origin: https://directory.example.org
+	#     enabled: false
 	RELAY_SUMMARY: |
 		Example ActivityPub Relay is powered by Activity-Relay
 	RELAY_ICON: https://example.com/example_icon.png
@@ -56,8 +60,11 @@ This is Optional : When config file not exist, use environment variables.
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -90,6 +97,13 @@ func main() {
 	}
 }
 
+func serverLifecycleContext(parent context.Context) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	return signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
+}
+
 func buildCommand() *cobra.Command {
 	var keyOutput string
 	var keyBits int
@@ -114,7 +128,9 @@ func buildCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initConfig(cmd)
 			fmt.Println(GlobalConfig.DumpWelcomeMessage("API Server", version))
-			err := api.Entrypoint(GlobalConfig, version)
+			ctx, stop := serverLifecycleContext(cmd.Context())
+			defer stop()
+			err := api.EntrypointContext(ctx, GlobalConfig, version)
 			if err != nil {
 				logrus.Fatal(err.Error())
 			}
@@ -195,4 +211,5 @@ func initConfig(cmd *cobra.Command) {
 	if err != nil {
 		logrus.Fatal(err.Error())
 	}
+	GlobalConfig.SetConfigurationPath(configPath)
 }

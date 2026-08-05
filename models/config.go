@@ -51,10 +51,20 @@ type RelayConfig struct {
 	outboundSignatureProfile        relayhttpsig.Profile
 	outboundSignatureNegotiator     *relayhttpsig.DestinationNegotiator
 	directories                     []DirectoryConfig
+	directorySchedulerEnabled       bool
+	configurationPath               string
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
 func NewRelayConfig() (*RelayConfig, error) {
+	directorySchedulerEnabled := false
+	if configured := viper.Get("DIRECTORY_SCHEDULER_ENABLED"); configured != nil {
+		var valid bool
+		directorySchedulerEnabled, valid = configured.(bool)
+		if !valid {
+			return nil, errors.New("DIRECTORY_SCHEDULER_ENABLED: must be a boolean")
+		}
+	}
 	var configuredDirectories []DirectoryConfig
 	if err := viper.UnmarshalKey("DIRECTORIES", &configuredDirectories); err != nil {
 		return nil, errors.New("DIRECTORIES: invalid directory list")
@@ -205,11 +215,33 @@ func NewRelayConfig() (*RelayConfig, error) {
 		outboundSignatureProfile:        outboundSignatureProfile,
 		outboundSignatureNegotiator:     outboundSignatureNegotiator,
 		directories:                     directories,
+		directorySchedulerEnabled:       directorySchedulerEnabled,
 	}, nil
 }
 
-// Directories returns the validated directory configuration. Only explicit
-// operator commands consume it; scheduled behavior remains absent.
+// DirectorySchedulerEnabled reports the explicit API-process scheduler gate.
+func (relayConfig *RelayConfig) DirectorySchedulerEnabled() bool {
+	return relayConfig != nil && relayConfig.directorySchedulerEnabled
+}
+
+// SetConfigurationPath records the operator-owned source used for durable
+// scheduler suppression checks. It does not modify the file.
+func (relayConfig *RelayConfig) SetConfigurationPath(path string) {
+	if relayConfig != nil {
+		relayConfig.configurationPath = path
+	}
+}
+
+// ConfigurationPath returns the configuration source selected by the CLI.
+func (relayConfig *RelayConfig) ConfigurationPath() string {
+	if relayConfig == nil {
+		return ""
+	}
+	return relayConfig.configurationPath
+}
+
+// Directories returns the validated directory configuration. Manual commands
+// always consume it; the API scheduler does so only behind its explicit gate.
 func (relayConfig *RelayConfig) Directories() []DirectoryConfig {
 	if relayConfig == nil {
 		return nil

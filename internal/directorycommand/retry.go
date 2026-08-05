@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	maximumAttempts = 3
-	initialBackoff  = 250 * time.Millisecond
+	maximumAttempts         = 3
+	initialBackoff          = 250 * time.Millisecond
+	maximumCommandRetryWait = 30 * time.Second
 )
 
 func retryLifecycle(
@@ -69,11 +70,23 @@ func retryDelay(err error, attempt int) (time.Duration, bool) {
 	}
 	switch protocolError.Code {
 	case directoryclient.ErrorRateLimited:
+		if protocolError.RetryAfter > maximumCommandRetryWait {
+			// An interactive command must not wait for hours. Returning without
+			// another attempt respects the remote lower bound; the operator can
+			// rerun the command after the reported condition has cleared.
+			return 0, false
+		}
 		if protocolError.RetryAfter > 0 {
 			return protocolError.RetryAfter, true
 		}
 		return initialBackoff << attempt, true
 	case directoryclient.ErrorInternal:
+		if protocolError.RetryAfter > maximumCommandRetryWait {
+			return 0, false
+		}
+		if protocolError.RetryAfter > 0 {
+			return protocolError.RetryAfter, true
+		}
 		return initialBackoff << attempt, true
 	default:
 		return 0, false

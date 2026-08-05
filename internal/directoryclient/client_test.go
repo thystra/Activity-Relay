@@ -428,7 +428,7 @@ func TestProtocolErrorCarriesOnlyBoundedRetryAfter(t *testing.T) {
 	}{
 		{name: "absent"},
 		{name: "seconds", value: "7", want: 7 * time.Second},
-		{name: "bounded", value: "999", want: MaximumRetryAfter},
+		{name: "bounded", value: "999999", want: MaximumRetryAfter},
 		{name: "invalid", value: "tomorrow", err: ErrDirectoryResponse},
 	} {
 		t.Run(test.name, func(t *testing.T) {

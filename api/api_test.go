@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thystra/Activity-Relay/internal/observability"
@@ -42,4 +43,15 @@ func TestMain(m *testing.M) {
 	OperationalMetrics = observability.NewRecorder(RelayState.RedisClient)
 	code := m.Run()
 	os.Exit(code)
+}
+
+func TestDisabledDirectorySchedulerCompletesWithoutWork(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := startDirectoryScheduler(ctx, nil)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("disabled scheduler did not complete")
+	}
 }

@@ -62,6 +62,12 @@ func TestOperationalRecorderAndCollector(t *testing.T) {
 	if err := recorder.RecordDelivery(ctx, "failure", "http_5xx"); err != nil {
 		t.Fatal(err)
 	}
+	if err := recorder.RecordDirectory(ctx, "failure", "rate_limited"); err != nil {
+		t.Fatal(err)
+	}
+	if err := recorder.RecordDirectory(ctx, "private-origin.example", "https://directory.example/path"); err != nil {
+		t.Fatal(err)
+	}
 	if err := recorder.RecordRedisFailure(ctx, "worker", "receiver_health"); err != nil {
 		t.Fatal(err)
 	}
@@ -92,6 +98,8 @@ func TestOperationalRecorderAndCollector(t *testing.T) {
 		`activity_relay_queue_admissions_total{kind="relay",reason="accepted",result="accepted"} 1`,
 		`activity_relay_fanout_targets_total{result="queued"} 3`,
 		`activity_relay_delivery_attempts_total{error_class="http_5xx",result="failure"} 1`,
+		`activity_relay_directory_scheduler_attempts_total{diagnostic="rate_limited",result="failure"} 1`,
+		`activity_relay_directory_scheduler_attempts_total{diagnostic="other",result="other"} 1`,
 		`activity_relay_redis_operation_failures_total{component="worker",operation="receiver_health"} 1`,
 		`activity_relay_queue_backlog 2`,
 		`activity_relay_queue_reservations 4`,
@@ -104,7 +112,7 @@ func TestOperationalRecorderAndCollector(t *testing.T) {
 			t.Errorf("metrics omitted %q\n%s", expected, body)
 		}
 	}
-	for _, forbidden := range []string{"PrivateType", "raw error text"} {
+	for _, forbidden := range []string{"PrivateType", "raw error text", "private-origin", "directory.example"} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("metrics exposed unbounded value %q", forbidden)
 		}

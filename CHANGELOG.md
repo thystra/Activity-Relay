@@ -8,13 +8,28 @@
   separate expiring RFC 9421/RFC 9530 profile, strict bounded responses,
   redirect refusal, and a shared server-accepted cryptographic fixture.
 - Accept at most eight independently enabled canonical HTTPS `DIRECTORIES`
-  entries while retaining an empty default and no runtime scheduler.
+  entries while retaining an empty default and a separate false-by-default
+  scheduler gate.
 - Add explicit `relay directory status`, `register`, `heartbeat`, `unregister`,
   and `sync` commands with strict enabled-entry gates, bounded retry behavior,
   and fresh signed requests for every attempt.
 - Make file-backed unregister durably disable its entry before network traffic,
   preserve unrelated YAML and file metadata, retain a recoverable backup, and
   optionally remove the entry only after remote success.
+- Add an API-process-only Directory scheduler with startup reconciliation,
+  stable-jittered daily heartbeats, bounded retry, persisted closed state,
+  renewable per-directory Redis leases, clean cancellation, and aggregate
+  metrics without origin labels. Workers never schedule directory traffic.
+- Coordinate scheduled lifecycle operations and unregister through the same
+  lease so durable disable and suppression precede remote unregister and a
+  failed unregister cannot trigger registration on restart.
+- Fence every scheduler state mutation with the current Redis lease token,
+  treat runtime gate disablement and entry removal as durable suppression,
+  coordinate unregister after gate disablement while Redis remains configured,
+  and fail closed on malformed persisted state.
+- Align automatic retry at a 30-second local start and 15-minute local cap while
+  allowing validated `Retry-After` guidance to lengthen retry up to 24 hours,
+  and add signal-aware graceful API and scheduler shutdown.
 - Add `PUBLIC_ADDRESS_DISTRIBUTION_POLICY` with `explicit_public_only` and `public_and_unlisted` values, fatal validation for unknown values, and effective-policy startup reporting.
 - Expose the effective public-address distribution policy and human-readable label through `/status.json` schema version 5, and display them in the default generated website footer on every page.
 

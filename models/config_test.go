@@ -111,6 +111,25 @@ func TestRelayConfigDirectoriesAreBoundedValidatedAndDormantByDefault(t *testing
 	}
 }
 
+func TestRelayConfigDirectorySchedulerAndConfigurationPath(t *testing.T) {
+	previous := viper.Get("DIRECTORY_SCHEDULER_ENABLED")
+	defer viper.Set("DIRECTORY_SCHEDULER_ENABLED", previous)
+
+	viper.Set("DIRECTORY_SCHEDULER_ENABLED", true)
+	relayConfig := createRelayConfig(t)
+	if !relayConfig.DirectorySchedulerEnabled() {
+		t.Fatal("DirectorySchedulerEnabled() = false")
+	}
+	relayConfig.SetConfigurationPath("/operator/config.yml")
+	if relayConfig.ConfigurationPath() != "/operator/config.yml" {
+		t.Fatalf("ConfigurationPath() = %q", relayConfig.ConfigurationPath())
+	}
+	viper.Set("DIRECTORY_SCHEDULER_ENABLED", "true")
+	if _, err := NewRelayConfig(); err == nil || !strings.Contains(err.Error(), "must be a boolean") {
+		t.Fatalf("NewRelayConfig() string scheduler error = %v", err)
+	}
+}
+
 func createRelayConfig(t *testing.T) *RelayConfig {
 	relayConfig, err := NewRelayConfig()
 	if err != nil {

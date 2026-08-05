@@ -32,13 +32,15 @@ const (
 // Config contains only the identity and directory fields needed by manual
 // directory commands. It deliberately does not initialize Redis or workers.
 type Config struct {
-	Source        Source
-	Path          string
-	Directories   []directoryclient.Directory
-	PublicBaseURL string
-	RelayActor    string
-	KeyID         string
-	PrivateKey    *rsa.PrivateKey
+	Source           Source
+	Path             string
+	Directories      []directoryclient.Directory
+	PublicBaseURL    string
+	RelayActor       string
+	KeyID            string
+	PrivateKey       *rsa.PrivateKey
+	SchedulerEnabled bool
+	RedisURL         string
 }
 
 func Load(path string) (Config, error) {
@@ -71,7 +73,23 @@ func Load(path string) (Config, error) {
 		if err != nil {
 			return Config{}, err
 		}
-		return build(SourceFile, path, actorPEM, relayDomain, directories)
+		schedulerEnabled, err := boolSetting(root, "DIRECTORY_SCHEDULER_ENABLED")
+		if err != nil {
+			return Config{}, err
+		}
+		redisURL := ""
+		redisNode := mappingValue(root, "REDIS_URL")
+		if redisNode != nil {
+			if redisNode.Kind != yaml.ScalarNode || redisNode.Tag != "!!str" ||
+				redisNode.Value == "" || strings.TrimSpace(redisNode.Value) != redisNode.Value {
+				return Config{}, ErrConfiguration
+			}
+			redisURL = redisNode.Value
+		}
+		if schedulerEnabled && redisURL == "" {
+			return Config{}, ErrConfiguration
+		}
+		return build(SourceFile, path, actorPEM, relayDomain, directories, schedulerEnabled, redisURL)
 	case errors.Is(err, os.ErrNotExist):
 		directories, err := parseEnvironmentDirectories(os.Getenv("DIRECTORIES"))
 		if err != nil {
@@ -83,6 +101,8 @@ func Load(path string) (Config, error) {
 			os.Getenv("ACTOR_PEM"),
 			os.Getenv("RELAY_DOMAIN"),
 			directories,
+			false,
+			"",
 		)
 	default:
 		return Config{}, ErrConfiguration
@@ -93,6 +113,8 @@ func build(
 	source Source,
 	path, actorPEM, relayDomain string,
 	directories []directoryclient.Directory,
+	schedulerEnabled bool,
+	redisURL string,
 ) (Config, error) {
 	if actorPEM == "" || strings.TrimSpace(actorPEM) != actorPEM ||
 		relayDomain == "" || strings.TrimSpace(relayDomain) != relayDomain {
@@ -108,14 +130,31 @@ func build(
 	}
 	actor := base.String() + "/actor"
 	return Config{
-		Source:        source,
-		Path:          path,
-		Directories:   directories,
-		PublicBaseURL: base.String(),
-		RelayActor:    actor,
-		KeyID:         actor + "#main-key",
-		PrivateKey:    key,
+		Source:           source,
+		Path:             path,
+		Directories:      directories,
+		PublicBaseURL:    base.String(),
+		RelayActor:       actor,
+		KeyID:            actor + "#main-key",
+		PrivateKey:       key,
+		SchedulerEnabled: schedulerEnabled,
+		RedisURL:         redisURL,
 	}, nil
+}
+
+func boolSetting(root *yaml.Node, name string) (bool, error) {
+	node := mappingValue(root, name)
+	if node == nil {
+		return false, nil
+	}
+	if node.Kind != yaml.ScalarNode || node.Tag != "!!bool" {
+		return false, ErrConfiguration
+	}
+	var value bool
+	if err := node.Decode(&value); err != nil {
+		return false, ErrConfiguration
+	}
+	return value, nil
 }
 
 func (config Config) Directory(origin string) (directoryclient.Directory, error) {
