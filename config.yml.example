@@ -25,6 +25,13 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 # supported protocol path.
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
+# Optional Activity-Relay Directory entries. The list is absent by default,
+# each entry is independently disabled unless explicitly enabled, and this
+# release does not yet run commands or a scheduler against it.
+# DIRECTORIES:
+#   - origin: https://directory.example.org
+#     enabled: false
+
 # Single-disk defaults used by contrib/ops/resource-guard.py. These should
 # match RELAY_STORAGE_DIR and RELAY_CACHE_DIR in the deployment environment.
 STORAGE_DIR: /var/lib/activity-relay/redis

@@ -124,14 +124,14 @@ the retrospective FEP-ae0c relay profiles.
 - Continue maintaining and rebasing the Redis-only Machinery fork for relevant
   upstream security and correctness fixes.
 
-- After RFC 9421/RFC 9530 work, design an opt-in ActivityPub Relay
-  Directory / Relay Phonebook protocol and separate server. Activity-Relay
-  registration must default to disabled, support one or more configured
-  directory URLs, send a signed daily heartbeat with jitter, avoid publishing
-  connected-site identities, and use RFC 9421 plus RFC 9530. The directory
-  should classify listings using configurable `healthy_before`, stale, dead,
-  and prune thresholds, with moderation, replay protection, and no active
-  default directory endpoints in the first release.
+- The opt-in Activity-Relay Directory version 1 client contract is implemented:
+  bounded independently enabled origins, strict lifecycle documents, a
+  directory-specific RFC 9421/RFC 9530 profile, bounded closed responses,
+  redirect refusal, one explicit not-registered reconciliation, and a shared
+  server-accepted cryptographic fixture. No endpoint is active by default.
+  Remaining work is the reviewed manual command surface, durable unregister
+  configuration semantics, API-process scheduler/lease, health and public
+  directory behavior, and cross-repository staging soak.
 ## Release gates for future versions
 
 Before any release:

@@ -99,6 +99,21 @@ baseline. RFC 9421 verification and signing are planned as an additive security
 workstream; they must not remove established signature support without an
 explicit compatibility decision. See `docs/SECURITY.md`.
 
+### Dormant directory client
+
+`internal/directoryclient` defines the separate Activity-Relay Directory
+version 1 transport profile without changing ActivityPub delivery behavior.
+It reuses the relay actor RSA key but requires the
+`activity-relay-directory-v1` application tag, created and expiry times, a
+fresh nonce, RFC 9530 digest, and exact directory lifecycle targets. Responses
+are bounded and decoded against closed success and error vocabulary; redirects
+are refused. Only `relay_not_registered` can trigger one register
+reconciliation.
+
+Configuration accepts at most eight canonical HTTPS origins with independent
+`enabled` booleans. The list is absent by default and no command, startup hook,
+worker, or scheduler consumes it yet. See `docs/DIRECTORY-CLIENT.md`.
+
 ### Observability
 
 The `server` command may start an optional second HTTP listener configured by

@@ -297,6 +297,11 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 # pre-3.0 behavior with public_and_unlisted.
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
+# Optional directory configuration remains dormant in this tranche.
+# DIRECTORIES:
+#   - origin: https://directory.example.org
+#     enabled: false
+
 # RELAY_SUMMARY: |
 # Optional public relay branding. These are interoperability recommendations,
 # not protocol limits; clients may crop or rescale the supplied images.
@@ -317,6 +322,15 @@ the same host.
 Empty or omitted configuration preserves the established legacy signatures.
 The same value is used by the API server for signed remote GETs and by every
 worker for delivery POSTs.
+
+`DIRECTORIES` is an optional list of at most eight canonical HTTPS origins.
+Origins cannot contain credentials, paths, queries, fragments, or the explicit
+default port. Each entry has its own `enabled` boolean; omission means there are
+no directory endpoints, and an omitted boolean is false. The current tranche
+validates and stores this configuration and provides a dormant strict client
+package only. It does not add a CLI command, start a scheduler, register on
+startup, or change ActivityPub signing. See
+[`docs/DIRECTORY-CLIENT.md`](docs/DIRECTORY-CLIENT.md).
 
 `dual` uses expiring Redis capability evidence scoped separately to fetches and
 deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback after

@@ -79,6 +79,38 @@ func TestNewRelayConfig(t *testing.T) {
 	})
 }
 
+func TestRelayConfigDirectoriesAreBoundedValidatedAndDormantByDefault(t *testing.T) {
+	previous := viper.Get("DIRECTORIES")
+	defer viper.Set("DIRECTORIES", previous)
+
+	viper.Set("DIRECTORIES", []map[string]any{
+		{"origin": "https://directory.example", "enabled": true},
+		{"origin": "https://directory2.example", "enabled": false},
+	})
+	relayConfig := createRelayConfig(t)
+	directories := relayConfig.Directories()
+	if len(directories) != 2 || !directories[0].Enabled || directories[1].Enabled {
+		t.Fatalf("Directories() = %#v", directories)
+	}
+	directories[0].Origin = "changed"
+	if relayConfig.Directories()[0].Origin != "https://directory.example" {
+		t.Fatal("Directories() exposed mutable configuration")
+	}
+
+	viper.Set("DIRECTORIES", []map[string]any{{
+		"origin": "http://directory.example", "enabled": true,
+	}})
+	if _, err := NewRelayConfig(); err == nil || !strings.Contains(err.Error(), "DIRECTORIES") {
+		t.Fatalf("NewRelayConfig() error = %v", err)
+	}
+
+	viper.Set("DIRECTORIES", nil)
+	relayConfig = createRelayConfig(t)
+	if len(relayConfig.Directories()) != 0 {
+		t.Fatalf("default Directories() = %#v", relayConfig.Directories())
+	}
+}
+
 func createRelayConfig(t *testing.T) *RelayConfig {
 	relayConfig, err := NewRelayConfig()
 	if err != nil {

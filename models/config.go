@@ -19,8 +19,15 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/thystra/Activity-Relay/internal/directoryclient"
 	relayhttpsig "github.com/thystra/Activity-Relay/internal/httpsignature"
 )
+
+// DirectoryConfig is one validated independently enabled directory origin.
+type DirectoryConfig struct {
+	Origin  string `mapstructure:"origin" yaml:"origin"`
+	Enabled bool   `mapstructure:"enabled" yaml:"enabled"`
+}
 
 // RelayConfig contains valid configuration.
 type RelayConfig struct {
@@ -43,10 +50,31 @@ type RelayConfig struct {
 	publicAddressDistributionPolicy PublicAddressDistributionPolicy
 	outboundSignatureProfile        relayhttpsig.Profile
 	outboundSignatureNegotiator     *relayhttpsig.DestinationNegotiator
+	directories                     []DirectoryConfig
 }
 
 // NewRelayConfig create valid RelayConfig from viper configuration.
 func NewRelayConfig() (*RelayConfig, error) {
+	var configuredDirectories []DirectoryConfig
+	if err := viper.UnmarshalKey("DIRECTORIES", &configuredDirectories); err != nil {
+		return nil, errors.New("DIRECTORIES: invalid directory list")
+	}
+	directoryEntries := make([]directoryclient.Directory, len(configuredDirectories))
+	for index, entry := range configuredDirectories {
+		directoryEntries[index] = directoryclient.Directory{
+			Origin: entry.Origin, Enabled: entry.Enabled,
+		}
+	}
+	parsedDirectories, err := directoryclient.ParseDirectories(directoryEntries)
+	if err != nil {
+		return nil, errors.New("DIRECTORIES: " + err.Error())
+	}
+	directories := make([]DirectoryConfig, len(parsedDirectories))
+	for index, entry := range parsedDirectories {
+		directories[index] = DirectoryConfig{
+			Origin: entry.Origin, Enabled: entry.Enabled,
+		}
+	}
 	publicAddressDistributionPolicy, err := ParsePublicAddressDistributionPolicy(
 		viper.GetString("PUBLIC_ADDRESS_DISTRIBUTION_POLICY"),
 	)
@@ -176,7 +204,17 @@ func NewRelayConfig() (*RelayConfig, error) {
 		publicAddressDistributionPolicy: publicAddressDistributionPolicy,
 		outboundSignatureProfile:        outboundSignatureProfile,
 		outboundSignatureNegotiator:     outboundSignatureNegotiator,
+		directories:                     directories,
 	}, nil
+}
+
+// Directories returns the validated dormant directory configuration. Network
+// behavior remains absent until a later command or scheduler tranche.
+func (relayConfig *RelayConfig) Directories() []DirectoryConfig {
+	if relayConfig == nil {
+		return nil
+	}
+	return append([]DirectoryConfig(nil), relayConfig.directories...)
 }
 
 // ServerBind is API Server's bind interface definition.
