@@ -51,6 +51,38 @@ func TestLoadFileUsesOnlyDirectoryIdentityConfiguration(t *testing.T) {
 	}
 }
 
+func TestLoadFileRequiresRedisURLForEnabledScheduler(t *testing.T) {
+	path := writeTestConfig(t)
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body = append([]byte("DIRECTORY_SCHEDULER_ENABLED: true\nREDIS_URL: redis://127.0.0.1:6379/0\n"), body...)
+	if err := os.WriteFile(path, body, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	config, err := Load(path)
+	if err != nil || !config.SchedulerEnabled || config.RedisURL != "redis://127.0.0.1:6379/0" {
+		t.Fatalf("Load() = (%#v, %v)", config, err)
+	}
+
+	withoutRedis := strings.ReplaceAll(string(body), "REDIS_URL: redis://127.0.0.1:6379/0\n", "")
+	if err := os.WriteFile(path, []byte(withoutRedis), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); !errors.Is(err, ErrConfiguration) {
+		t.Fatalf("Load() without REDIS_URL error = %v", err)
+	}
+
+	invalidBoolean := strings.ReplaceAll(withoutRedis, "DIRECTORY_SCHEDULER_ENABLED: true", "DIRECTORY_SCHEDULER_ENABLED: \"true\"")
+	if err := os.WriteFile(path, []byte(invalidBoolean), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); !errors.Is(err, ErrConfiguration) {
+		t.Fatalf("Load() with string scheduler flag error = %v", err)
+	}
+}
+
 func TestDisablePreservesStructureCommentsModeOwnershipAndBackup(t *testing.T) {
 	path := writeTestConfig(t)
 	before, err := os.Stat(path)
@@ -199,7 +231,7 @@ func TestEnvironmentSourceIsExplicitAndNeverCreatesMissingConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing.yml")
 	config, err := Load(path)
 	if err != nil || config.Source != SourceEnvironment || len(config.Directories) != 1 ||
-		!config.Directories[0].Enabled {
+		!config.Directories[0].Enabled || config.SchedulerEnabled {
 		t.Fatalf("Load(environment) = (%#v, %v)", config, err)
 	}
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {

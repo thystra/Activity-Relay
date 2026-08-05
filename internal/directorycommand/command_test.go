@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thystra/Activity-Relay/internal/directoryclient"
 	"github.com/thystra/Activity-Relay/internal/directoryconfig"
+	"github.com/thystra/Activity-Relay/internal/directoryscheduler"
 )
 
 const (
@@ -67,6 +68,48 @@ func testCommandConfig(t *testing.T, enabled bool) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func enableTestScheduler(t *testing.T, path string) {
+	t.Helper()
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body = append([]byte("DIRECTORY_SCHEDULER_ENABLED: true\nREDIS_URL: redis://127.0.0.1:6379/0\n"), body...)
+	if err := os.WriteFile(path, body, 0o640); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type commandTestLease struct {
+	released bool
+}
+
+func (*commandTestLease) Renew(context.Context, time.Duration) (bool, error) { return true, nil }
+func (lease *commandTestLease) Release(context.Context) error {
+	lease.released = true
+	return nil
+}
+
+type commandTestStore struct {
+	state    directoryscheduler.State
+	lease    *commandTestLease
+	acquired bool
+}
+
+func (store *commandTestStore) Load(context.Context, string) (directoryscheduler.State, error) {
+	return store.state, nil
+}
+func (store *commandTestStore) Save(_ context.Context, _ string, state directoryscheduler.State) error {
+	store.state = state
+	return nil
+}
+func (store *commandTestStore) Acquire(context.Context, string, time.Duration) (directoryscheduler.Lease, bool, error) {
+	if !store.acquired {
+		return nil, false, nil
+	}
+	return store.lease, true, nil
 }
 
 func testDependencies(
@@ -212,7 +255,7 @@ func TestStatusHeartbeatAndSyncCommandPaths(t *testing.T) {
 			return nil, nil
 		}), func() (string, error) { return "nonce", nil }, nil)
 		stdout, _, err := executeCommand(t, deps, path, "directory", "status")
-		if err != nil || !strings.Contains(stdout, commandTestOrigin+" enabled") {
+		if err != nil || !strings.Contains(stdout, commandTestOrigin+" configured") {
 			t.Fatalf("local status = (%q, %v)", stdout, err)
 		}
 	})
@@ -329,6 +372,59 @@ func TestUnregisterMayRemoveOnlyAfterRemoteSuccess(t *testing.T) {
 	}
 	if _, err := config.Directory(commandTestOrigin); !errors.Is(err, directoryconfig.ErrNotFound) {
 		t.Fatalf("Directory() error = %v", err)
+	}
+}
+
+func TestScheduledUnregisterLeasesThenSuppressesBeforeRemoteRequest(t *testing.T) {
+	path := testCommandConfig(t, true)
+	enableTestScheduler(t, path)
+	store := &commandTestStore{
+		state:    directoryscheduler.State{Registered: true, LastOutcome: "heartbeat", Diagnostic: "none"},
+		lease:    &commandTestLease{},
+		acquired: true,
+	}
+	calls := 0
+	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		calls++
+		config, err := directoryconfig.Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry, err := config.Directory(commandTestOrigin)
+		if err != nil || entry.Enabled || store.state.LastOutcome != "disabled" || !store.state.Registered {
+			t.Fatalf("remote request preceded durable suppression: entry=%#v state=%#v err=%v", entry, store.state, err)
+		}
+		return jsonResponse(http.StatusUnauthorized, errorResponse("authentication_failed")), nil
+	}), func() (string, error) { return "nonce", nil }, nil)
+	deps.store = func(directoryconfig.Config) (directoryscheduler.StateStore, error) { return store, nil }
+
+	_, _, err := executeCommand(t, deps, path, "directory", "unregister", commandTestOrigin)
+	if err == nil || calls != 1 || !store.lease.released || !store.state.Registered {
+		t.Fatalf("error=%v calls=%d lease=%#v state=%#v", err, calls, store.lease, store.state)
+	}
+	stdout, _, statusErr := executeCommand(t, deps, path, "directory", "status")
+	if statusErr != nil || !strings.Contains(stdout, commandTestOrigin+" unregister-pending") {
+		t.Fatalf("status=(%q, %v)", stdout, statusErr)
+	}
+}
+
+func TestScheduledUnregisterRequiresLeaseBeforeMutation(t *testing.T) {
+	path := testCommandConfig(t, true)
+	enableTestScheduler(t, path)
+	store := &commandTestStore{lease: &commandTestLease{}, acquired: false}
+	calls := 0
+	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("must not run")
+	}), func() (string, error) { return "nonce", nil }, nil)
+	deps.store = func(directoryconfig.Config) (directoryscheduler.StateStore, error) { return store, nil }
+
+	_, _, err := executeCommand(t, deps, path, "directory", "unregister", commandTestOrigin)
+	config, loadErr := directoryconfig.Load(path)
+	entry, entryErr := config.Directory(commandTestOrigin)
+	if err == nil || !strings.Contains(err.Error(), "lease") || calls != 0 ||
+		loadErr != nil || entryErr != nil || !entry.Enabled {
+		t.Fatalf("error=%v calls=%d entry=%#v load=%v entryErr=%v", err, calls, entry, loadErr, entryErr)
 	}
 }
 

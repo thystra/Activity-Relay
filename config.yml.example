@@ -25,9 +25,10 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 # supported protocol path.
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
-# Optional Activity-Relay Directory entries. The list is absent by default,
-# each entry is independently disabled unless explicitly enabled, and only
-# explicit `relay directory` commands consume it. No scheduler runs yet.
+# Optional Activity-Relay Directory entries. The list is absent by default and
+# each entry is independently disabled unless explicitly enabled. The scheduler
+# gate is also off by default and is honored only by the API server process.
+DIRECTORY_SCHEDULER_ENABLED: false
 # DIRECTORIES:
 #   - origin: https://directory.example.org
 #     enabled: false

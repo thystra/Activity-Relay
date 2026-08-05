@@ -24,7 +24,7 @@ const (
 	maximumResponseBytes  = int64(16 * 1024)
 	maximumErrorMessage   = 256
 	defaultRequestTimeout = 15 * time.Second
-	MaximumRetryAfter     = 30 * time.Second
+	MaximumRetryAfter     = 24 * time.Hour
 )
 
 var (
@@ -79,6 +79,7 @@ type Client struct {
 	publicBaseURL string
 	signer        *requestSigner
 	httpClient    *http.Client
+	now           func() time.Time
 }
 
 func New(options Options) (*Client, error) {
@@ -86,7 +87,11 @@ func New(options Options) (*Client, error) {
 	if err != nil || !validRelayIdentity(options.RelayActor, options.PublicBaseURL) {
 		return nil, ErrDirectoryConfiguration
 	}
-	signer, err := newRequestSigner(options.KeyID, options.PrivateKey, options.Now, options.Nonce)
+	now := options.Now
+	if now == nil {
+		now = time.Now
+	}
+	signer, err := newRequestSigner(options.KeyID, options.PrivateKey, now, options.Nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +111,7 @@ func New(options Options) (*Client, error) {
 		publicBaseURL: options.PublicBaseURL,
 		signer:        signer,
 		httpClient:    httpClient,
+		now:           now,
 	}, nil
 }
 
@@ -183,7 +189,7 @@ func (client *Client) Status(ctx context.Context) (Status, error) {
 		return Status{}, ErrDirectoryResponse
 	}
 	if response.StatusCode != http.StatusOK {
-		return Status{}, decodeProtocolError(response.StatusCode, response.Header, body)
+		return Status{}, decodeProtocolErrorAt(response.StatusCode, response.Header, body, client.now().UTC())
 	}
 	var status Status
 	if err := decodeStrictJSON(body, &status); err != nil || status.SchemaVersion != 2 ||
@@ -254,7 +260,7 @@ func (client *Client) send(
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		return decodeSuccess(response.StatusCode, operation, client.relayActor, responseBody)
 	}
-	return Response{}, decodeProtocolError(response.StatusCode, response.Header, responseBody)
+	return Response{}, decodeProtocolErrorAt(response.StatusCode, response.Header, responseBody, client.now().UTC())
 }
 
 func operationPath(operation Operation) string {
@@ -310,6 +316,10 @@ func decodeSuccess(
 }
 
 func decodeProtocolError(status int, header http.Header, body []byte) error {
+	return decodeProtocolErrorAt(status, header, body, time.Now().UTC())
+}
+
+func decodeProtocolErrorAt(status int, header http.Header, body []byte, now time.Time) error {
 	var response errorResponse
 	if err := decodeStrictJSON(body, &response); err != nil ||
 		response.ProtocolVersion != ProtocolVersion || !response.Error.Code.valid() ||
@@ -317,7 +327,7 @@ func decodeProtocolError(status int, header http.Header, body []byte) error {
 		!errorStatusMatches(response.Error.Code, status) {
 		return ErrDirectoryResponse
 	}
-	retryAfter, err := boundedRetryAfter(response.Error.Code, header)
+	retryAfter, err := boundedRetryAfter(response.Error.Code, status, header, now)
 	if err != nil {
 		return ErrDirectoryResponse
 	}
@@ -328,19 +338,32 @@ func decodeProtocolError(status int, header http.Header, body []byte) error {
 	}
 }
 
-func boundedRetryAfter(code ErrorCode, header http.Header) (time.Duration, error) {
-	if code != ErrorRateLimited {
+func boundedRetryAfter(code ErrorCode, status int, header http.Header, now time.Time) (time.Duration, error) {
+	retryable := code == ErrorRateLimited || (code == ErrorInternal && status == http.StatusServiceUnavailable)
+	if !retryable {
 		return 0, nil
 	}
-	value := header.Get("Retry-After")
+	value := strings.TrimSpace(header.Get("Retry-After"))
 	if value == "" {
 		return 0, nil
 	}
-	seconds, err := strconv.ParseUint(value, 10, 31)
-	if err != nil || seconds == 0 {
-		return 0, ErrDirectoryResponse
+	var delay time.Duration
+	if seconds, err := strconv.ParseUint(value, 10, 64); err == nil {
+		if seconds > uint64(MaximumRetryAfter/time.Second) {
+			delay = MaximumRetryAfter
+		} else {
+			delay = time.Duration(seconds) * time.Second
+		}
+	} else {
+		when, parseErr := http.ParseTime(value)
+		if parseErr != nil {
+			return 0, ErrDirectoryResponse
+		}
+		delay = when.Sub(now)
+		if delay < 0 {
+			return 0, ErrDirectoryResponse
+		}
 	}
-	delay := time.Duration(seconds) * time.Second
 	if delay > MaximumRetryAfter {
 		delay = MaximumRetryAfter
 	}

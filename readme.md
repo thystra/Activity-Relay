@@ -308,7 +308,8 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 # pre-3.0 behavior with public_and_unlisted.
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
-# Optional directory configuration is used only by explicit manual commands.
+# Optional scheduling is false by default and runs only in the API server.
+DIRECTORY_SCHEDULER_ENABLED: false
 # DIRECTORIES:
 #   - origin: https://directory.example.org
 #     enabled: false
@@ -338,9 +339,21 @@ worker for delivery POSTs.
 Origins cannot contain credentials, paths, queries, fragments, or the explicit
 default port. Each entry has its own `enabled` boolean; omission means there are
 no directory endpoints, and an omitted boolean is false. Register, heartbeat,
-and sync require the selected entry to be enabled. No scheduler, startup
-registration, or ActivityPub signing change is present. See
+and sync require the selected entry to be enabled. Setting
+`DIRECTORY_SCHEDULER_ENABLED: true` in a regular YAML file enables startup
+reconciliation and daily heartbeats only in the API process; workers never run
+the scheduler. ActivityPub signing is unchanged. See
 [`docs/DIRECTORY-CLIENT.md`](docs/DIRECTORY-CLIENT.md).
+
+The scheduler persists bounded Redis state, coordinates multiple API processes
+with renewable per-directory leases, and schedules successful heartbeats after
+24 hours plus up to two hours of stable jitter. Automatic retry starts at 30
+seconds, caps its local backoff at 15 minutes, and allows validated remote
+`Retry-After` guidance to lengthen the effective delay up to 24 hours. State
+writes atomically verify the current lease token, so a former owner cannot
+overwrite a successor. Directory failures never block relay startup or delivery.
+Environment-only scheduling is unsupported because durable unregister
+suppression must be read from the same regular YAML file.
 
 `directory status` without an origin lists local entry state. With an origin it
 retrieves that Directory's strict public version 2 status document. `sync`
@@ -354,6 +367,15 @@ ending in `.activity-relay.bak`. Only after that durable local change does it
 send the signed unregister request. A remote failure returns nonzero and leaves
 the entry disabled. `--remove` removes the disabled entry only after remote
 success while retaining the pre-disable backup.
+
+File-backed unregister acquires the same lease used by the scheduler whenever
+`REDIS_URL` remains configured, including after the scheduler gate is turned
+off. It validates persisted state under that lease, durably disables the entry,
+and uses a lease-token-fenced suppression write before the remote request. Gate
+disablement and entry removal are durable suppression rather than scheduler
+failures. A failed remote unregister is shown by local `directory status` as
+`unregister-pending`; it cannot be re-registered on restart. SIGINT and SIGTERM
+cancel in-flight scheduler work and gracefully stop the API listeners.
 
 When the configuration file is absent, manual commands may read `ACTOR_PEM`,
 `RELAY_DOMAIN`, and a YAML or JSON `DIRECTORIES` sequence from the environment.
@@ -446,8 +468,9 @@ The worker command does not open this listener. When observability is enabled in
 the shared configuration, API and worker processes write bounded operational
 counters to Redis and the API process exports them through `/metrics`. The
 operational surface includes activity outcomes, queue admission and depth,
-fan-out targets, delivery results, Redis-operation failures, current receiver and
-publisher counts, and aggregate receiver-health states.
+fan-out targets, delivery results, directory scheduler outcomes, Redis-operation
+failures, current receiver and publisher counts, and aggregate receiver-health
+states.
 
 Metric labels are closed enums. Domains, actor IDs, inbox URLs, activity IDs, raw
 paths, query strings, response bodies, and error text are never labels. Complete

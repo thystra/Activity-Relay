@@ -12,6 +12,13 @@ MAX_ACTIVITY_BYTES: 1048576
 MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
 
+# Optional Activity-Relay Directory scheduling is disabled by default. It runs
+# only in the API server and requires enabled entries in this regular YAML file.
+DIRECTORY_SCHEDULER_ENABLED: false
+# DIRECTORIES:
+#   - origin: https://directory.example.org
+#     enabled: false
+
 # Single-disk VPS defaults.
 STORAGE_DIR: /var/lib/activity-relay/redis
 CACHE_DIR: /var/cache/activity-relay

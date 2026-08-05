@@ -5,14 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
 	"github.com/thystra/Activity-Relay/internal/directoryclient"
 	"github.com/thystra/Activity-Relay/internal/directoryconfig"
+	"github.com/thystra/Activity-Relay/internal/directoryscheduler"
 )
 
 const environmentAcknowledgementFlag = "acknowledge-external-disable"
+
+const (
+	schedulerLeaseTTL           = time.Minute
+	schedulerLeaseRenewInterval = 20 * time.Second
+)
 
 type dependencies struct {
 	load    func(string) (directoryconfig.Config, error)
@@ -20,9 +28,13 @@ type dependencies struct {
 	remove  func(string, string) (string, error)
 	client  func(directoryconfig.Config, string) (*directoryclient.Client, error)
 	sleep   func(context.Context, time.Duration) error
+	store   func(directoryconfig.Config) (directoryscheduler.StateStore, error)
 }
 
 func productionDependencies() dependencies {
+	var storeMutex sync.Mutex
+	var storeURL string
+	var store directoryscheduler.StateStore
 	return dependencies{
 		load:    directoryconfig.Load,
 		disable: directoryconfig.DisableFile,
@@ -37,6 +49,23 @@ func productionDependencies() dependencies {
 			})
 		},
 		sleep: sleepContext,
+		store: func(config directoryconfig.Config) (directoryscheduler.StateStore, error) {
+			storeMutex.Lock()
+			defer storeMutex.Unlock()
+			if store != nil && storeURL == config.RedisURL {
+				return store, nil
+			}
+			options, err := redis.ParseURL(config.RedisURL)
+			if err != nil {
+				return nil, errors.New("scheduler store configuration is invalid")
+			}
+			store, err = directoryscheduler.NewRedisStore(redis.NewClient(options))
+			if err != nil {
+				return nil, err
+			}
+			storeURL = config.RedisURL
+			return store, nil
+		},
 	}
 }
 
@@ -68,10 +97,7 @@ func buildCommand(deps dependencies) *cobra.Command {
 					return entries[left].Origin < entries[right].Origin
 				})
 				for _, entry := range entries {
-					state := "disabled"
-					if entry.Enabled {
-						state = "enabled"
-					}
+					state := localDirectoryState(cmd.Context(), deps, config, entry)
 					cmd.Printf("%s %s\n", entry.Origin, state)
 				}
 				return nil
@@ -176,6 +202,44 @@ func unregisterCommand(deps dependencies) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			var schedulerStore directoryscheduler.StateStore
+			var schedulerLease directoryscheduler.Lease
+			var schedulerState directoryscheduler.State
+			operationContext := cmd.Context()
+			var leaseLost <-chan struct{}
+
+			// A file-backed API process may still be running from an earlier
+			// scheduler-enabled configuration. Coordinate through Redis whenever
+			// REDIS_URL remains available, even when the current gate is false.
+			if config.Source == directoryconfig.SourceFile && config.RedisURL != "" {
+				if deps.store == nil {
+					return errors.New("directory scheduler store is unavailable; no local or remote change was made")
+				}
+				schedulerStore, err = deps.store(config)
+				if err != nil {
+					return errors.New("directory scheduler store is unavailable; no local or remote change was made")
+				}
+				var acquired bool
+				schedulerLease, acquired, err = schedulerStore.Acquire(cmd.Context(), entry.Origin, schedulerLeaseTTL)
+				if err != nil || !acquired {
+					return errors.New("directory scheduler lease is unavailable; no local or remote change was made")
+				}
+				schedulerState, err = schedulerStore.Load(cmd.Context(), entry.Origin)
+				if err != nil {
+					releaseSchedulerLease(schedulerLease)
+					return errors.New("directory scheduler state is invalid; no local or remote change was made")
+				}
+				var stopLease context.CancelFunc
+				var leaseDone <-chan struct{}
+				operationContext, stopLease, leaseLost, leaseDone = maintainSchedulerLease(cmd.Context(), schedulerLease)
+				defer func() {
+					stopLease()
+					<-leaseDone
+					releaseSchedulerLease(schedulerLease)
+				}()
+			}
+
 			if config.Source == directoryconfig.SourceFile {
 				backup, err := deps.disable(config.Path, entry.Origin)
 				if err != nil {
@@ -194,7 +258,30 @@ func unregisterCommand(deps dependencies) *cobra.Command {
 				}
 				cmd.PrintErrln("warning: disable this directory in the external configuration source before restart")
 			}
-			response, err := retryLifecycle(cmd.Context(), deps, client.Unregister)
+
+			if schedulerStore != nil {
+				schedulerState.LastOutcome = "disabled"
+				schedulerState.Diagnostic = "disabled"
+				schedulerState.NextAttempt = time.Time{}
+				schedulerState.LastObserved = time.Now().UTC()
+				owned, saveErr := schedulerStore.SaveOwned(
+					operationContext,
+					entry.Origin,
+					schedulerLease,
+					schedulerState,
+				)
+				if saveErr != nil || !owned {
+					return errors.New("directory suppression state could not be persisted; the entry remains disabled and no remote request was sent")
+				}
+			}
+			if leaseHasBeenLost(leaseLost) {
+				return errors.New("directory scheduler lease was lost; the entry remains disabled and no remote request was sent")
+			}
+
+			response, err := retryLifecycle(operationContext, deps, client.Unregister)
+			if leaseHasBeenLost(leaseLost) {
+				return errors.New("directory scheduler lease was lost during remote unregister; the entry remains disabled")
+			}
 			if err != nil {
 				if config.Source == directoryconfig.SourceFile {
 					cmd.PrintErrln("remote unregister failed; the file-backed entry remains disabled; rerun unregister to retry")
@@ -204,6 +291,23 @@ func unregisterCommand(deps dependencies) *cobra.Command {
 				return commandError("unregister", err)
 			}
 			cmd.Printf("unregister %s: %s\n", entry.Origin, response.Outcome)
+
+			if schedulerStore != nil {
+				schedulerState.Registered = false
+				schedulerState.LastOutcome = "disabled"
+				schedulerState.Diagnostic = "disabled"
+				schedulerState.NextAttempt = time.Time{}
+				schedulerState.LastObserved = time.Now().UTC()
+				owned, saveErr := schedulerStore.SaveOwned(
+					operationContext,
+					entry.Origin,
+					schedulerLease,
+					schedulerState,
+				)
+				if saveErr != nil || !owned {
+					return errors.New("remote unregister succeeded but scheduler state could not be finalized")
+				}
+			}
 			if remove {
 				if _, err := deps.remove(config.Path, entry.Origin); err != nil {
 					return errors.New("remote unregister succeeded but the disabled entry could not be removed")
@@ -221,6 +325,98 @@ func unregisterCommand(deps dependencies) *cobra.Command {
 		"acknowledge that an external configuration source must be disabled separately",
 	)
 	return command
+}
+
+func maintainSchedulerLease(
+	parent context.Context,
+	lease directoryscheduler.Lease,
+) (context.Context, context.CancelFunc, <-chan struct{}, <-chan struct{}) {
+	ctx, cancel := context.WithCancel(parent)
+	lost := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(schedulerLeaseRenewInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				ok, err := lease.Renew(ctx, schedulerLeaseTTL)
+				if ctx.Err() != nil {
+					return
+				}
+				if err != nil || !ok {
+					close(lost)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	return ctx, cancel, lost, done
+}
+
+func leaseHasBeenLost(lost <-chan struct{}) bool {
+	if lost == nil {
+		return false
+	}
+	select {
+	case <-lost:
+		return true
+	default:
+		return false
+	}
+}
+
+func releaseSchedulerLease(lease directoryscheduler.Lease) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_ = lease.Release(ctx)
+}
+
+func localDirectoryState(
+	ctx context.Context,
+	deps dependencies,
+	config directoryconfig.Config,
+	entry directoryclient.Directory,
+) string {
+	stateAvailable := config.RedisURL != "" && deps.store != nil
+	if !entry.Enabled {
+		if stateAvailable {
+			if store, err := deps.store(config); err == nil {
+				if state, err := store.Load(ctx, entry.Origin); err == nil && state.Registered {
+					return "unregister-pending"
+				}
+			}
+		}
+		return "disabled"
+	}
+	if !stateAvailable {
+		return "configured"
+	}
+	store, err := deps.store(config)
+	if err != nil {
+		return "configured"
+	}
+	state, err := store.Load(ctx, entry.Origin)
+	if err != nil {
+		return "configured"
+	}
+	switch state.LastOutcome {
+	case "retrying":
+		return "retrying"
+	case "heartbeat":
+		if state.NextAttempt.IsZero() || time.Now().UTC().Before(state.NextAttempt) {
+			return "heartbeat-current"
+		}
+		return "registered"
+	case "registered":
+		return "registered"
+	default:
+		return "configured"
+	}
 }
 
 func selectedClient(

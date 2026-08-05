@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -40,12 +41,18 @@ type httpServerBinding struct {
 }
 
 func Entrypoint(g *models.RelayConfig, v string) error {
+	return EntrypointContext(context.Background(), g, v)
+}
+
+func EntrypointContext(ctx context.Context, g *models.RelayConfig, v string) error {
+	if ctx == nil {
+		return errors.New("API lifecycle context is unavailable")
+	}
 	version = v
 	GlobalConfig = g
 	if err := initialize(GlobalConfig); err != nil {
 		return err
 	}
-
 	mux := http.NewServeMux()
 	handlersRegister(mux)
 	publicHandler := http.Handler(mux)
@@ -85,8 +92,14 @@ func Entrypoint(g *models.RelayConfig, v string) error {
 			listener: observabilityListener,
 		})
 	}
+	lifecycleContext, stopLifecycle := context.WithCancel(ctx)
+	schedulerDone := startDirectoryScheduler(lifecycleContext, GlobalConfig)
+	defer func() {
+		stopLifecycle()
+		<-schedulerDone
+	}()
 
-	return serveHTTPServers(bindings)
+	return serveHTTPServers(lifecycleContext, bindings)
 }
 
 func newHTTPServer(address string, handler http.Handler) *http.Server {
@@ -101,7 +114,10 @@ func newHTTPServer(address string, handler http.Handler) *http.Server {
 	}
 }
 
-func serveHTTPServers(bindings []httpServerBinding) error {
+func serveHTTPServers(ctx context.Context, bindings []httpServerBinding) error {
+	if ctx == nil || len(bindings) == 0 {
+		return errors.New("HTTP server lifecycle is unavailable")
+	}
 	errorsChannel := make(chan error, len(bindings))
 	for _, binding := range bindings {
 		binding := binding
@@ -117,11 +133,34 @@ func serveHTTPServers(bindings []httpServerBinding) error {
 		}()
 	}
 
-	err := <-errorsChannel
-	for _, binding := range bindings {
-		_ = binding.server.Close()
+	var result error
+	receivedResult := false
+	select {
+	case result = <-errorsChannel:
+		receivedResult = true
+	case <-ctx.Done():
 	}
-	return err
+
+	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, binding := range bindings {
+		if err := binding.server.Shutdown(shutdownContext); err != nil && result == nil {
+			result = fmt.Errorf("shut down %s: %w", binding.name, err)
+		}
+	}
+
+	// Drain every Serve result so the lifecycle owns all server goroutines.
+	remaining := len(bindings)
+	if receivedResult {
+		remaining--
+	}
+	for remaining > 0 {
+		if err := <-errorsChannel; err != nil && result == nil {
+			result = err
+		}
+		remaining--
+	}
+	return result
 }
 
 func initialize(globalConfig *models.RelayConfig) error {

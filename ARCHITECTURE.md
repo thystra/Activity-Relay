@@ -99,7 +99,7 @@ baseline. RFC 9421 verification and signing are planned as an additive security
 workstream; they must not remove established signature support without an
 explicit compatibility decision. See `docs/SECURITY.md`.
 
-### Manual directory client
+### Directory client and API scheduler
 
 `internal/directoryclient` defines the separate Activity-Relay Directory
 version 1 transport profile without changing ActivityPub delivery behavior.
@@ -111,9 +111,27 @@ are refused. Only `relay_not_registered` can trigger one register
 reconciliation.
 
 Configuration accepts at most eight canonical HTTPS origins with independent
-`enabled` booleans. The list is absent by default. Only explicit
-`relay directory` commands consume it; no startup hook, worker, or scheduler
-does so.
+`enabled` booleans. The list is absent by default. Manual `relay directory`
+commands consume configured entries. A separate
+`DIRECTORY_SCHEDULER_ENABLED` gate, false by default, permits only the API
+server process to perform startup reconciliation and daily heartbeats. Workers
+never import or start the scheduler.
+
+The scheduler stores bounded per-directory state in Redis under digest-derived
+keys and coordinates API replicas with a renewable per-directory lease. It
+persists the last success, next attempt, bounded outcome and diagnostic, retry
+attempt, and the last observed wall clock; it never persists signatures,
+nonces, bodies, keys, or raw directory origins. Stable heartbeat jitter spreads
+daily traffic. Retry starts at 30 seconds, uses deterministic positive jitter,
+caps the local component at 15 minutes, and permits a validated remote
+`Retry-After` to lengthen the effective delay up to 24 hours, measured from
+lifecycle-operation completion. The run loop wakes at the earliest persisted
+retry deadline while retaining a one-minute maximum observation interval for
+durable configuration and shared-state changes. Wall-clock regression cannot
+move a persisted schedule backward. Lease loss cancels the
+request, and every state mutation is atomically fenced by the current lease
+token so a former owner cannot overwrite a successor. Directory unavailability
+is isolated from ActivityPub startup and delivery.
 
 File-backed unregister first rewrites the selected entry to `enabled: false`
 through a structural YAML edit. The replacement and recoverable backup are
@@ -122,6 +140,19 @@ synced, and become visible through atomic rename plus directory sync. Remote
 failure cannot restore the enabled state. Environment-only configuration
 requires an explicit acknowledgement because the process cannot mutate its
 external source. See `docs/DIRECTORY-CLIENT.md`.
+
+Scheduled unregister uses the same lease as registration and heartbeat. A
+file-backed command coordinates whenever `REDIS_URL` remains available, even if
+the current scheduler gate is false, because an API process may have started
+from the earlier enabled configuration. It loads state under the lease, durably
+disables the regular YAML entry, and persists token-fenced suppression before
+remote traffic. Runtime gate disablement and entry removal are durable
+suppression, not internal scheduler failures. Remote failure therefore cannot
+race a restart into re-registration. Scheduler state has a 90-day idle TTL and
+metric labels contain only closed result and diagnostic enums, never directory
+URLs. The API command uses a signal-aware lifecycle so SIGINT/SIGTERM cancels
+in-flight scheduler work, gracefully shuts down HTTP listeners, waits for
+scheduler completion, and releases the owned lease.
 
 ### Observability
 
@@ -143,6 +174,7 @@ the listener. API and worker processes instead write closed-enum counters to a
 shared Redis hash, and the API process exports those counters through its private
 registry. Scrape-time collectors add queue depth, temporary reservations, current
 receiver and publisher counts, and aggregate receiver-health states.
+Directory scheduler attempts add only closed result and diagnostic labels.
 
 Operational labels are deliberately bounded. They never contain domains, actor
 IDs, inbox URLs, activity IDs, request paths, query strings, response bodies, or

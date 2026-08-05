@@ -109,6 +109,13 @@ func (recorder *Recorder) RecordDelivery(ctx context.Context, result, errorClass
 		normalizeDeliveryResult(result), normalizeDeliveryErrorClass(errorClass))
 }
 
+// RecordDirectory records an aggregate scheduler result without origin or
+// relay identity labels.
+func (recorder *Recorder) RecordDirectory(ctx context.Context, result, diagnostic string) error {
+	return recorder.increment(ctx, "directory_scheduler_attempts_total", 1,
+		normalizeDirectoryResult(result), normalizeDirectoryDiagnostic(diagnostic))
+}
+
 // RecordRedisFailure records one bounded Redis operation failure when Redis can accept the ledger write.
 func (recorder *Recorder) RecordRedisFailure(ctx context.Context, component, operation string) error {
 	return recorder.increment(ctx, "redis_operation_failures_total", 1,
@@ -235,6 +242,12 @@ func normalizeDeliveryResult(value string) string {
 func normalizeDeliveryErrorClass(value string) string {
 	return boundedValue(value, "other", "none", "timeout", "dns", "tls", "http_4xx", "http_5xx", "invalid_url", "activity_expired")
 }
+func normalizeDirectoryResult(value string) string {
+	return boundedValue(value, "other", "success", "failure", "skipped")
+}
+func normalizeDirectoryDiagnostic(value string) string {
+	return boundedValue(value, "other", "none", "transport", "internal", "rate_limited", "authentication", "enrollment", "suspended", "lifecycle", "malformed", "lease_lost", "disabled")
+}
 func normalizeRedisComponent(value string) string {
 	return boundedValue(value, "other", "api", "worker", "collector")
 }
@@ -260,6 +273,7 @@ type OperationalCollector struct {
 	queue        *prometheus.Desc
 	fanout       *prometheus.Desc
 	delivery     *prometheus.Desc
+	directory    *prometheus.Desc
 	redisFailure *prometheus.Desc
 	queueBacklog *prometheus.Desc
 	reservations *prometheus.Desc
@@ -282,6 +296,7 @@ func NewOperationalCollector(client *redis.Client, snapshot RuntimeSnapshotFunc)
 		queue:        prometheus.NewDesc("activity_relay_queue_admissions_total", "Queue admission decisions.", []string{"kind", "result", "reason"}, nil),
 		fanout:       prometheus.NewDesc("activity_relay_fanout_targets_total", "Fan-out targets by enqueue outcome.", []string{"result"}, nil),
 		delivery:     prometheus.NewDesc("activity_relay_delivery_attempts_total", "Relay fan-out delivery results.", []string{"result", "error_class"}, nil),
+		directory:    prometheus.NewDesc("activity_relay_directory_scheduler_attempts_total", "Directory scheduler attempts by bounded result and diagnostic class.", []string{"result", "diagnostic"}, nil),
 		redisFailure: prometheus.NewDesc("activity_relay_redis_operation_failures_total", "Redis operation failures recorded while Redis remained writable.", []string{"component", "operation"}, nil),
 		queueBacklog: prometheus.NewDesc("activity_relay_queue_backlog", "Current Machinery broker queue length.", nil, nil),
 		reservations: prometheus.NewDesc("activity_relay_queue_reservations", "Current temporary queue-capacity reservations.", nil, nil),
@@ -298,6 +313,7 @@ func (collector *OperationalCollector) Describe(channel chan<- *prometheus.Desc)
 	channel <- collector.queue
 	channel <- collector.fanout
 	channel <- collector.delivery
+	channel <- collector.directory
 	channel <- collector.redisFailure
 	channel <- collector.queueBacklog
 	channel <- collector.reservations
@@ -392,6 +408,9 @@ func (collector *OperationalCollector) collectLedger(channel chan<- prometheus.M
 		case len(parts) == 3 && parts[0] == "delivery_attempts_total":
 			add(collector.delivery, parts[0], value,
 				normalizeDeliveryResult(parts[1]), normalizeDeliveryErrorClass(parts[2]))
+		case len(parts) == 3 && parts[0] == "directory_scheduler_attempts_total":
+			add(collector.directory, parts[0], value,
+				normalizeDirectoryResult(parts[1]), normalizeDirectoryDiagnostic(parts[2]))
 		case len(parts) == 3 && parts[0] == "redis_operation_failures_total":
 			add(collector.redisFailure, parts[0], value,
 				normalizeRedisComponent(parts[1]), normalizeRedisOperation(parts[2]))
