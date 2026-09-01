@@ -76,9 +76,21 @@ the retrospective FEP-ae0c relay profiles.
   an exact reviewed commit/version, rebuilds the release validation gates, and
   emits one checksummed Debian/SBOM/multi-architecture OCI artifact set without
   publishing it.
-- [ ] Validate that canonical workflow on the exact Activity-Relay 3.0 RC1
+- [x] Prepare the Activity-Relay `3.0.0-rc1` package metadata, release notes,
+  and current-state interoperability documentation without changing runtime
+  defaults.
+- [ ] Validate the canonical workflow on the exact Activity-Relay 3.0 RC1
   preparation commit, inspect the retained artifact/evidence bundle, and prove
   the exact-byte publication path before creating the first 3.0 release tag.
+- [ ] Deploy the accepted RC1 application code to `relay2.argentwolf.org`
+  first, then `relay.argentwolf.org`, before registering either relay with the
+  Directory.
+- [ ] Retest NodeBB 4.15.1 secure-mode canonical-object retrieval with upstream
+  signing fix `8e61543`; if it still fails, retain outgoing `Date`, `Signature`,
+  and `keyId` evidence.
+- [ ] Exercise both 3.0 relays against the RC-level Directory at
+  `directory.argentwolf.org`, including register, heartbeat, scheduler restart,
+  unregister/re-register, and public projection behavior.
 
 
 ### RFC 9421 / RFC 9530 implementation tranches
@@ -125,16 +137,13 @@ the retrospective FEP-ae0c relay profiles.
 
 ## Deferred work after v2.5.1
 
-- Investigate NodeBB follow interoperability separately from Activity-Relay:
-  reproduce failed attempts to follow `Julian@activitypub.space` from Friendica
-  and WordPress, use a controlled NodeBB instance, and inspect the corresponding
-  application logs.
+- Investigate NodeBB follow interoperability separately from Activity-Relay
+  after the 4.15.1 secure-mode fetch retest; use a controlled NodeBB instance
+  and inspect the corresponding application logs.
 - Define stale-receiver retention and cleanup configuration after sufficient
   delivery-health history exists. Begin in report-only dry-run mode; active
   membership and queued or claimed work remain non-configurable deletion
   barriers.
-- Implement the Activity-Relay 3.0 RFC 9421 and RFC 9530 signing milestone
-  under the FEP-ae0c characterization and interoperability gates above.
 - Replicated or alternative durable-state backends are tabled. Revisit only
   when production experience, availability requirements, or operator demand
   justify the value and compatibility cost.

@@ -17,9 +17,11 @@ classification, and bounded error responses. They intentionally exclude raw
 activity bodies, signatures, and key material.
 
 This document records interoperability behavior validated for stable
-Activity-Relay releases through `v2.5.0`. Historical `v2.4.0` results are kept
-for comparison; no matrix can guarantee that every version or configuration of
-every ActivityPub server behaves identically.
+Activity-Relay releases through `v2.5.1` and the explicit acceptance gates for
+the `v3.0.0-rc1` candidate. Candidate behavior is not promoted to stable merely
+because it is implemented or passes CI. Historical `v2.4.0` and `v2.5.0`
+results are retained for comparison; no matrix can guarantee that every version
+or configuration of every ActivityPub server behaves identically.
 
 ## FEP-ae0c compatibility
 
@@ -28,12 +30,13 @@ Activity-Relay implements both relay families retrospectively described by
 publishers, broad server-actor compatibility, NodeBB embedded-Announce
 normalization, and authorized fetch.
 
-The exact comparison, unresolved `to` versus `cc` visibility question,
+The exact comparison, historical `to` versus `cc` visibility question,
 document-proof distinction, loop-prevention audit, and machine-readable
 characterization cases are maintained in
-[`FEP-AE0C-COMPATIBILITY.md`](FEP-AE0C-COMPATIBILITY.md). FEP compatibility is
-an input to the Activity-Relay 3.0 design; v2.5.0 behavior remains unchanged by
-that design document.
+[`FEP-AE0C-COMPATIBILITY.md`](FEP-AE0C-COMPATIBILITY.md). Activity-Relay 3.0
+resolves the public-address question through explicit
+`PUBLIC_ADDRESS_DISTRIBUTION_POLICY` configuration while retaining the old
+behavior when that setting is omitted.
 
 ## Public-address distribution policy
 
@@ -113,19 +116,22 @@ private-address, Redis, queue, worker, or resource regression was observed.
 Receiver-side 502 responses during the window were traced to a separate
 PHP-FPM incident and are not classified as an Activity-Relay failure.
 
-### NodeBB secure-mode canonical-object limitation
+### NodeBB secure-mode canonical-object retest
 
-NodeBB 4.14.x, including 4.14.5 testing, accepted the relay-signed delivery
-but returned HTTP 424 when the referenced Mastodon object required authorized
+NodeBB 4.14.x, including 4.14.5 testing, accepted the relay-signed delivery but
+returned HTTP 424 when the referenced Mastodon object required authorized
 fetch. Receiving-side evidence showed NodeBB's application-context
-canonical-object request was unsigned and the
-secure-mode server returned HTTP 401. The same object was returned when fetched
-with the Activity-Relay signature implementation.
+canonical-object request was unsigned and the secure-mode server returned HTTP
+401. The same object was returned when fetched with the Activity-Relay
+signature implementation.
 
-This is a downstream NodeBB receiving limitation, not a failure of the relay POST
-signature. It should be reported upstream. Operators using NodeBB receivers and
-remote servers that require signed `GET` requests should expect this limitation
-until NodeBB signs application-actor object fetches.
+NodeBB upstream addressed that application-actor path in commit
+`8e61543b0ae19fd741bd4175d478aab6c79982ca`, released in the 4.15 line. The
+Activity-Relay 3.0 RC1 gate therefore requires a fresh NodeBB 4.15.1 retest
+rather than carrying the 4.14.x limitation forward as current behavior. If the
+retest still fails, capture NodeBB's outgoing `Date`, `Signature`, and `keyId`;
+the remaining problem would then be key discovery or signature
+interoperability rather than an unsigned application-actor fetch.
 
 ## Public embedded Announce normalization
 

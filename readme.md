@@ -24,6 +24,11 @@ Compared with the upstream baseline, this fork includes:
 
 - Relay-signed actor and canonical-object `GET` requests for Mastodon
   authorized-fetch and secure-mode interoperability.
+- RFC 9421 HTTP Message Signatures and RFC 9530 `Content-Digest` with strict
+  inbound verification and explicit `legacy`, `rfc9421`, and destination-aware
+  `dual` outbound modes; the omitted/default profile remains `legacy` for RC1.
+- An opt-in Activity-Relay Directory v1 client with manual lifecycle commands
+  and a fenced API-process scheduler for registration and heartbeat handling.
 - An ActivityStreams `Application` relay profile recognized by current
   Friendica discovery without rotating the actor key or changing endpoints.
 - Server-actor follow and unfollow compatibility for NodeBB, Friendica,
@@ -599,11 +604,13 @@ object belongs to another domain, remain publisher-accounting events and are
 not fanned out. This preserves relay-to-relay loop protection and avoids
 amplifying ordinary boosts.
 
-NodeBB 4.14.x, including 4.14.5 testing, has a receiving-side secure-mode
-limitation: its application-context canonical-object fetch is unsigned, so it
-can return HTTP 424 after accepting a valid relay delivery when the remote
-object requires a signed `GET`. See `docs/INTEROPERABILITY.md`; this is not a
-relay-signature failure.
+NodeBB 4.14.x, including 4.14.5 testing, exposed a receiving-side secure-mode
+limitation: its application-context canonical-object fetch was unsigned, so it
+could return HTTP 424 after accepting a valid relay delivery when the remote
+object required a signed `GET`. NodeBB upstream changed that path in commit
+`8e61543b0ae19fd741bd4175d478aab6c79982ca`; Activity-Relay 3.0 RC1 requires a
+fresh NodeBB 4.15.1 retest before treating the issue as resolved. See
+`docs/INTEROPERABILITY.md`.
 
 Inbound request failures are logged with the HTTP method, path, remote address,
 user agent, and the bounded verification or decoding error. Request bodies,
@@ -867,13 +874,15 @@ and data-flow design, [`TODO.md`](TODO.md) for the maintained roadmap and
 release gates, [`docs/INTEGRATION-TESTING.md`](docs/INTEGRATION-TESTING.md) for
 the container and native-package validation matrix, and
 [`docs/SECURITY.md`](docs/SECURITY.md) for the HTTP-signature compatibility
-profile and RFC 9421 roadmap.
+profile and current RFC 9421/RFC 9530 negotiation behavior.
 
 ## Releases
 
 Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
-[`docs/releases/`](docs/releases/), including
+[`docs/releases/`](docs/releases/). The current 3.0 release-candidate
+preparation is documented in
+[`v3.0.0-rc1`](docs/releases/v3.0.0-rc1.md); the current stable release remains
 [`v2.5.1`](docs/releases/v2.5.1.md), with
 [`v2.5.0`](docs/releases/v2.5.0.md) and
 [`v2.4.0`](docs/releases/v2.4.0.md) retained for historical reference.

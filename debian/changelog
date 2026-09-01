@@ -1,3 +1,20 @@
+activity-relay (3.0.0~rc1-1) noble; urgency=medium
+
+  * Prepare the first Activity-Relay 3.0 release candidate.
+  * Add inbound and outbound RFC 9421 HTTP Message Signatures with RFC 9530
+    Content-Digest support while preserving the legacy Fediverse profile.
+  * Add destination-aware dual-profile negotiation with bounded GET fallback
+    and no duplicate delivery POST fallback.
+  * Add configurable public-address distribution policy and status schema 5.
+  * Add the opt-in Activity-Relay Directory v1 client, manual lifecycle
+    commands, and fenced automatic scheduler.
+  * Preserve legacy as the RC1 outbound-signature default pending mixed-profile
+    interoperability evidence.
+  * Move repository, CI, and release-artifact authority to Forgejo while
+    retaining GitHub as a downstream public mirror and validation surface.
+
+ -- thystra <noreply@github.com>  Tue, 01 Sep 2026 10:04:00 -0400
+
 activity-relay (2.5.1-1) noble; urgency=medium
 
   * Prevent authenticated relay-to-relay Announce reflection loops.

@@ -2,9 +2,10 @@
 
 ## Status
 
-This document defines the reviewed negotiation core. Runtime configuration
-continues to accept only `legacy` and `rfc9421`; `dual` remains rejected until
-the next tranche wires this policy to authorized fetch and delivery.
+This document defines the destination-aware negotiation policy now wired into
+runtime configuration. `OUTBOUND_SIGNATURE_PROFILE` accepts `legacy`,
+`rfc9421`, and `dual`. `dual` is a policy that selects one concrete wire profile
+per operation; it is not itself a signature grammar.
 
 ## Identity and scope
 
@@ -51,7 +52,7 @@ Fixed profiles remain simple:
 - configured `legacy` always emits one legacy request;
 - configured `rfc9421` always emits one RFC 9421 request.
 
-Future `dual` planning is destination-aware:
+`dual` planning is destination-aware:
 
 | Scope | Fresh capability | First profile | Fallback |
 |---|---|---|---|
@@ -72,18 +73,22 @@ remote rejection by sending the same activity again under another signature
 grammar. Retries caused by the existing queue remain retries of the same
 selected profile and are not negotiation attempts.
 
-## Runtime work still required
+## Runtime status
 
-The next tranche must:
+The runtime now:
 
-1. accept `dual` only after constructing the Redis capability store;
-2. parse and validate compatible `Accept-Signature` fields;
-3. define the narrow response evidence that counts as an explicit signature
-   rejection;
-4. execute the GET fallback at most once;
-5. record successful modern fetch and delivery observations;
-6. preserve one selected profile across delayed delivery retries; and
-7. add mixed legacy/RFC 9421 real-process fixtures.
+1. accepts `dual` only with a constructed Redis capability store;
+2. parses and validates compatible `Accept-Signature` fields;
+3. recognizes only bounded explicit signature-rejection evidence;
+4. executes an eligible GET fallback at most once;
+5. records successful modern fetch and delivery observations;
+6. preserves one selected profile across delayed delivery retries; and
+7. includes a mixed-profile real-process negotiation probe.
+
+The remaining release gate is cross-software interoperability: Mastodon,
+Friendica, NodeBB, WordPress, and the two-relay topology must be exercised
+before selecting the Activity-Relay 3.0 stable default. RC1 therefore retains
+`legacy` as the omitted/default outbound profile.
 
 ## Runtime wiring
 

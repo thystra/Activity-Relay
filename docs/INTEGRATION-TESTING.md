@@ -200,7 +200,7 @@ go test ./internal/httpsignature
 The focused suite freezes:
 
 - empty profile configuration preserving `legacy`;
-- `dual` being rejected by the primitive layer until a delivery policy exists;
+- `dual` being rejected by the primitive wire signer unless a destination-aware policy is supplied;
 - exact RFC 9530 SHA-256 serialization and verification;
 - exact wire authority including non-default ports;
 - required GET and POST covered-component order;
@@ -210,9 +210,9 @@ The focused suite freezes:
 - rejection of tampered bodies by both the signature and content digest; and
 - unchanged legacy `Digest` and `Signature` behavior.
 
-This tranche does not alter a server, worker, delivery, resolver, package, or
-production configuration path. Runtime interoperability probes are required in
-the next tranche.
+These primitive tests remain deliberately below server, worker, delivery,
+resolver, package, and deployment wiring. Runtime coverage is exercised by the
+later sections in this document.
 
 ## RFC 9421 inbound verification core
 
@@ -236,9 +236,9 @@ The suite verifies:
 - positive replay-marker TTL; and
 - absence of raw key IDs and nonce values from Redis key names.
 
-The inbox is not yet wired to select this verifier. A subsequent integration
-tranche must add an ActivityPub key resolver, dual legacy/modern decoder
-selection, metrics, and a real-process signed inbound probe.
+The core remains covered independently of runtime wiring. The following
+sections cover the implemented ActivityPub key resolver, strict legacy/modern
+decoder selection, metrics, and real-process signed inbound probe.
 
 ## RFC 9421 inbound runtime probe
 
@@ -273,7 +273,7 @@ binary checksum, and machine-readable report.
 
 ## Outbound signature profile configuration
 
-Focused validation must cover both values:
+Focused validation must cover all runtime values:
 
 ```text
 go test -count=1 ./internal/httpsignature ./models ./api ./deliver
@@ -283,7 +283,9 @@ The configuration and runtime suite requires:
 
 - omitted and empty configuration to resolve to `legacy`;
 - case-normalized `rfc9421` to be accepted;
-- unknown and `dual` values to fail configuration construction;
+- `dual` to be accepted by `RelayConfig` only with its destination negotiator;
+- the low-level fixed-profile signer to reject `dual` as a wire format;
+- unknown values to fail configuration construction;
 - API and worker configured signers to match `RelayConfig`;
 - legacy authorized-fetch GETs and delivery POSTs to retain their established
   fields and cryptographic verification;
@@ -299,8 +301,10 @@ contrib/ops/test_rfc9421_inbound_probe.sh /absolute/private/evidence/path
 contrib/ops/test_fep_ae0c_two_relay_probe.sh /absolute/private/evidence/path
 ```
 
-The first preserves the modern-inbound/legacy-outbound boundary. The second
-must retain `no_reflection_observed` with legacy wire signatures.
+With the omitted/default profile, the first preserves the
+modern-inbound/legacy-outbound boundary. The second must retain
+`no_reflection_observed` with legacy wire signatures. Separate dual-mode
+validation follows below.
 
 ## Destination negotiation core
 
@@ -324,7 +328,7 @@ The suite requires:
 - cached modern and legacy preferences selecting one wire profile; and
 - expired state returning to unknown-scope rules.
 
-No public endpoint or outbound runtime behavior changes in this tranche.
+The negotiation-core suite itself performs no public endpoint or outbound network I/O; runtime behavior is covered below.
 
 ## Runtime signature negotiation
 

@@ -146,10 +146,15 @@ docker run --rm \
 docker rm -f activity-relay-release-test-redis
 ```
 
-Build and inspect the container:
+Build and inspect the container using the application version represented by
+the current Debian changelog entry:
 
 ```bash
-ACTIVITY_RELAY_VERSION='2.5.1' \
+DEB_VERSION="$(dpkg-parsechangelog -SVersion)"
+APP_VERSION="${DEB_VERSION%%-*}"
+APP_VERSION="${APP_VERSION//\~/-}"
+
+ACTIVITY_RELAY_VERSION="$APP_VERSION" \
 docker compose \
   -f compose.yml \
   -f compose.build.yml \
@@ -176,14 +181,15 @@ docker run \
 Build and inspect the Debian package:
 
 ```bash
-dpkg-parsechangelog --show-field Version
+DEB_VERSION="$(dpkg-parsechangelog -SVersion)"
+ARCH="$(dpkg --print-architecture)"
 
 dpkg-buildpackage \
   --build=binary \
   --no-sign
 
-changes=../activity-relay_2.5.1-1_amd64.changes
-package=../activity-relay_2.5.1-1_amd64.deb
+changes="../activity-relay_${DEB_VERSION}_${ARCH}.changes"
+package="../activity-relay_${DEB_VERSION}_${ARCH}.deb"
 
 grep --quiet '^Distribution: noble$' "$changes"
 lintian --fail-on error "$package"

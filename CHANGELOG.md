@@ -2,8 +2,22 @@
 
 ## [Unreleased]
 
+## [3.0.0-rc1] - 2026-09-01
+
 ### Added
 
+- Add RFC 9421 HTTP Message Signature and RFC 9530 `Content-Digest` primitives,
+  inbound verification, authenticated actor-key resolution, replay protection,
+  and bounded verification metrics alongside the existing legacy Fediverse
+  signature profile.
+- Add explicit `legacy`, `rfc9421`, and destination-aware `dual` outbound
+  signature modes. `dual` keeps fetch and delivery evidence separate, persists
+  bounded capability state in Redis, permits at most one legacy GET fallback
+  after explicit compatibility evidence, and never re-sends a delivery POST
+  under another signature grammar.
+- Persist the concrete selected signature profile in new delivery tasks so
+  delayed retries retain the same wire profile while older two-argument tasks
+  remain readable.
 - Add an opt-in Activity-Relay Directory version 1 client contract with a
   separate expiring RFC 9421/RFC 9530 profile, strict bounded responses,
   redirect refusal, and a shared server-accepted cryptographic fixture.
@@ -27,27 +41,55 @@
   treat runtime gate disablement and entry removal as durable suppression,
   coordinate unregister after gate disablement while Redis remains configured,
   and fail closed on malformed persisted state.
-- Align automatic retry at a 30-second local start and 15-minute local cap while
-  allowing validated `Retry-After` guidance to lengthen retry up to 24 hours,
-  and add signal-aware graceful API and scheduler shutdown.
-- Add `PUBLIC_ADDRESS_DISTRIBUTION_POLICY` with `explicit_public_only` and `public_and_unlisted` values, fatal validation for unknown values, and effective-policy startup reporting.
-- Expose the effective public-address distribution policy and human-readable label through `/status.json` schema version 5, and display them in the default generated website footer on every page.
+- Align automatic Directory retry at a 30-second local start and 15-minute
+  local cap while allowing validated `Retry-After` guidance to lengthen retry
+  up to 24 hours, and add signal-aware graceful API and scheduler shutdown.
+- Add `PUBLIC_ADDRESS_DISTRIBUTION_POLICY` with `explicit_public_only` and
+  `public_and_unlisted` values, fatal validation for unknown values, and
+  effective-policy startup reporting.
+- Expose the effective public-address distribution policy and human-readable
+  label through `/status.json` schema version 5 and the generated website.
 
 ### Changed
 
-- Fresh example configurations explicitly select `explicit_public_only`; omitted configuration retains the pre-3.0 `public_and_unlisted` behavior for upgrade compatibility.
-- Under `explicit_public_only`, Public appearing only in `cc` is acknowledged and publisher-accounted without public relay fan-out. Explicit relay-addressed relationship traffic remains separate.
+- Fresh example configurations explicitly select `explicit_public_only`;
+  omitted configuration retains the pre-3.0 `public_and_unlisted` behavior for
+  upgrade compatibility.
+- Under `explicit_public_only`, Public appearing only in `cc` is acknowledged
+  and publisher-accounted without public relay fan-out. Explicit
+  relay-addressed relationship traffic remains separate.
+- Keep the RC1 outbound-signature default at `legacy` pending the mixed-profile
+  Mastodon, Friendica, NodeBB, WordPress, and two-relay interoperability gate.
+- Move authoritative repository, CI, and release-artifact construction to
+  Forgejo while retaining GitHub as a downstream public mirror and independent
+  validation surface.
 
 ### Fixed
 
-- Render the configured `operator_name` for `{{OPERATOR_NAME}}` website content tokens, and reject generated pages that retain unresolved uppercase template tokens.
+- Render the configured `operator_name` for `{{OPERATOR_NAME}}` website content
+  tokens, and reject generated pages that retain unresolved uppercase template
+  tokens.
 - Retry an unknown idempotent RFC 9421 actor or object fetch once with the
   legacy HTTP-signature profile when a remote implementation returns a generic
   HTTP 400, and cache the short-lived legacy preference only after that retry
   succeeds.
-- Remove URI fragments such as `#main-key` from RFC 9421 request targets
-  before signing and sending, so `@target-uri` matches the fragment-free HTTP
-  target verified by secure-mode ActivityPub servers.
+- Remove URI fragments such as `#main-key` from RFC 9421 request targets before
+  signing and sending, so `@target-uri` matches the fragment-free HTTP target
+  verified by secure-mode ActivityPub servers.
+- Wrap unsigned public activities for relay subscribers so the emitted
+  ActivityPub actor and HTTP signing identity remain aligned.
+
+### Release-candidate validation still required
+
+- Build and inspect the canonical Forgejo artifact/evidence bundle for the exact
+  RC1 preparation commit before creating `v3.0.0-rc1`.
+- Deploy RC1 first to the test relay and then to the production relay before
+  registering either with Activity-Relay Directory.
+- Retest the NodeBB secure-mode canonical-object path on NodeBB 4.15.1, which
+  includes upstream commit `8e61543` restoring signing for application actor
+  ID `0`.
+- Complete mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
+  interoperability before selecting a 3.0 stable outbound-signature default.
 
 ## [2.5.1] - 2026-08-02
 ### Fixed

@@ -155,20 +155,24 @@ worker delivery POSTs.
 
 Accepted values are:
 
-- `legacy`: the established Fediverse `Signature` and `Digest` profile; and
+- `legacy`: the established Fediverse `Signature` and `Digest` profile;
 - `rfc9421`: RFC 9421 `Signature-Input` and `Signature`, with RFC 9530
-  `Content-Digest` on POST requests.
+  `Content-Digest` on POST requests; and
+- `dual`: a destination-aware policy that selects one concrete `legacy` or
+  `rfc9421` wire profile for each fetch or delivery operation.
 
 An empty or omitted value is normalized to `legacy`. This preserves existing
-installations and generated test configurations. Unknown values fail startup.
-`dual` also fails startup because it is a destination-aware policy rather than
-one safe request format.
+installations and generated test configurations; RC1 intentionally retains that
+default pending mixed-profile interoperability evidence. Unknown values fail
+startup.
 
-The API server and every worker construct the same configured signer from the
-same validated `RelayConfig`. Authorized-fetch redirects remove all legacy and
-modern signature fields before re-signing the new request target.
+The low-level fixed-profile signer still rejects `dual`, because `dual` is not a
+wire format. Runtime `RelayConfig` accepts it only after constructing the Redis
+capability store and destination negotiator used by both API and worker
+processes. Authorized-fetch redirects remove all legacy and modern signature
+fields before re-planning and re-signing the new request target.
 
-Selecting `rfc9421` is an explicit operator action. It does not probe a
+Selecting fixed `rfc9421` is an explicit operator action. It does not probe a
 destination, retry a POST with another signature grammar, or fall back after a
 remote rejection.
 
@@ -189,7 +193,8 @@ never authorize fallback.
 An unknown delivery plan remains legacy. Delivery plans never contain a
 fallback, preventing blind duplicate POST delivery.
 
-This tranche does not make `dual` a valid runtime configuration value.
+The low-level negotiation-core tests remain independent of network I/O; the
+runtime behavior is covered separately below.
 
 ## Runtime dual negotiation
 
