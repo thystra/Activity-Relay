@@ -1,0 +1,95 @@
+name: Container
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    name: Container and Caddy validation
+    runs-on: forgejo-workstation
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Install Docker client
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker.io
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Verify isolated Docker engine
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test ! -S /var/run/docker.sock
+          test -n "${DOCKER_HOST:-}"
+          case "$DOCKER_HOST" in
+            tcp://*) ;;
+            *)
+              echo "Forgejo container validation requires a TCP Docker endpoint" >&2
+              exit 1
+              ;;
+          esac
+          docker version
+          docker info >/dev/null
+
+      - name: Validate Caddy example
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cid="$(docker create \
+            caddy:2.11.2-alpine \
+            caddy validate \
+              --config /etc/caddy/Caddyfile \
+              --adapter caddyfile)"
+          cleanup() {
+            docker rm -f "$cid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker cp contrib/caddy/Caddyfile.example "$cid:/etc/caddy/Caddyfile"
+          docker start "$cid" >/dev/null
+          status="$(docker wait "$cid")"
+          docker logs "$cid"
+          test "$status" = "0"
+
+      - name: Build and inspect container
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          version="ci-${short_sha}"
+          image="activity-relay:validation-${short_sha}"
+          cleanup() {
+            docker image rm -f "$image" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          DOCKER_BUILDKIT=1 docker build \
+            --build-arg "VERSION=$version" \
+            --tag "$image" \
+            .
+
+          test "$(docker run --rm "$image" --version)" = "$version"
+          docker run --rm --entrypoint /bin/sh "$image" -c '
+            test -x /usr/bin/relay
+            test -f /usr/share/activity-relay/web/build-site.py
+            test -f /usr/share/activity-relay/web/site.json.example
+            test -x /usr/bin/activity-relay-resource-guard
+            test -x /usr/lib/activity-relay/resource-guard.py
+          '

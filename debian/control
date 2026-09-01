@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: thystra <noreply@github.com>
 Build-Depends: debhelper-compat (= 13), golang-any
 Standards-Version: 4.7.0
-Homepage: https://github.com/thystra/Activity-Relay
+Homepage: https://forgejo.argentwolf.org/alan/activity-relay
 Rules-Requires-Root: no
 
 Package: activity-relay

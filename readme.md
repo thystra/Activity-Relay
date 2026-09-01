@@ -2,7 +2,7 @@
 
 ## A maintained and deployable ActivityPub relay written in Go
 
-[![GitHub Actions](https://github.com/thystra/Activity-Relay/workflows/Test/badge.svg)](https://github.com/thystra/Activity-Relay/actions)
+[![GitHub mirror CI](https://github.com/thystra/Activity-Relay/workflows/Test/badge.svg)](https://github.com/thystra/Activity-Relay/actions)
 
 <img width="1672" height="941" alt="0f3f8ae2-a325-4a2e-9ace-b30fbc79230c" src="https://github.com/user-attachments/assets/bc4f95b0-bd69-4eb4-a2d2-b81ae07fd1ff" />
 
@@ -11,6 +11,12 @@
 > This repository is a maintained fork of
 > [`yukimochi/Activity-Relay`](https://github.com/yukimochi/Activity-Relay),
 > based on upstream release `v2.0.10`.
+>
+> The authoritative source repository is
+> [`forgejo.argentwolf.org/alan/activity-relay`](https://forgejo.argentwolf.org/alan/activity-relay).
+> [`github.com/thystra/Activity-Relay`](https://github.com/thystra/Activity-Relay)
+> is a downstream public mirror with independent validation. The public Go
+> module path remains `github.com/thystra/Activity-Relay`.
 
 ## Highlights
 

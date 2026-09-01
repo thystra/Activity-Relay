@@ -1,0 +1,88 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Go, Redis, and Python validation
+    runs-on: forgejo-workstation
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Set up Go 1.25
+        uses: https://data.forgejo.org/actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.25.x"
+          cache: true
+
+      - name: Install disposable Redis
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends redis-server
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Formatting
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Redis-backed tests and race suite
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          redis_pid="$RUNNER_TEMP/activity-relay-test-redis.pid"
+          cleanup() {
+            if redis-cli -p 6381 ping >/dev/null 2>&1; then
+              redis-cli -p 6381 shutdown nosave >/dev/null 2>&1 || true
+            elif [[ -s "$redis_pid" ]]; then
+              kill "$(cat "$redis_pid")" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
+          redis-server \
+            --bind 127.0.0.1 \
+            --port 6381 \
+            --save "" \
+            --appendonly no \
+            --daemonize yes \
+            --pidfile "$redis_pid"
+
+          for _ in $(seq 1 30); do
+            if redis-cli -p 6381 ping | grep -qx PONG; then
+              break
+            fi
+            sleep 1
+          done
+          redis-cli -p 6381 ping | grep -qx PONG
+
+          export REDIS_URL='redis://127.0.0.1:6381'
+          go test -count=1 -p 1 ./...
+          go test -race -count=1 -p 1 ./...
+
+      - name: Static-site tests
+        run: python3 -m unittest discover -s contrib/web -p 'test_*.py'
+
+      - name: Operations tests
+        run: python3 -m unittest discover -s contrib/ops -p 'test_*.py'
+
+      - name: Build
+        run: go build ./...

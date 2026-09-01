@@ -1,8 +1,14 @@
 # Releasing the maintained fork
 
-This repository uses annotated Git tags and GitHub Releases. Tagged releases
-build a multi-architecture GHCR image and an Ubuntu 24.04 `amd64` Debian
-package.
+Forgejo at `https://forgejo.argentwolf.org/alan/activity-relay` is the
+repository and release authority. GitHub is a downstream public mirror and
+independent-validation surface; mirrored commits or tags must not cause GitHub
+to publish release artifacts or mutable container tags.
+
+The current GitHub release workflow is deliberately manual and
+validation-only. Until the canonical Forgejo release workflow is added and
+validated, new release publication is blocked. Do not tag a new release merely
+to exercise the downstream workflow.
 
 ## Version and tag policy
 
@@ -27,8 +33,8 @@ A future prerelease such as `v2.6.0-rc1` uses a Debian series such as
 `2.6.0~rc1-1`. If the top changelog entry does not match the tag series, the
 workflow starts that series at Debian revision `-1`.
 
-Release filenames replace `~` with `-` only when necessary for GitHub asset
-compatibility; the package's internal Debian version is unchanged.
+Release filenames replace `~` with `-` in public artifact filenames; the
+package's internal Debian version is unchanged.
 
 ## Release checklist
 
@@ -73,11 +79,15 @@ compatibility; the package's internal Debian version is unchanged.
     of the exact candidate application code. Classify every observed failure as
     release-caused, receiver-caused, or environmental, and retain the evidence
     outside the public repository.
-22. Commit and push the release preparation.
-23. Create and push the annotated tag.
-24. Verify the GitHub release, checksums, package metadata, packaged examples,
-    and container manifests.
-25. Replace generated release notes with the reviewed versioned release notes.
+22. Commit and push the release preparation to the authoritative Forgejo
+    repository.
+23. Confirm the canonical Forgejo release workflow is present, validated, and
+    configured to promote the exact reviewed bytes. If it is not, stop.
+24. Create and push the annotated tag to Forgejo.
+25. Verify the canonical published release, checksums, package metadata, packaged
+    examples, container manifests, and downstream mirror propagation.
+26. Publish only the reviewed versioned release notes for that exact artifact
+    set.
 
 ## Local validation
 
@@ -169,19 +179,16 @@ lintian \
 
 ## Tag the tested commit
 
+Do not create a new release tag while the canonical Forgejo release workflow is
+absent or unvalidated. Once that gate exists, tag only the exact reviewed
+Forgejo commit:
+
 ```bash
 git switch master
 git pull --ff-only origin master
 
-git tag -a v2.5.1 -m 'Activity-Relay v2.5.1 stable release'
-git push origin v2.5.1
-```
-
-After the release workflow creates the GitHub release, apply the reviewed notes
-stored in the repository:
-
-```bash
-gh release edit v2.5.1 --notes-file docs/releases/v2.5.1.md
+git tag -a vX.Y.Z-rcN -m 'Activity-Relay vX.Y.Z-rcN release candidate'
+git push origin vX.Y.Z-rcN
 ```
 
 Promote a validated release candidate by creating a new stable preparation
@@ -190,19 +197,20 @@ For a future release candidate, use its complete `vX.Y.Z-rcN` tag and matching
 versioned release-notes file. Do not move an already-published release tag;
 correct mistakes with another release candidate or patch release.
 
-## Workflow behavior
+## Current workflow behavior
 
-The release workflow:
+Forgejo push and pull-request CI is authoritative for source validation. It
+runs the serialized Redis-backed Go and race suites, Python tests, container and
+Caddy validation, and Debian package build/lint checks on the managed Forgejo
+runner pool.
 
-- derives the package version from the tag;
-- runs Redis-backed Go and static-site tests;
-- builds and lints the Debian package;
-- tests clean installation, reinstallation, actor identity preservation, and
-  inactive services;
-- writes `SHA256SUMS`;
-- creates a GitHub prerelease for RC tags;
-- publishes `linux/amd64` and `linux/arm64` images to GHCR;
-- updates stable semantic and `latest` tags only for stable releases.
+The GitHub mirror retains independent source/container validation. Its former
+release workflow is manual and validation-only: it may validate an existing tag
+and retain ephemeral Actions artifacts, but it does not create GitHub Releases,
+push container images, or move mutable container tags.
+
+The canonical Forgejo release workflow is a separate release gate and must be
+implemented and validated before the next release tag is created.
 
 ## Smoke tests
 

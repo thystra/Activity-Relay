@@ -1,0 +1,74 @@
+name: Debian Package
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debian:
+    name: Debian package validation
+    runs-on: forgejo-workstation
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Set up Go 1.25
+        uses: https://data.forgejo.org/actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.25.x"
+          cache: true
+
+      - name: Install Debian packaging tools
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            debhelper \
+            devscripts \
+            golang-any \
+            lintian
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Build package
+        run: dpkg-buildpackage --build=binary --no-sign
+
+      - name: Inspect and lint package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          package="$(find .. -maxdepth 1 -name 'activity-relay_*_*.deb' -print -quit)"
+          changes="$(find .. -maxdepth 1 -name 'activity-relay_*_*.changes' -print -quit)"
+          test -n "$package"
+          test -n "$changes"
+
+          dpkg-deb --info "$package"
+          dpkg-deb --contents "$package"
+          lintian --fail-on error "$changes"
+
+          root="$RUNNER_TEMP/activity-relay-package-root"
+          rm -rf "$root"
+          mkdir -p "$root"
+          dpkg-deb --extract "$package" "$root"
+
+          test -x "$root/usr/bin/relay"
+          test -x "$root/usr/bin/activity-relay-resource-guard"
+          test -f "$root/etc/activity-relay/config.yml.example"
+          test -f "$root/usr/share/doc/activity-relay/examples/caddy/Caddyfile.example"
+          test -f "$root/usr/share/doc/activity-relay/examples/caddy/README.md"
+          grep --quiet '^NoNewPrivileges=false$' \
+            "$root/usr/lib/systemd/system/activity-relay-resource-guard.service"
+          grep --quiet '^TimeoutStartSec=120$' \
+            "$root/usr/lib/systemd/system/activity-relay-resource-guard.service"

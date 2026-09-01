@@ -64,6 +64,18 @@ website content, and supported deployment models.
 The next active protocol milestone is a modern signing architecture informed by
 the retrospective FEP-ae0c relay profiles.
 
+### Repository authority and CI
+
+- [x] Move repository authority to Forgejo while retaining GitHub as a
+  downstream public push mirror and independent-validation surface.
+- [x] Add the shared-workstation Forgejo runner pilot and full source,
+  container, Caddy, and Debian-package validation workflows.
+- [x] Make mirrored GitHub workflows validation-only so mirrored commits and
+  tags cannot independently publish edge or release artifacts.
+- [ ] Add and validate the canonical Forgejo release-artifact workflow before
+  creating the first Activity-Relay 3.0 release-candidate tag.
+
+
 ### RFC 9421 / RFC 9530 implementation tranches
 
 - [x] Add pinned RFC 9421 structured-field, RSA-signing, and RFC 9530 digest

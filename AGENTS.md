@@ -16,6 +16,24 @@ an ignored `AGENTS.local.md` or `.local/` directory. Private continuity guides
 may supplement this file, but they must not be copied into the public
 repository.
 
+## Repository authority
+
+- `https://forgejo.argentwolf.org/alan/activity-relay` is the authoritative
+  development and release repository.
+- `https://github.com/thystra/Activity-Relay` is a downstream public mirror and
+  independent-validation surface. Do not develop against or tag the GitHub
+  mirror as though it were authoritative.
+- Normal maintainer pushes and release tags go to the Forgejo `origin`; mirror
+  propagation to GitHub is a separate state that must be verified when it
+  matters.
+- GitHub workflows must remain validation-only. They must not publish release
+  artifacts or mutable container tags from mirrored commits or tags.
+- Canonical release artifacts must be built and promoted by the authoritative
+  Forgejo release path. If that path is unavailable or not yet implemented,
+  release publication is blocked rather than delegated back to GitHub.
+- Repository authority does not change the public Go module path,
+  `github.com/thystra/Activity-Relay`.
+
 ## Required context
 
 Before a substantial change, review:
