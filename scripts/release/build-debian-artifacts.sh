@@ -44,6 +44,9 @@ trap cleanup EXIT
 mkdir -p "$TMP/src" "$OUT/public" "$OUT/evidence"
 tar -C "$ROOT" \
     --exclude=.git \
+    --exclude='__pycache__' \
+    --exclude='*.pyc' \
+    --exclude='*.pyo' \
     --exclude='./*.deb' \
     --exclude='./*.changes' \
     --exclude='./*.buildinfo' \
@@ -88,6 +91,13 @@ BIN="$EXTRACT/usr/bin/relay"
 
 dpkg-deb --info "$PUBLIC_DEB" >"$OUT/evidence/dpkg-deb-info.txt"
 dpkg-deb --contents "$PUBLIC_DEB" >"$OUT/evidence/dpkg-deb-contents.txt"
+
+if find "$EXTRACT" \
+    \( -type d -name __pycache__ -o -type f \( -name '*.pyc' -o -name '*.pyo' \) \) \
+    -print -quit | grep -q .; then
+    echo "canonical Debian package contains generated Python bytecode/cache artifacts" >&2
+    exit 1
+fi
 
 set +e
 lintian --allow-root --show-overrides --fail-on error "$PUBLIC_DEB" \

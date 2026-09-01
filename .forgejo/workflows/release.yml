@@ -28,6 +28,7 @@ jobs:
       RELEASE_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_CONFIRMATION: ${{ inputs.confirm }}
+      PYTHONDONTWRITEBYTECODE: "1"
 
     steps:
       - name: Check out repository
