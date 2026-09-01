@@ -18,16 +18,29 @@ jobs:
         run: |
           set -euo pipefail
 
-          test "${CI:-}" = "true"
-          test "${FORGEJO_ACTIONS:-}" = "true"
-          test "${FORGEJO_SERVER_URL:-}" = "https://forgejo.argentwolf.org"
-          test "${FORGEJO_REPOSITORY:-}" = "alan/activity-relay"
+          # Print only non-secret execution context before asserting it so a
+          # failed smoke test is diagnostic rather than opaque.
+          printf 'CI=%s\n' "${CI:-<unset>}"
+          printf 'FORGEJO_ACTIONS=%s\n' "${FORGEJO_ACTIONS:-<unset>}"
+          printf 'FORGEJO_SERVER_URL=%s\n' "${FORGEJO_SERVER_URL:-<unset>}"
+          printf 'FORGEJO_REPOSITORY=%s\n' "${FORGEJO_REPOSITORY:-<unset>}"
+          printf 'FORGEJO_RUN_ID=%s\n' "${FORGEJO_RUN_ID:-<unset>}"
+          printf 'GITHUB_ACTIONS=%s\n' "${GITHUB_ACTIONS:-<unset>}"
+          printf 'GITHUB_SERVER_URL=%s\n' "${GITHUB_SERVER_URL:-<unset>}"
+          printf 'GITHUB_REPOSITORY=%s\n' "${GITHUB_REPOSITORY:-<unset>}"
+          printf 'RUNNER_OS=%s\n' "${RUNNER_OS:-<unset>}"
+          printf 'RUNNER_ARCH=%s\n' "${RUNNER_ARCH:-<unset>}"
 
-          echo "CI=$CI"
-          echo "FORGEJO_ACTIONS=$FORGEJO_ACTIONS"
-          echo "FORGEJO_SERVER_URL=$FORGEJO_SERVER_URL"
-          echo "FORGEJO_REPOSITORY=$FORGEJO_REPOSITORY"
-          echo "FORGEJO_RUN_ID=$FORGEJO_RUN_ID"
+          actions="${FORGEJO_ACTIONS:-${GITHUB_ACTIONS:-}}"
+          server_url="${FORGEJO_SERVER_URL:-${GITHUB_SERVER_URL:-}}"
+          repository="${FORGEJO_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+          run_id="${FORGEJO_RUN_ID:-${GITHUB_RUN_ID:-}}"
+
+          test "${CI:-}" = "true"
+          test "$actions" = "true"
+          test "${server_url%/}" = "https://forgejo.argentwolf.org"
+          test "${repository,,}" = "alan/activity-relay"
+          test -n "$run_id"
 
           uname -a
           id
@@ -45,12 +58,13 @@ jobs:
           set -euo pipefail
 
           actual_sha="$(git rev-parse HEAD)"
-          test "$actual_sha" = "$FORGEJO_SHA"
+          expected_sha="${FORGEJO_SHA:-${GITHUB_SHA:-}}"
+          test -n "$expected_sha"
+          test "$actual_sha" = "$expected_sha"
           test -z "$(git status --porcelain)"
 
-          # The repository-scoped pilot runner deliberately does not expose the
-          # host Docker socket. Container builds use the separate forgejo-build
-          # runner once the pilot boundary has been revalidated for this repo.
+          # The workstation runner may use its dedicated DinD service, but the
+          # job must never receive the host Docker daemon's Unix socket.
           test ! -S /var/run/docker.sock
 
           echo "checkout_sha=$actual_sha"
