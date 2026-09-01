@@ -1,0 +1,279 @@
+name: Canonical Release Candidate Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: Exact reviewed commit to build
+        required: true
+        type: string
+      version:
+        description: Exact application version, for example 3.0.0-rc1
+        required: true
+        type: string
+      confirm:
+        description: Type BUILD followed by the exact version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  canonical:
+    name: Canonical candidate artifact set
+    runs-on: forgejo-workstation
+    timeout-minutes: 90
+    env:
+      RELEASE_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_CONFIRMATION: ${{ inputs.confirm }}
+
+    steps:
+      - name: Check out repository
+        uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Require exact reviewed dispatch identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$RELEASE_VERSION"
+
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]
+          test "$RELEASE_CONFIRMATION" = "BUILD $VERSION"
+          test "$(git rev-parse HEAD)" = "$RELEASE_EXPECTED_COMMIT"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test -f "docs/releases/v${VERSION}.md"
+          grep -Fq "# Activity-Relay v${VERSION}" "docs/releases/v${VERSION}.md"
+          grep -Fq -- "- Application version: \`${VERSION}\`" \
+            "docs/releases/v${VERSION}.md"
+
+      - name: Set up exact Go 1.25.0
+        uses: https://data.forgejo.org/actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: "1.25.0"
+          cache: true
+
+      - name: Install release tooling
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            debhelper \
+            dpkg-dev \
+            fakeroot \
+            lintian \
+            python3 \
+            redis-server \
+            skopeo \
+            docker.io
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Require exact source package version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$RELEASE_VERSION"
+          DEB_VERSION="$(dpkg-parsechangelog -SVersion)"
+          DEB_UPSTREAM="${DEB_VERSION%%-*}"
+          SOURCE_VERSION="${DEB_UPSTREAM//\~/-}"
+
+          test "$VERSION" = "$SOURCE_VERSION"
+          test "$(dpkg-parsechangelog -SDistribution)" = "noble"
+          grep -Fq -- "- Debian package version: \`${DEB_VERSION}\`" \
+            "docs/releases/v${VERSION}.md"
+
+      - name: Release validation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          test -z "$(gofmt -l .)"
+          go vet ./...
+
+          redis_pid="$RUNNER_TEMP/activity-relay-release-redis.pid"
+          cleanup() {
+            if redis-cli -p 6381 ping >/dev/null 2>&1; then
+              redis-cli -p 6381 shutdown nosave >/dev/null 2>&1 || true
+            elif [[ -s "$redis_pid" ]]; then
+              kill "$(cat "$redis_pid")" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+
+          redis-server \
+            --bind 127.0.0.1 \
+            --port 6381 \
+            --save "" \
+            --appendonly no \
+            --daemonize yes \
+            --pidfile "$redis_pid"
+
+          for _ in $(seq 1 30); do
+            if redis-cli -p 6381 ping | grep -qx PONG; then
+              break
+            fi
+            sleep 1
+          done
+          redis-cli -p 6381 ping | grep -qx PONG
+
+          export REDIS_URL='redis://127.0.0.1:6381'
+          go test -count=1 -p 1 ./...
+          go test -race -count=1 -p 1 ./...
+          python3 -m unittest discover -s contrib/web -p 'test_*.py'
+          python3 -m unittest discover -s contrib/ops -p 'test_*.py'
+
+      - name: Verify isolated Docker engine
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test ! -S /var/run/docker.sock
+          test -n "${DOCKER_HOST:-}"
+          case "$DOCKER_HOST" in
+            tcp://*) ;;
+            *)
+              echo "canonical release build requires the isolated TCP Docker endpoint" >&2
+              exit 1
+              ;;
+          esac
+          docker version
+          docker info >/dev/null
+
+      - name: Validate Caddy example
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          cid="$(docker create \
+            caddy:2.11.2-alpine \
+            caddy validate \
+              --config /etc/caddy/Caddyfile \
+              --adapter caddyfile)"
+          cleanup() {
+            docker rm -f "$cid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker cp contrib/caddy/Caddyfile.example "$cid:/etc/caddy/Caddyfile"
+          docker start "$cid" >/dev/null
+          status="$(docker wait "$cid")"
+          docker logs "$cid"
+          test "$status" = "0"
+
+      - name: Build canonical Debian and SBOM bytes once
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$RELEASE_VERSION"
+          DEB_VERSION="$(dpkg-parsechangelog -SVersion)"
+          PUBLIC_DEB_VERSION="${DEB_VERSION//\~/-}"
+
+          export RELEASE_COMMIT="$(git rev-parse HEAD)"
+          export RELEASE_TREE="$(git rev-parse 'HEAD^{tree}')"
+          scripts/release/build-debian-artifacts.sh "$RUNNER_TEMP/canonical-release"
+
+          cd "$RUNNER_TEMP/canonical-release/public"
+          sha256sum -c SHA256SUMS
+          test -s "activity-relay_${PUBLIC_DEB_VERSION}_amd64.deb"
+          test -s "activity-relay_${VERSION}_amd64.cdx.json"
+
+      - name: Set up QEMU
+        uses: https://data.forgejo.org/docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8
+        with:
+          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3-68@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+
+      - name: Set up Buildx
+        uses: https://data.forgejo.org/docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c
+
+      - name: Build canonical multi-architecture OCI archive once
+        uses: https://data.forgejo.org/docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          provenance: mode=max
+          sbom: true
+          tags: activity-relay:${{ inputs.version }}
+          build-args: |
+            VERSION=${{ inputs.version }}
+          outputs: type=oci,dest=${{ runner.temp }}/canonical-release/public/activity-relay_${{ inputs.version }}_linux_amd64_arm64.oci.tar
+
+      - name: Inspect exact OCI archive and finalize checksums
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$RELEASE_VERSION"
+          ROOT="$RUNNER_TEMP/canonical-release"
+          ARCHIVE="$ROOT/public/activity-relay_${VERSION}_linux_amd64_arm64.oci.tar"
+
+          test -s "$ARCHIVE"
+          skopeo inspect --raw "oci-archive:$ARCHIVE" >"$ROOT/evidence/container-index.json"
+
+          python3 - "$ROOT/evidence/container-index.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          index = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          platforms = {
+              (m.get("platform", {}).get("os"), m.get("platform", {}).get("architecture"))
+              for m in index.get("manifests", [])
+          }
+          required = {("linux", "amd64"), ("linux", "arm64")}
+          missing = required - platforms
+          if missing:
+              raise SystemExit(f"canonical OCI archive missing platforms: {sorted(missing)}")
+          PY
+
+          cleanup() {
+            docker image rm -f \
+              activity-relay:canonical-amd64 \
+              activity-relay:canonical-arm64 \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          skopeo copy \
+            --override-os linux \
+            --override-arch amd64 \
+            "oci-archive:$ARCHIVE" \
+            docker-daemon:activity-relay:canonical-amd64
+          test "$(docker run --rm activity-relay:canonical-amd64 --version)" = \
+            "relay version $VERSION"
+
+          skopeo copy \
+            --override-os linux \
+            --override-arch arm64 \
+            "oci-archive:$ARCHIVE" \
+            docker-daemon:activity-relay:canonical-arm64
+          test "$(docker run --rm --platform linux/arm64 \
+            activity-relay:canonical-arm64 --version)" = \
+            "relay version $VERSION"
+
+          cp "docs/releases/v${VERSION}.md" "$ROOT/public/RELEASE-NOTES.md"
+          {
+            echo "container_format=oci-archive"
+            echo "container_image=activity-relay:${VERSION}"
+            echo "container_platforms=linux/amd64,linux/arm64"
+            echo "container_archive=$(basename "$ARCHIVE")"
+          } >>"$ROOT/public/BUILD-METADATA.txt"
+
+          cd "$ROOT/public"
+          rm -f SHA256SUMS
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' |
+            sort -z |
+            xargs -0 sha256sum >SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Upload canonical candidate artifact set
+        uses: https://code.forgejo.org/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
+        with:
+          name: activity-relay-${{ inputs.version }}-canonical-${{ inputs.expected_commit }}
+          path: ${{ runner.temp }}/canonical-release/
+          if-no-files-found: error
+          retention-days: 30

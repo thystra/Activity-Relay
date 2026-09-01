@@ -6,9 +6,12 @@ independent-validation surface; mirrored commits or tags must not cause GitHub
 to publish release artifacts or mutable container tags.
 
 The current GitHub release workflow is deliberately manual and
-validation-only. Until the canonical Forgejo release workflow is added and
-validated, new release publication is blocked. Do not tag a new release merely
-to exercise the downstream workflow.
+validation-only. Forgejo now owns a manual canonical candidate-artifact build
+that accepts only an exact reviewed commit and version and does not publish by
+itself. New release publication remains blocked until that workflow has passed
+on the exact release-preparation commit, its retained artifact set has been
+inspected, and an exact-byte publication path has been proven. Do not tag a new
+release merely to exercise either workflow.
 
 ## Version and tag policy
 
@@ -58,7 +61,9 @@ package's internal Debian version is unchanged.
     - `/usr/bin/relay`;
     - `/usr/share/activity-relay/web/build-site.py`;
     - the compiled version string.
-15. Build the native Debian package and run Lintian on the `.changes` file.
+15. Build the native Debian package, require the intended `noble` distribution
+    in the `.changes` metadata, and run Lintian error validation on the binary
+    `.deb`.
 16. Smoke-test `/actor`, `/nodeinfo/2.1`, and `/status.json`.
 17. Complete the applicable container and native-package matrix in
     `docs/INTEGRATION-TESTING.md`, retaining external evidence for the exact
@@ -81,13 +86,18 @@ package's internal Debian version is unchanged.
     outside the public repository.
 22. Commit and push the release preparation to the authoritative Forgejo
     repository.
-23. Confirm the canonical Forgejo release workflow is present, validated, and
-    configured to promote the exact reviewed bytes. If it is not, stop.
-24. Create and push the annotated tag to Forgejo.
-25. Verify the canonical published release, checksums, package metadata, packaged
+23. Run the manual canonical Forgejo candidate-artifact workflow against the
+    exact reviewed commit and version. Inspect its public artifacts and retained
+    evidence, and verify every checksum.
+24. Confirm an exact-byte publication path exists for that artifact set. Do not
+    rebuild the Debian package or OCI archive after acceptance. If exact-byte
+    promotion is not available, stop.
+25. Create and push the annotated tag to Forgejo only after the accepted
+    candidate bytes are identified unambiguously.
+26. Publish those exact accepted bytes and only the reviewed versioned release
+    notes for that artifact set.
+27. Verify the canonical published release, checksums, package metadata, packaged
     examples, container manifests, and downstream mirror propagation.
-26. Publish only the reviewed versioned release notes for that exact artifact
-    set.
 
 ## Local validation
 
@@ -172,16 +182,46 @@ dpkg-buildpackage \
   --build=binary \
   --no-sign
 
-lintian \
-  --fail-on error \
-  ../activity-relay_2.5.1-1_amd64.changes
+changes=../activity-relay_2.5.1-1_amd64.changes
+package=../activity-relay_2.5.1-1_amd64.deb
+
+grep --quiet '^Distribution: noble$' "$changes"
+lintian --fail-on error "$package"
 ```
+
+## Canonical candidate artifact build
+
+Before creating a release tag, dispatch **Canonical Release Candidate Artifacts**
+from Forgejo on the exact release-preparation commit. Supply:
+
+```text
+expected_commit: <full 40-character reviewed commit>
+version:         X.Y.Z-rcN
+confirm:         BUILD X.Y.Z-rcN
+```
+
+The versioned release-notes file must record both:
+
+```text
+- Application version: `X.Y.Z-rcN`
+- Debian package version: `X.Y.Z~rcN-1`
+```
+
+The workflow must produce one retained bundle with `public/` and `evidence/`.
+Verify `public/SHA256SUMS`, inspect `BUILD-METADATA.txt`, the Debian metadata and
+Lintian output, and the OCI index evidence. The OCI archive must contain both
+`linux/amd64` and `linux/arm64`, and both exact archived images must report the
+requested application version when executed.
+
+Passing this workflow means the candidate bytes were built and retained; it
+does **not** mean they were tagged or published. Those are later gates.
 
 ## Tag the tested commit
 
-Do not create a new release tag while the canonical Forgejo release workflow is
-absent or unvalidated. Once that gate exists, tag only the exact reviewed
-Forgejo commit:
+Do not create a new release tag until the canonical Forgejo candidate workflow
+has passed on the exact release-preparation commit, the retained bytes have been
+inspected, and the exact-byte publication path has been proven. Then tag only
+the exact reviewed Forgejo commit:
 
 ```bash
 git switch master
@@ -209,8 +249,13 @@ release workflow is manual and validation-only: it may validate an existing tag
 and retain ephemeral Actions artifacts, but it does not create GitHub Releases,
 push container images, or move mutable container tags.
 
-The canonical Forgejo release workflow is a separate release gate and must be
-implemented and validated before the next release tag is created.
+`.forgejo/workflows/release.yml` is the manual canonical candidate build. It
+requires the exact reviewed commit, application version, and explicit `BUILD
+<version>` confirmation; re-runs source/package/container validation; emits one
+checksummed Debian package, CycloneDX SBOM, multi-architecture OCI archive,
+release-note copy, build metadata, and retained evidence bundle; and publishes
+nothing externally. Its first required validation target is the exact 3.0 RC1
+release-preparation commit.
 
 ## Smoke tests
 

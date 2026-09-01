@@ -72,8 +72,13 @@ the retrospective FEP-ae0c relay profiles.
   container, Caddy, and Debian-package validation workflows.
 - [x] Make mirrored GitHub workflows validation-only so mirrored commits and
   tags cannot independently publish edge or release artifacts.
-- [ ] Add and validate the canonical Forgejo release-artifact workflow before
-  creating the first Activity-Relay 3.0 release-candidate tag.
+- [x] Add a manual canonical Forgejo candidate-artifact workflow that requires
+  an exact reviewed commit/version, rebuilds the release validation gates, and
+  emits one checksummed Debian/SBOM/multi-architecture OCI artifact set without
+  publishing it.
+- [ ] Validate that canonical workflow on the exact Activity-Relay 3.0 RC1
+  preparation commit, inspect the retained artifact/evidence bundle, and prove
+  the exact-byte publication path before creating the first 3.0 release tag.
 
 
 ### RFC 9421 / RFC 9530 implementation tranches
