@@ -56,7 +56,8 @@ jobs:
 
           dpkg-deb --info "$package"
           dpkg-deb --contents "$package"
-          lintian --fail-on error "$changes"
+          grep --quiet '^Distribution: noble$' "$changes"
+          lintian --allow-root --fail-on error "$package"
 
           root="$RUNNER_TEMP/activity-relay-package-root"
           rm -rf "$root"

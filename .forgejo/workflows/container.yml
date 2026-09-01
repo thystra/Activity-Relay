@@ -85,7 +85,9 @@ jobs:
             --tag "$image" \
             .
 
-          test "$(docker run --rm "$image" --version)" = "$version"
+          version_output="$(docker run --rm "$image" --version)"
+          printf 'Container version output: %s\n' "$version_output"
+          test "$version_output" = "relay version $version"
           docker run --rm --entrypoint /bin/sh "$image" -c '
             test -x /usr/bin/relay
             test -f /usr/share/activity-relay/web/build-site.py
