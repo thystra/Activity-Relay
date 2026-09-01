@@ -231,7 +231,11 @@ jobs:
               raise SystemExit(f"canonical OCI archive missing platforms: {sorted(missing)}")
           PY
 
+          AMD64_DOCKER_ARCHIVE="$RUNNER_TEMP/activity-relay-${VERSION}-amd64.docker.tar"
+          ARM64_DOCKER_ARCHIVE="$RUNNER_TEMP/activity-relay-${VERSION}-arm64.docker.tar"
+
           cleanup() {
+            rm -f "$AMD64_DOCKER_ARCHIVE" "$ARM64_DOCKER_ARCHIVE"
             docker image rm -f \
               activity-relay:canonical-amd64 \
               activity-relay:canonical-arm64 \
@@ -239,11 +243,17 @@ jobs:
           }
           trap cleanup EXIT
 
+          # Convert each selected platform to a Docker archive on disk first.
+          # The docker-daemon transport streams directly into the daemon; keeping
+          # the conversion and daemon import as separate operations makes failures
+          # observable and avoids a closed-pipe failure in that transport path.
           skopeo copy \
             --override-os linux \
             --override-arch amd64 \
             "oci-archive:$ARCHIVE" \
-            docker-daemon:activity-relay:canonical-amd64
+            "docker-archive:$AMD64_DOCKER_ARCHIVE:activity-relay:canonical-amd64"
+          test -s "$AMD64_DOCKER_ARCHIVE"
+          docker load --input "$AMD64_DOCKER_ARCHIVE"
           test "$(docker run --rm activity-relay:canonical-amd64 --version)" = \
             "relay version $VERSION"
 
@@ -251,7 +261,9 @@ jobs:
             --override-os linux \
             --override-arch arm64 \
             "oci-archive:$ARCHIVE" \
-            docker-daemon:activity-relay:canonical-arm64
+            "docker-archive:$ARM64_DOCKER_ARCHIVE:activity-relay:canonical-arm64"
+          test -s "$ARM64_DOCKER_ARCHIVE"
+          docker load --input "$ARM64_DOCKER_ARCHIVE"
           test "$(docker run --rm --platform linux/arm64 \
             activity-relay:canonical-arm64 --version)" = \
             "relay version $VERSION"
