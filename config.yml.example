@@ -28,8 +28,14 @@ PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 # Optional Activity-Relay Directory entries. The list is absent by default and
 # each entry is independently disabled unless explicitly enabled. The scheduler
 # gate is also off by default and is honored only by the API server process.
+# Example public Directory (disabled until explicitly enabled):
+#   https://directory.argentwolf.org
+# Maintained Directory index:
+#   https://github.com/thystra/Activity-Relay/blob/master/docs/DIRECTORY-INDEX.md
 DIRECTORY_SCHEDULER_ENABLED: false
 # DIRECTORIES:
+#   - origin: https://directory.argentwolf.org
+#     enabled: false
 #   - origin: https://directory.example.org
 #     enabled: false
 

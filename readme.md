@@ -26,7 +26,7 @@ Compared with the upstream baseline, this fork includes:
   authorized-fetch and secure-mode interoperability.
 - RFC 9421 HTTP Message Signatures and RFC 9530 `Content-Digest` with strict
   inbound verification and explicit `legacy`, `rfc9421`, and destination-aware
-  `dual` outbound modes; the omitted/default profile remains `legacy` for RC1.
+  `dual` outbound modes; the omitted/default profile remains `legacy`.
 - An opt-in Activity-Relay Directory v1 client with manual lifecycle commands
   and a fenced API-process scheduler for registration and heartbeat handling.
 - An ActivityStreams `Application` relay profile recognized by current
@@ -320,8 +320,14 @@ OUTBOUND_SIGNATURE_PROFILE: legacy
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
 
 # Optional scheduling is false by default and runs only in the API server.
+# Example public Directory (disabled until explicitly enabled):
+#   https://directory.argentwolf.org
+# Maintained Directory index:
+#   https://github.com/thystra/Activity-Relay/blob/master/docs/DIRECTORY-INDEX.md
 DIRECTORY_SCHEDULER_ENABLED: false
 # DIRECTORIES:
+#   - origin: https://directory.argentwolf.org
+#     enabled: false
 #   - origin: https://directory.example.org
 #     enabled: false
 
@@ -356,6 +362,13 @@ reconciliation and daily heartbeats only in the API process; workers never run
 the scheduler. ActivityPub signing is unchanged. See
 [`docs/DIRECTORY-CLIENT.md`](docs/DIRECTORY-CLIENT.md).
 
+A public Directory operators may choose to register with is
+<https://directory.argentwolf.org>. Other known Directory servers are listed in
+[`docs/DIRECTORY-INDEX.md`](docs/DIRECTORY-INDEX.md), with the GitHub mirror at
+<https://github.com/thystra/Activity-Relay/blob/master/docs/DIRECTORY-INDEX.md>
+providing a convenient live view. The index is informational rather than a
+trust or endorsement list, and every Directory remains opt-in.
+
 The scheduler persists bounded Redis state, coordinates multiple API processes
 with renewable per-directory leases, and schedules successful heartbeats after
 24 hours plus up to two hours of stable jitter. Automatic retry starts at 30
@@ -367,9 +380,9 @@ Environment-only scheduling is unsupported because durable unregister
 suppression must be read from the same regular YAML file.
 
 `directory status` without an origin lists local entry state. With an origin it
-retrieves that Directory's strict public version 2 status document. `sync`
-performs a heartbeat and only reconciles registration for the explicit
-`relay_not_registered` result.
+retrieves that Directory's strict public status document. The 3.0 client accepts
+status schema versions 2 and 3. `sync` performs a heartbeat and only reconciles
+registration for the explicit `relay_not_registered` result.
 
 For a regular file-backed configuration, `directory unregister` first
 atomically changes the selected entry to `enabled: false`, preserves ownership,

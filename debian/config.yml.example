@@ -14,8 +14,14 @@ MAX_QUEUE_JOBS: 100000
 
 # Optional Activity-Relay Directory scheduling is disabled by default. It runs
 # only in the API server and requires enabled entries in this regular YAML file.
+# Example public Directory (disabled until explicitly enabled):
+#   https://directory.argentwolf.org
+# Maintained Directory index:
+#   https://github.com/thystra/Activity-Relay/blob/master/docs/DIRECTORY-INDEX.md
 DIRECTORY_SCHEDULER_ENABLED: false
 # DIRECTORIES:
+#   - origin: https://directory.argentwolf.org
+#     enabled: false
 #   - origin: https://directory.example.org
 #     enabled: false
 

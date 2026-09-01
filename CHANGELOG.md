@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Documentation
+
+- Add a community-maintained Activity-Relay Directory index, include the public
+  `https://directory.argentwolf.org` service as a disabled opt-in example, and
+  clarify that Directory listings are discovery aids rather than trust or
+  endorsement.
+- Update Directory status documentation to describe schema versions 2 and 3 and
+  remove stale RC1-specific wording for the outbound signature default.
+
 ## [3.0.0-rc2] - 2026-09-01
 
 ### Fixed

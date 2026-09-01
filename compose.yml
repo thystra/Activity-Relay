@@ -12,6 +12,8 @@ x-relay-service: &relay-service
       read_only: true
       bind:
         create_host_path: false
+    # Activity-Relay Directory settings live in ./config.yml. The shipped
+    # config example includes an opt-in public Directory and Directory index.
     - type: bind
       source: ./config.yml
       target: /var/lib/relay/config.yml

@@ -7,10 +7,13 @@ for explicit operator commands and the optional API-process scheduler. It does
 not add a public relay endpoint or worker task. Existing ActivityPub fetch and
 delivery signing remains unchanged.
 
-`DIRECTORIES` accepts at most eight entries:
+`DIRECTORIES` accepts at most eight entries. Entries are opt-in; the public
+example below remains disabled until an operator deliberately enables it:
 
 ```yaml
 DIRECTORIES:
+  - origin: https://directory.argentwolf.org
+    enabled: false
   - origin: https://directory.example.org
     enabled: false
 ```
@@ -25,6 +28,18 @@ Each origin must be one canonical HTTPS origin with no credentials, path,
 query, fragment, or explicit port 443. Origins must be unique. The list is
 absent by default and each omitted `enabled` value is false. Register,
 heartbeat, and sync refuse lifecycle traffic for a disabled entry.
+
+## Finding a Directory
+
+A public Activity-Relay Directory that operators may choose to configure is
+`https://directory.argentwolf.org`. The community-maintained
+[`DIRECTORY-INDEX.md`](DIRECTORY-INDEX.md) lists other known Directory servers.
+The GitHub mirror provides a convenient live view of that list:
+<https://github.com/thystra/Activity-Relay/blob/master/docs/DIRECTORY-INDEX.md>.
+
+The index is a discovery aid, not a trust or endorsement list. Activity-Relay
+does not automatically enable, register with, or trust a Directory because it
+appears in the index.
 
 ## Manual commands
 
