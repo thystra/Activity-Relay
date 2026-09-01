@@ -126,12 +126,19 @@ canonical-object request was unsigned and the secure-mode server returned HTTP
 signature implementation.
 
 NodeBB upstream addressed that application-actor path in commit
-`8e61543b0ae19fd741bd4175d478aab6c79982ca`, released in the 4.15 line. The
-Activity-Relay 3.0 RC1 gate therefore requires a fresh NodeBB 4.15.1 retest
-rather than carrying the 4.14.x limitation forward as current behavior. If the
-retest still fails, capture NodeBB's outgoing `Date`, `Signature`, and `keyId`;
-the remaining problem would then be key discovery or signature
-interoperability rather than an unsigned application-actor fetch.
+`8e61543b0ae19fd741bd4175d478aab6c79982ca`, released in the 4.15 line.
+
+A fresh 4.15.1 retest passed during Activity-Relay 3.0 RC1 acceptance. The test
+used the stock upstream NodeBB 4.15.1 container and the canonical RC1 relay
+image with `OUTBOUND_SIGNATURE_PROFILE: dual`. A new public Mastodon post was
+delivered through the relay, NodeBB completed the canonical-object retrieval
+and displayed the post, the relay's NodeBB receiving-success counter advanced
+without a new failure, and neither side logged a corresponding 401, 403, or
+424 error. The upstream application-actor signing fix is therefore treated as
+verified for this path.
+
+The separate NodeBB category-actor RFC 9421 `GET` compatibility behavior below
+remains independently testable and is not implied by this result.
 
 ## Public embedded Announce normalization
 

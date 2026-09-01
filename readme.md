@@ -882,7 +882,9 @@ Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
 [`docs/releases/`](docs/releases/). The current 3.0 release-candidate
 preparation is documented in
-[`v3.0.0-rc1`](docs/releases/v3.0.0-rc1.md); the current stable release remains
+[`v3.0.0-rc2`](docs/releases/v3.0.0-rc2.md); the published first candidate is
+retained in [`v3.0.0-rc1`](docs/releases/v3.0.0-rc1.md). The current stable
+release remains
 [`v2.5.1`](docs/releases/v2.5.1.md), with
 [`v2.5.0`](docs/releases/v2.5.0.md) and
 [`v2.4.0`](docs/releases/v2.4.0.md) retained for historical reference.

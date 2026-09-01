@@ -76,21 +76,27 @@ the retrospective FEP-ae0c relay profiles.
   an exact reviewed commit/version, rebuilds the release validation gates, and
   emits one checksummed Debian/SBOM/multi-architecture OCI artifact set without
   publishing it.
-- [x] Prepare the Activity-Relay `3.0.0-rc1` package metadata, release notes,
-  and current-state interoperability documentation without changing runtime
-  defaults.
-- [ ] Validate the canonical workflow on the exact Activity-Relay 3.0 RC1
-  preparation commit, inspect the retained artifact/evidence bundle, and prove
-  the exact-byte publication path before creating the first 3.0 release tag.
-- [ ] Deploy the accepted RC1 application code to `relay2.argentwolf.org`
-  first, then `relay.argentwolf.org`, before registering either relay with the
-  Directory.
-- [ ] Retest NodeBB 4.15.1 secure-mode canonical-object retrieval with upstream
-  signing fix `8e61543`; if it still fails, retain outgoing `Date`, `Signature`,
-  and `keyId` evidence.
-- [ ] Exercise both 3.0 relays against the RC-level Directory at
-  `directory.argentwolf.org`, including register, heartbeat, scheduler restart,
-  unregister/re-register, and public projection behavior.
+- [x] Prepare, canonically build, inspect, tag, and publish
+  Activity-Relay `3.0.0-rc1`; prove that the accepted artifact bytes can be
+  published without rebuilding them.
+- [x] Deploy the accepted RC1 to the isolated test relay and preserve the
+  existing actor identity, Redis state, subscriptions, and delivery-health
+  history.
+- [x] Retest NodeBB 4.15.1 secure-mode canonical-object retrieval with upstream
+  signing fix `8e61543`; a fresh Mastodon-to-relay-to-NodeBB path passed with
+  the relay in `dual` mode and no new 401/403/424 failure.
+- [x] Register the RC1 test relay with the RC-level Directory, verify the public
+  healthy projection, and verify local scheduler state survives API restart.
+- [x] Correct the RC1 remote Directory-status incompatibility by accepting
+  Directory status schema 3 and its public-listing fields while retaining
+  schema 2 compatibility.
+- [ ] Prepare, canonically build, inspect, tag, and publish
+  Activity-Relay `3.0.0-rc2`, then deploy those exact bytes to the test relay
+  and verify `relay directory status <origin>` against Directory RC4.
+- [ ] Upgrade `relay.argentwolf.org` to the accepted 3.0 release-candidate code
+  and exercise both relays against `directory.argentwolf.org`, including
+  heartbeat aging, unregister/re-register, public projection, and the existing
+  two-relay no-reflection invariant.
 
 
 ### RFC 9421 / RFC 9530 implementation tranches
@@ -163,8 +169,10 @@ the retrospective FEP-ae0c relay profiles.
   seconds, caps local backoff at 15 minutes, and permits validated remote
   `Retry-After` guidance up to 24 hours. The false-by-default scheduler performs
   startup reconciliation and jittered daily heartbeats in API processes only,
-  under signal-aware graceful shutdown. Remaining work is Directory health and
-  public behavior plus cross-repository staging soak.
+  under signal-aware graceful shutdown. The first live RC1 registration and
+  public healthy projection have passed; remaining work is RC2 schema-3 status
+  verification, heartbeat aging, unregister/re-register, the second relay, and
+  the cross-repository stable-promotion soak.
 ## Release gates for future versions
 
 Before any release:

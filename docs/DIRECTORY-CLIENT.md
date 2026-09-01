@@ -39,8 +39,12 @@ relay directory sync origin
 ```
 
 Status without an origin lists local entries. Status with an origin retrieves
-the strict public status document. Sync performs heartbeat reconciliation only
-for the explicit `relay_not_registered` result. Authentication, enrollment,
+the strict public status document. The 3.0 client accepts Directory status
+schema versions 2 and 3; schema version 3 additionally exposes
+`public_listing_enabled` and `public_listing_available`. JSON decoding remains
+strict, so a future status schema or field set must be added deliberately rather
+than being silently ignored. Sync performs heartbeat reconciliation only for
+the explicit `relay_not_registered` result. Authentication, enrollment,
 suspension, lifecycle, and malformed-response errors are not retried.
 Transport and `internal_error` failures receive at most three attempts with
 bounded backoff. Validated `Retry-After` values are accepted as delta seconds or

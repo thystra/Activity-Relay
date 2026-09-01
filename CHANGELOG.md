@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+## [3.0.0-rc2] - 2026-09-01
+
+### Fixed
+
+- Accept Activity-Relay Directory public status schema version 3 while retaining
+  schema version 2 compatibility, and expose the schema-3 public-listing
+  enabled/available fields through the Directory client status model.
+
+### RC1 acceptance completed
+
+- Validate and publish the exact canonical RC1 artifact set without rebuilding
+  accepted bytes.
+- Verify the upstream NodeBB 4.15.1 application-actor authorized-fetch fix with
+  a fresh Mastodon-to-relay-to-NodeBB delivery while the relay used `dual`
+  outbound signature negotiation; the receiving delivery succeeded without a
+  new 401, 403, or 424 failure.
+- Register the RC1 test relay with Activity-Relay Directory RC4, retain its
+  scheduler state across API restart, and verify the public Directory projection
+  reports the relay healthy.
+- Identify the RC1 remote `directory status <origin>` failure as a strict status
+  schema mismatch rather than a lifecycle-signing or registration failure.
+
+### Release-candidate validation still required
+
+- Build and inspect the canonical Forgejo RC2 artifact/evidence bundle and prove
+  exact-byte publication before creating `v3.0.0-rc2`.
+- Deploy the accepted RC2 to the test relay and verify remote Directory status
+  against schema version 3.
+- Complete the remaining Mastodon, Friendica, WordPress, production-relay, and
+  two-relay interoperability/Directory gates before selecting the stable 3.0
+  outbound-signature default.
+
 ## [3.0.0-rc1] - 2026-09-01
 
 ### Added

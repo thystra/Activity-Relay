@@ -1,3 +1,16 @@
+activity-relay (3.0.0~rc2-1) noble; urgency=medium
+
+  * Prepare the second Activity-Relay 3.0 release candidate.
+  * Accept Activity-Relay Directory public status schema version 3 while
+    retaining schema version 2 compatibility.
+  * Expose Directory public-listing enabled and available status fields.
+  * Record successful NodeBB 4.15.1 authorized-fetch and Directory RC4
+    integration acceptance from the canonical RC1 deployment.
+  * Preserve the legacy outbound-signature default pending the remaining
+    mixed-profile interoperability matrix.
+
+ -- thystra <noreply@github.com>  Tue, 01 Sep 2026 15:50:00 -0400
+
 activity-relay (3.0.0~rc1-1) noble; urgency=medium
 
   * Prepare the first Activity-Relay 3.0 release candidate.
