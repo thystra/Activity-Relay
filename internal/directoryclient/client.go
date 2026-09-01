@@ -43,13 +43,15 @@ type ProtocolError struct {
 
 // Status is the validated public Directory status document.
 type Status struct {
-	SchemaVersion      int    `json:"schema_version"`
-	Service            string `json:"service"`
-	Version            string `json:"version"`
-	PublicBaseURL      string `json:"public_base_url"`
-	LifecycleEnabled   bool   `json:"lifecycle_enabled"`
-	LifecycleAvailable bool   `json:"lifecycle_available"`
-	EnrollmentOpen     bool   `json:"enrollment_open"`
+	SchemaVersion          int    `json:"schema_version"`
+	Service                string `json:"service"`
+	Version                string `json:"version"`
+	PublicBaseURL          string `json:"public_base_url"`
+	LifecycleEnabled       bool   `json:"lifecycle_enabled"`
+	LifecycleAvailable     bool   `json:"lifecycle_available"`
+	EnrollmentOpen         bool   `json:"enrollment_open"`
+	PublicListingEnabled   bool   `json:"public_listing_enabled"`
+	PublicListingAvailable bool   `json:"public_listing_available"`
 }
 
 func (err *ProtocolError) Error() string {
@@ -192,7 +194,8 @@ func (client *Client) Status(ctx context.Context) (Status, error) {
 		return Status{}, decodeProtocolErrorAt(response.StatusCode, response.Header, body, client.now().UTC())
 	}
 	var status Status
-	if err := decodeStrictJSON(body, &status); err != nil || status.SchemaVersion != 2 ||
+	if err := decodeStrictJSON(body, &status); err != nil ||
+		(status.SchemaVersion != 2 && status.SchemaVersion != 3) ||
 		status.Service != "activity-relay-directory" || status.Version == "" ||
 		status.PublicBaseURL != client.origin.String() {
 		return Status{}, ErrDirectoryResponse
