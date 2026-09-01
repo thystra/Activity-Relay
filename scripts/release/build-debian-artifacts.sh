@@ -99,9 +99,18 @@ if find "$EXTRACT" \
     exit 1
 fi
 
+# Debian bookworm ships Lintian 2.116.3, which is affected by Debian #1019690:
+# --show-overrides can make an overridden error satisfy --fail-on error. Keep
+# the gating pass free of override display, then collect overrides separately as
+# non-gating release evidence.
+{
+    echo "lintian_version=$(lintian --print-version)"
+    echo "lintian_gate=--fail-on error"
+} >"$OUT/evidence/lintian.txt"
+
 set +e
-lintian --allow-root --show-overrides --fail-on error "$PUBLIC_DEB" \
-    >"$OUT/evidence/lintian.txt" 2>&1
+lintian --allow-root --fail-on error "$PUBLIC_DEB" \
+    >>"$OUT/evidence/lintian.txt" 2>&1
 LINTIAN_RC=$?
 set -e
 if (( LINTIAN_RC != 0 )); then
@@ -110,6 +119,12 @@ if (( LINTIAN_RC != 0 )); then
     exit 1
 fi
 echo "lintian_exit_code=$LINTIAN_RC" >>"$OUT/evidence/lintian.txt"
+
+{
+    echo
+    echo "--- lintian overrides (informational; non-gating) ---"
+    lintian --allow-root --show-overrides --fail-on none "$PUBLIC_DEB" || true
+} >>"$OUT/evidence/lintian.txt" 2>&1
 
 {
     echo "package=$PACKAGE"
