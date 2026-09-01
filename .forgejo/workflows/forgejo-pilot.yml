@@ -9,7 +9,7 @@ permissions:
 jobs:
   pilot:
     name: Repository-scoped runner smoke test
-    runs-on: forgejo-pilot
+    runs-on: forgejo-workstation
     timeout-minutes: 10
 
     steps:
