@@ -76,7 +76,7 @@ dpkg-deb --control "$PUBLIC_DEB" "$CONTROL"
 
 BIN="$EXTRACT/usr/bin/relay"
 [[ -x "$BIN" ]]
-[[ "$("$BIN" --version)" == "relay version $DEB_VERSION" ]]
+[[ "$("$BIN" --version)" == "relay version $APP_VERSION" ]]
 
 (
     cd "$TMP/src"

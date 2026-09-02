@@ -44,9 +44,9 @@ func TestNewRelayConfig(t *testing.T) {
 				relayConfig.PublicAddressDistributionPolicy(),
 			)
 		}
-		if relayConfig.OutboundSignatureProfile() != relayhttpsig.ProfileLegacy {
+		if relayConfig.OutboundSignatureProfile() != relayhttpsig.ProfileDual {
 			t.Errorf(
-				"Expected omitted outbound profile to be legacy, got %q",
+				"Expected omitted outbound profile to be dual, got %q",
 				relayConfig.OutboundSignatureProfile(),
 			)
 		}
@@ -175,7 +175,7 @@ func TestRelayConfig_DumpWelcomeMessage(t *testing.T) {
 		"REDIS URL":             relayConfig.redisDisplayURL,
 		"BIND ADDRESS":          relayConfig.serverBind,
 		"OBSERVABILITY":         "disabled",
-		"SIGNATURE PROFILE":     relayhttpsig.ProfileLegacy.String(),
+		"SIGNATURE PROFILE":     relayhttpsig.ProfileDual.String(),
 		"PUBLIC ADDRESS POLICY": PublicAddressPublicAndUnlisted.String(),
 		"JOB_CONCURRENCY":       strconv.Itoa(relayConfig.jobConcurrency),
 	}
@@ -193,6 +193,17 @@ func TestNewMachineryServer(t *testing.T) {
 	_, err := NewMachineryServer(relayConfig)
 	if err != nil {
 		t.Errorf("Expected NewMachineryServer to succeed, but got error: %v", err)
+	}
+}
+
+func TestRelayConfigLegacySignatureProfile(t *testing.T) {
+	previous := viper.Get("OUTBOUND_SIGNATURE_PROFILE")
+	defer viper.Set("OUTBOUND_SIGNATURE_PROFILE", previous)
+
+	viper.Set("OUTBOUND_SIGNATURE_PROFILE", "legacy")
+	relayConfig := createRelayConfig(t)
+	if got := relayConfig.OutboundSignatureProfile(); got != relayhttpsig.ProfileLegacy {
+		t.Fatalf("outbound profile = %q; want legacy", got)
 	}
 }
 

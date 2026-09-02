@@ -72,8 +72,9 @@ actor key, enforce response limits and timeouts, retry failures according to the
 task backend, and surface bounded remote response text in errors. Remote actor
 and ActivityPub object resolution also uses the relay actor identity. In `dual`
 mode, an unknown idempotent fetch probes RFC 9421 and may retry once with the
-legacy profile after an explicit signature challenge or a generic HTTP `400`.
-A legacy preference is cached only after that retry succeeds. Redirected fetches
+legacy profile after an explicit signature challenge or the bounded HTTP `400`
+compatibility signal. A legacy preference is cached only after that retry
+succeeds. Redirected fetches
 are re-signed for the new request target and authority. URI fragments are
 removed before RFC 9421 signing because they are not part of the HTTP request
 target; this keeps `@target-uri` identical to what the receiver verifies.
@@ -94,10 +95,12 @@ error class, next retry delay, and bounded non-success response text. Raw
 activity bodies, signatures, private keys, and unbounded remote content are not
 logged or exported as metric labels.
 
-The existing Fediverse `Signature`-header profile remains the compatibility
-baseline. RFC 9421 verification and signing are planned as an additive security
-workstream; they must not remove established signature support without an
-explicit compatibility decision. See `docs/SECURITY.md`.
+The established Fediverse `Signature`-header profile remains supported as the
+legacy compatibility wire format. Activity-Relay 3.0 also implements RFC 9421
+verification and signing; the omitted/default `dual` policy selects one concrete
+wire profile per operation using scoped destination capability evidence. Fixed
+`legacy` and `rfc9421` policies remain available, and delivery POSTs never switch
+wire profile after queueing. See `docs/SECURITY.md`.
 
 ### Directory client and API scheduler
 

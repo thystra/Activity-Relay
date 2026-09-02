@@ -23,8 +23,9 @@ var ErrDualProfileRequiresDeliveryPolicy = errors.New(
 	"dual HTTP signature profile requires destination-aware delivery policy",
 )
 
-// ParseProfile validates a configured profile. An empty value preserves the
-// established legacy behavior.
+// ParseProfile validates a concrete or explicit profile name. An empty value
+// preserves the low-level legacy behavior; operator configuration uses
+// ParseOutboundProfile, whose 3.0 default is destination-aware dual mode.
 func ParseProfile(value string) (Profile, error) {
 	profile := Profile(strings.ToLower(strings.TrimSpace(value)))
 	if profile == "" {

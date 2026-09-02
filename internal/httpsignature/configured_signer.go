@@ -7,13 +7,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
 // ParseOutboundProfile validates one operator-selected outbound policy.
-// Empty input preserves the established legacy behavior.
+// Empty input selects the 3.0 destination-aware compatibility default.
 func ParseOutboundProfile(value string) (Profile, error) {
+	if strings.TrimSpace(value) == "" {
+		return ProfileDual, nil
+	}
 	return ParseProfile(value)
 }
 
@@ -43,7 +47,7 @@ func NewConfiguredSigner(
 	privateKey *rsa.PrivateKey,
 	profile Profile,
 ) (*ConfiguredSigner, error) {
-	normalized, err := ParseOutboundProfile(profile.String())
+	normalized, err := ParseProfile(profile.String())
 	if err != nil {
 		return nil, fmt.Errorf(
 			"outbound HTTP signature profile: %w",

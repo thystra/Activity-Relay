@@ -64,7 +64,12 @@ jobs:
           mkdir -p "$root"
           dpkg-deb --extract "$package" "$root"
 
+          DEB_VERSION="$(dpkg-parsechangelog -SVersion)"
+          DEB_UPSTREAM="${DEB_VERSION%-*}"
+          APP_VERSION="${DEB_UPSTREAM//\~/-}"
+
           test -x "$root/usr/bin/relay"
+          test "$("$root/usr/bin/relay" --version)" = "relay version $APP_VERSION"
           test -x "$root/usr/bin/activity-relay-resource-guard"
           test -f "$root/etc/activity-relay/config.yml.example"
           test -f "$root/usr/share/doc/activity-relay/examples/caddy/Caddyfile.example"

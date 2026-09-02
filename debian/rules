@@ -8,7 +8,8 @@ export CGO_ENABLED = 0
 
 override_dh_auto_build:
 	mkdir -p debian/build
-	go build -trimpath -ldflags "-s -w -X main.version=$$(dpkg-parsechangelog -SVersion)" -o debian/build/relay .
+	APP_VERSION="$$(dpkg-parsechangelog -SVersion | sed -e 's/^[0-9][0-9]*://' -e 's/-[^-]*$$//' -e 's/~/-/g')"; \
+		go build -trimpath -ldflags "-s -w -X main.version=$$APP_VERSION" -o debian/build/relay .
 
 override_dh_auto_test:
 	# Redis-backed tests run in CI before package assembly.

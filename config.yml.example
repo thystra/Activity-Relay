@@ -11,12 +11,12 @@ JOB_CONCURRENCY: 50
 MAX_ACTIVITY_BYTES: 1048576
 MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
-# Outbound authorized-fetch GET and delivery POST signature profile.
-# Supported values: legacy, rfc9421, and dual. Empty or omitted preserves
-# legacy. dual uses expiring destination capability evidence, permits at most
-# one GET fallback after an explicit legacy Signature challenge, and never
-# retries a delivery POST under another profile.
-OUTBOUND_SIGNATURE_PROFILE: legacy
+# Outbound authorized-fetch GET and delivery POST signature policy.
+# Supported values: legacy, rfc9421, and dual. Empty or omitted defaults to
+# dual for backward- and forward-compatible destination negotiation. Unknown
+# deliveries still start with legacy and a delivery POST is never retried under
+# another profile. Set legacy explicitly only when a peer population requires it.
+OUTBOUND_SIGNATURE_PROFILE: dual
 # Controls which broadly addressable activities enter public relay fan-out.
 # explicit_public_only relays only when Public is in the primary `to` field.
 # public_and_unlisted also relays when Public appears only in `cc`, preserving

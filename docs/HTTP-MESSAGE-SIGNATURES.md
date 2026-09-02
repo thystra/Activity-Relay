@@ -1,14 +1,16 @@
 # HTTP message-signature architecture
 
-Activity-Relay supports the established Fediverse HTTP Signature profile and is
-adding RFC 9421 HTTP Message Signatures with RFC 9530 digest fields in bounded
-tranches.
+Activity-Relay supports both the established Fediverse HTTP Signature profile
+and RFC 9421 HTTP Message Signatures with RFC 9530 digest fields. The 3.0
+runtime keeps the wire formats distinct and uses destination-aware negotiation
+when the outbound policy is `dual`.
 
 ## Compatibility boundary
 
-The existing `SignGET` and `SignPOST` methods remain the legacy profile. The
-first standards tranche adds explicit profile-aware primitives without changing
-any production call site or default.
+The existing `SignGET` and `SignPOST` methods remain the low-level legacy
+profile. Profile-aware primitives and the runtime negotiating signer select the
+wire format explicitly without placing both incompatible signature grammars in
+one request.
 
 Profiles are:
 
@@ -60,22 +62,24 @@ other dictionary algorithms but requires and constant-time compares the
 The modern primitive removes stale legacy `Digest` and legacy `Signature`
 material before signing. GET requests do not carry a content digest.
 
-## Security and rollout gates
+## Security and rollout status
 
-Inbound RFC 9421 verification and explicit outbound profile selection are
-runtime-selectable. Remaining rollout gates are:
+Inbound RFC 9421 verification, fixed outbound profiles, and destination-aware
+`dual` negotiation are runtime-selectable and covered by unit, real-process, and
+cross-software testing. Activity-Relay 3.0 selects `dual` when the outbound
+setting is empty or omitted; explicit `legacy` and `rfc9421` remain available.
 
-1. destination capability state and an explicitly reviewed dual negotiation
-   policy;
-2. outbound profile metrics and negotiation outcomes where applicable; and
-3. mixed-version interoperability tests before changing the default.
+Inbound verifier outcomes are exported as bounded Prometheus metrics. Outbound
+delivery diagnostics record the concrete selected `signature_profile`; a
+dedicated outbound-profile counter is a future observability enhancement rather
+than a 3.0 protocol requirement.
 
 Linked Data proofs remain separate from HTTP request authentication.
 
 ## Inbound verification core
 
-The inbound core verifies the modern ActivityPub POST profile without changing
-the active inbox decoder yet.
+The inbound core verifies the modern ActivityPub POST profile and is wired into
+the active inbox decoder whenever `Signature-Input` is present.
 
 The verifier requires:
 
@@ -105,8 +109,8 @@ A successful verification result carries the resolved key owner and actor
 identity. `BindActivityActor` requires both identities to match the activity's
 actor URL after scheme and authority case normalization.
 
-Runtime actor retrieval, inbox profile selection, metrics, and HTTP response
-classification remain for the next tranche.
+Runtime actor retrieval, inbox profile selection, bounded metrics, and HTTP
+response classification are part of the 3.0 runtime.
 
 ## Inbound runtime selection
 
@@ -161,16 +165,14 @@ Accepted values are:
 - `dual`: a destination-aware policy that selects one concrete `legacy` or
   `rfc9421` wire profile for each fetch or delivery operation.
 
-An empty or omitted value is normalized to `legacy`. This preserves existing
-installations and generated test configurations; RC1 intentionally retains that
-default pending mixed-profile interoperability evidence. Unknown values fail
-startup.
-
-The low-level fixed-profile signer still rejects `dual`, because `dual` is not a
-wire format. Runtime `RelayConfig` accepts it only after constructing the Redis
-capability store and destination negotiator used by both API and worker
-processes. Authorized-fetch redirects remove all legacy and modern signature
-fields before re-planning and re-signing the new request target.
+An empty or omitted operator value is normalized to `dual`, the 3.0
+compatibility default. Unknown values fail startup. The low-level fixed-profile
+parser and fixed signer retain empty-as-legacy behavior for internal backward
+compatibility because they cannot negotiate; runtime `RelayConfig` uses the
+outbound-policy parser and constructs the Redis capability store and destination
+negotiator before accepting `dual`. Authorized-fetch redirects remove all
+legacy and modern signature fields before re-planning and re-signing the new
+request target.
 
 Selecting fixed `rfc9421` is an explicit operator action. It does not probe a
 destination, retry a POST with another signature grammar, or fall back after a
@@ -185,10 +187,12 @@ Capability identity is origin- and scope-specific. Fetch evidence and delivery
 evidence are not interchangeable. Positive RFC 9421 observations expire after
 fourteen days by default; explicit negative observations expire after one day.
 
-An unknown fetch plan may select RFC 9421 first and expose a legacy fallback,
-but the fallback is eligible only after a later runtime layer has explicitly
-classified a signature rejection. Transport errors and generic HTTP failures
-never authorize fallback.
+An unknown fetch plan selects RFC 9421 first and exposes one legacy fallback.
+The fallback is eligible after either an explicit legacy `Signature` challenge
+or the bounded HTTP 400 compatibility signal used for unknown idempotent GETs.
+A legacy preference is cached after the 400 path only when the legacy retry
+succeeds. Transport errors, 5xx responses, timeouts, DNS failures, and arbitrary
+response text never authorize fallback.
 
 An unknown delivery plan remains legacy. Delivery plans never contain a
 fallback, preventing blind duplicate POST delivery.
@@ -207,6 +211,8 @@ tasks persist one concrete profile across every delayed retry, while old
 two-argument tasks remain readable.
 
 Successful compatible `Accept-Signature` responses and successful RFC 9421
-requests create positive capability evidence. Generic status codes, body text,
+requests create positive capability evidence. An explicit RFC 9421 rejection,
+or a successful legacy retry after the bounded unknown-GET HTTP 400 signal, can
+create short-lived legacy evidence. Other generic status codes, body text,
 network failures, and malformed or incompatible `Accept-Signature` fields do
 not.

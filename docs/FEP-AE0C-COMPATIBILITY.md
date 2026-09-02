@@ -1,4 +1,4 @@
-# FEP-ae0c compatibility and Activity-Relay 3.0 design input
+# FEP-ae0c compatibility and Activity-Relay 3.0 design record
 
 ## Purpose
 
@@ -15,9 +15,9 @@ interoperability reference, not permission to copy every historical quirk
 without evaluating privacy, authenticity, loop prevention, and current
 cross-software behavior.
 
-This document characterizes Activity-Relay v2.5.0 against that retrospective
-description and defines the questions that must be resolved before the 3.0
-signing and relay-policy work changes runtime behavior.
+This document retains the Activity-Relay v2.5.0 characterization against that
+retrospective description and records how the 3.0 signing, routing, and
+loop-suppression work resolved the resulting design questions.
 
 The machine-readable companion is
 [`testdata/fep-ae0c/cases.json`](../testdata/fep-ae0c/cases.json).
@@ -193,8 +193,9 @@ dedicated audit must still prove the invariant across:
 - two-relay topologies; and
 - mixed traditional and follower-style membership.
 
-No 3.0 protocol change should ship until this fixture is converted into
-executable unit and multi-relay integration coverage.
+This gate is now represented by executable unit coverage and the required
+real-process two-relay `no_reflection_observed` invariant. Future relay-policy
+changes must retain that coverage.
 
 ## 3.0 design decisions already accepted
 
@@ -204,8 +205,8 @@ executable unit and multi-relay integration coverage.
 - Add RFC 9421 HTTP Message Signatures and RFC 9530 `Content-Digest`
   additively.
 - Keep legacy-only, dual, and RFC-only signing profiles distinct in code and
-  tests; RFC-only must not become the default until interoperability supports
-  it.
+  tests. Activity-Relay 3.0 defaults to destination-aware `dual`; RFC-only
+  remains explicit until ecosystem interoperability supports a stricter default.
 - Keep open publisher ingestion and its actor-host security checks.
 - Use `explicit_public_only` in fresh examples; preserve omitted and explicit
   `public_and_unlisted` as the upgrade-compatible behavior.
@@ -217,17 +218,20 @@ executable unit and multi-relay integration coverage.
 
 ## Characterization sequence
 
-1. Land this document and the fixture catalog without runtime changes.
-2. Convert fixture rows into unit tests that freeze v2.5 behavior.
-3. Add multi-relay loop and repeated-ID tests.
-4. Test `to` versus `cc` behavior against real receiving software.
-5. Refactor request signing and verification behind explicit legacy, RFC 9421,
-   and dual profiles.
-6. Add RFC 9530 digest generation and verification from the exact transmitted
-   body bytes.
-7. Repeat traditional, LitePub, open-publisher, NodeBB, authorized-fetch, and
-   receiver-presentation integration tests.
-8. Select 3.0 defaults only after the compatibility evidence is recorded.
+The 3.0 work followed this sequence:
+
+1. land this document and the fixture catalog without runtime changes;
+2. convert fixture rows into unit tests that freeze v2.5 behavior;
+3. add multi-relay loop and repeated-ID tests;
+4. test `to` versus `cc` behavior against real receiving software;
+5. refactor request signing and verification behind explicit legacy, RFC 9421,
+   and dual profiles;
+6. add RFC 9530 digest generation and verification from the exact transmitted
+   body bytes;
+7. repeat traditional, LitePub, open-publisher, NodeBB, authorized-fetch, and
+   receiver-presentation integration tests; and
+8. select destination-aware `dual` as the 3.0 omitted/default outbound policy
+   after the mixed-software evidence was recorded.
 
 ## Executable characterization coverage
 
@@ -258,16 +262,17 @@ canonical-activity GET and actor-document GET before returning either document.
 The test then verifies canonical publisher accounting and a relay-authored
 `Announce` queued for both receiver styles.
 
-The `repeat-id-two-relay-loop` case now has diagnostic executable coverage.
-The diagnostic uses two independently configured API processes, two workers,
-two Redis instances, independent actor keys, trusted TLS frontends, and a
-signed origin. Diagnostic execution is not yet a passing invariant: the
-machine-readable classification determines whether the observed behavior is
-bounded or requires a runtime loop-suppression fix.
+The `repeat-id-two-relay-loop` case has required real-process invariant
+coverage. The probe uses two independently configured API processes, two
+workers, two Redis instances, independent actor keys, trusted TLS frontends,
+and a signed origin, and passes only with `no_reflection_observed` and no final
+delivery backlog.
 
-The RFC 9421 dual-profile fixture remains future protocol coverage. External
-review feedback may add or refine fixtures without changing these frozen v2.5
-characterization assertions.
+The RFC 9421 dual-policy fixture now records the implemented invariant: `dual`
+selects exactly one concrete wire profile for each operation, and a delivery
+POST never emits both signature grammars or switches profile across retries.
+External review feedback may add or refine fixtures without changing the frozen
+v2.5 characterization assertions.
 
 ### Two-relay process-probe contract
 

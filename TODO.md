@@ -61,8 +61,8 @@ website content, and supported deployment models.
 
 ## Activity-Relay 3.0 design
 
-The next active protocol milestone is a modern signing architecture informed by
-the retrospective FEP-ae0c relay profiles.
+The active 3.0 release milestone is the modern signing architecture informed by
+the retrospective FEP-ae0c relay profiles, now in stable-promotion validation.
 
 ### Repository authority and CI
 
@@ -90,13 +90,15 @@ the retrospective FEP-ae0c relay profiles.
 - [x] Correct the RC1 remote Directory-status incompatibility by accepting
   Directory status schema 3 and its public-listing fields while retaining
   schema 2 compatibility.
-- [ ] Prepare, canonically build, inspect, tag, and publish
+- [x] Prepare, canonically build, inspect, tag, and publish
   Activity-Relay `3.0.0-rc2`, then deploy those exact bytes to the test relay
   and verify `relay directory status <origin>` against Directory RC4.
-- [ ] Upgrade `relay.argentwolf.org` to the accepted 3.0 release-candidate code
-  and exercise both relays against `directory.argentwolf.org`, including
-  heartbeat aging, unregister/re-register, public projection, and the existing
-  two-relay no-reflection invariant.
+- [x] Upgrade `relay.argentwolf.org` to the accepted RC2 code without replacing
+  Redis state, subscriptions, actor identity, or key identity; register both
+  relays with `directory.argentwolf.org` and verify the public healthy projection.
+- [ ] Complete natural Directory heartbeat aging and a controlled
+  unregister/re-register lifecycle exercise before stable promotion, then retain
+  the final cross-repository soak evidence.
 
 
 ### RFC 9421 / RFC 9530 implementation tranches
@@ -118,8 +120,9 @@ the retrospective FEP-ae0c relay profiles.
   evidence, one bounded explicit-challenge GET fallback, stable queued
   delivery-profile selection across retries, and no blind duplicate POST
   delivery.
-- [ ] Run mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
-  interoperability before selecting the Activity-Relay 3.0 default.
+- [x] Run mixed-profile Mastodon, Friendica, NodeBB, WordPress, and two-relay
+  interoperability and select destination-aware `dual` as the Activity-Relay
+  3.0 omitted/default outbound policy.
 
 - Land and maintain `docs/FEP-AE0C-COMPATIBILITY.md` and the machine-readable
   fixture catalog before changing runtime behavior.
@@ -143,9 +146,11 @@ the retrospective FEP-ae0c relay profiles.
 
 ## Deferred work after v2.5.1
 
-- Investigate NodeBB follow interoperability separately from Activity-Relay
-  after the 4.15.1 secure-mode fetch retest; use a controlled NodeBB instance
-  and inspect the corresponding application logs.
+- Track the receiver-specific NodeBB 4.15.1 forced-RFC-9421 Announce rejection
+  in upstream issue #14732. Treat it as external interoperability unless wire
+  evidence identifies an Activity-Relay RFC 9421 defect.
+- Consider an outbound signature-profile Prometheus counter after 3.0; current
+  bounded worker diagnostics already record the concrete selected profile.
 - Define stale-receiver retention and cleanup configuration after sufficient
   delivery-health history exists. Begin in report-only dry-run mode; active
   membership and queued or claimed work remain non-configurable deletion
@@ -169,9 +174,9 @@ the retrospective FEP-ae0c relay profiles.
   seconds, caps local backoff at 15 minutes, and permits validated remote
   `Retry-After` guidance up to 24 hours. The false-by-default scheduler performs
   startup reconciliation and jittered daily heartbeats in API processes only,
-  under signal-aware graceful shutdown. The first live RC1 registration and
-  public healthy projection have passed; remaining work is RC2 schema-3 status
-  verification, heartbeat aging, unregister/re-register, the second relay, and
+  under signal-aware graceful shutdown. RC2 schema-3 status, both live relay
+  registrations, and the public healthy projection have passed; remaining work
+  is natural heartbeat aging, a controlled unregister/re-register exercise, and
   the cross-repository stable-promotion soak.
 ## Release gates for future versions
 

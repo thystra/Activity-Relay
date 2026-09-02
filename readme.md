@@ -26,7 +26,8 @@ Compared with the upstream baseline, this fork includes:
   authorized-fetch and secure-mode interoperability.
 - RFC 9421 HTTP Message Signatures and RFC 9530 `Content-Digest` with strict
   inbound verification and explicit `legacy`, `rfc9421`, and destination-aware
-  `dual` outbound modes; the omitted/default profile remains `legacy`.
+  `dual` outbound modes; 3.0 uses `dual` as the omitted/default policy so new
+  deployments retain legacy compatibility while learning modern capability.
 - An opt-in Activity-Relay Directory v1 client with manual lifecycle commands
   and a fenced API-process scheduler for registration and heartbeat handling.
 - An ActivityStreams `Application` relay profile recognized by current
@@ -204,8 +205,10 @@ The image uses `/usr/bin/relay` as its entrypoint.
 
 ### Native Debian/Ubuntu package
 
-Tagged releases attach an Ubuntu 24.04 `amd64` package and `SHA256SUMS` to the
-GitHub Release.
+Tagged maintained-fork releases attach the canonical Ubuntu 24.04 `amd64`
+package, `SHA256SUMS`, and release evidence to the authoritative Forgejo release.
+GitHub remains a downstream validation mirror and does not publish independent
+release assets.
 
 Install a downloaded package:
 
@@ -312,8 +315,8 @@ MAX_ACTIVITY_BYTES: 1048576
 MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
 
-# Outbound authorized-fetch and delivery signing. Omitted defaults to legacy.
-OUTBOUND_SIGNATURE_PROFILE: legacy
+# Outbound authorized-fetch and delivery signing. Omitted defaults to dual.
+OUTBOUND_SIGNATURE_PROFILE: dual
 
 # Fresh-install default. Existing installations can retain the
 # pre-3.0 behavior with public_and_unlisted.
@@ -347,10 +350,13 @@ the same host.
 
 `PUBLIC_ADDRESS_DISTRIBUTION_POLICY` accepts `explicit_public_only` or `public_and_unlisted`. `explicit_public_only` distributes activities only when the ActivityStreams Public collection appears in the primary `to` audience. A Public address appearing only in `cc` is acknowledged and publisher-accounted but is not distributed through public fan-out. `public_and_unlisted` preserves the pre-3.0 behavior by including Public from either `to` or `cc`; it does not make followers-only or direct activities eligible. The fresh configuration example explicitly selects `explicit_public_only`. An omitted value falls back to `public_and_unlisted` for compatibility, but upgrade configurations should set that value explicitly when retaining the old behavior.
 
-`OUTBOUND_SIGNATURE_PROFILE` accepts `legacy`, `rfc9421`, or `dual`.
-Empty or omitted configuration preserves the established legacy signatures.
-The same value is used by the API server for signed remote GETs and by every
-worker for delivery POSTs.
+`OUTBOUND_SIGNATURE_PROFILE` accepts `legacy`, `rfc9421`, or `dual`. Empty or
+omitted configuration selects `dual`, the 3.0 compatibility default. `dual` uses
+one concrete wire profile per operation: unknown authenticated GETs begin with
+RFC 9421, while unknown delivery POSTs begin with legacy and never switch
+signature grammar across retries. Operators may set `legacy` or `rfc9421`
+explicitly when they need a fixed profile. The same policy is used by the API
+server for signed remote GETs and by every worker for delivery POSTs.
 
 `DIRECTORIES` is an optional list of at most eight canonical HTTPS origins.
 Origins cannot contain credentials, paths, queries, fragments, or the explicit
@@ -411,8 +417,8 @@ restarting the relay.
 `dual` uses expiring Redis capability evidence scoped separately to fetches and
 deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback after
 either a `401` or `403` response containing an explicit
-`WWW-Authenticate: Signature` challenge, or a generic HTTP `400` compatibility
-response. The `400` path is limited to unknown idempotent fetches, and a
+`WWW-Authenticate: Signature` challenge, or the bounded HTTP `400` compatibility
+signal. The `400` path is limited to unknown idempotent fetches, and a
 short-lived legacy preference is recorded only when the legacy retry succeeds.
 Other generic HTTP failures, response body text, DNS failures, and timeouts do
 not trigger fallback. An unknown delivery uses legacy. Every newly queued
@@ -594,12 +600,14 @@ Legacy `/relay` and `/friendica` actors with incomplete type metadata remain
 supported.
 
 Outbound authorized fetches and deliveries use `OUTBOUND_SIGNATURE_PROFILE`.
-The default `legacy` profile preserves the established wire format. Explicit
-`rfc9421` selection uses RFC 9421 and RFC 9530 without changing the actor key or
-key ID. Both profiles sign the same authority transmitted on the wire,
-including a non-default port. Bounded non-success response text is included in
-worker errors to make remote signature-verification failures diagnosable
-without logging unbounded response bodies.
+The 3.0 default is destination-aware `dual`: it preserves legacy delivery for
+unknown peers while using or learning RFC 9421 capability independently for
+fetch and delivery scopes. Explicit `legacy` and `rfc9421` remain available as
+fixed profiles. RFC 9421 uses RFC 9530 `Content-Digest` without changing the
+actor key or key ID. All wire profiles sign the same authority transmitted on
+the wire, including a non-default port. Bounded non-success response text is
+included in worker errors to make remote signature-verification failures
+diagnosable without logging unbounded response bodies.
 
 ## Public Announce interoperability
 
@@ -621,9 +629,11 @@ NodeBB 4.14.x, including 4.14.5 testing, exposed a receiving-side secure-mode
 limitation: its application-context canonical-object fetch was unsigned, so it
 could return HTTP 424 after accepting a valid relay delivery when the remote
 object required a signed `GET`. NodeBB upstream changed that path in commit
-`8e61543b0ae19fd741bd4175d478aab6c79982ca`; Activity-Relay 3.0 RC1 requires a
-fresh NodeBB 4.15.1 retest before treating the issue as resolved. See
-`docs/INTEROPERABILITY.md`.
+`8e61543b0ae19fd741bd4175d478aab6c79982ca`; a stock NodeBB 4.15.1 retest
+passed during the 3.0 RC acceptance cycle. A separate forced-RFC-9421 Announce
+delivery currently receives HTTP 400 from NodeBB 4.15.1 and is tracked upstream
+as [NodeBB issue #14732](https://github.com/NodeBB/NodeBB/issues/14732). Activity-Relay's normal `dual` policy does not infer
+delivery capability from fetch-only evidence. See `docs/INTEROPERABILITY.md`.
 
 Inbound request failures are logged with the HTTP method, path, remote address,
 user agent, and the bounded verification or decoding error. Request bodies,

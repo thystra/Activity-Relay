@@ -26,14 +26,16 @@ support modern signatures on one endpoint class but not the other.
 The core stores only bounded evidence:
 
 - `successful_rfc9421`: an RFC 9421 request was accepted;
-- `accept_signature`: a later runtime parser established a compatible
-  RFC 9421 `Accept-Signature` request for subsequent messages; or
-- `explicit_rfc9421_rejection`: a later runtime classifier established that
-  RFC 9421 itself was rejected and a legacy preference should be used
-  temporarily.
+- `accept_signature`: a compatible RFC 9421 `Accept-Signature` advertisement
+  established modern capability for subsequent messages;
+- `explicit_rfc9421_rejection`: an explicit legacy `Signature` challenge
+  established that a legacy preference should be used temporarily; or
+- `successful_legacy_fallback`: an unknown RFC 9421 GET received the bounded
+  HTTP 400 compatibility signal and the single permitted legacy retry
+  succeeded.
 
-A generic 4xx or 5xx status, timeout, connection failure, DNS failure, or
-unparseable response is not signature-capability evidence.
+Other generic 4xx or 5xx statuses, timeout, connection failure, DNS failure,
+unparseable responses, and response body text are not capability evidence.
 
 Positive RFC 9421 evidence defaults to fourteen days. An explicit negative
 observation defaults to twenty-four hours. Negative evidence is shorter-lived
@@ -79,16 +81,17 @@ The runtime now:
 
 1. accepts `dual` only with a constructed Redis capability store;
 2. parses and validates compatible `Accept-Signature` fields;
-3. recognizes only bounded explicit signature-rejection evidence;
+3. recognizes only bounded signature-rejection and successful-fallback evidence;
 4. executes an eligible GET fallback at most once;
 5. records successful modern fetch and delivery observations;
 6. preserves one selected profile across delayed delivery retries; and
 7. includes a mixed-profile real-process negotiation probe.
 
-The remaining release gate is cross-software interoperability: Mastodon,
-Friendica, NodeBB, WordPress, and the two-relay topology must be exercised
-before selecting the Activity-Relay 3.0 stable default. RC1 therefore retains
-`legacy` as the omitted/default outbound profile.
+The 3.0 stable policy selects `dual` when `OUTBOUND_SIGNATURE_PROFILE` is empty
+or omitted. Cross-software RC testing exercised Mastodon, Friendica, WordPress,
+NodeBB, and isolated two-relay behavior. Explicit `legacy` remains the fixed
+compatibility mode, while explicit `rfc9421` remains useful for controlled or
+strict deployments.
 
 ## Runtime wiring
 
@@ -99,14 +102,16 @@ the Redis capability store and destination negotiator. Fixed `legacy` and
 ### Authorized fetch
 
 The configured signer owns initial and redirected GET signing. For an unknown
-origin it sends RFC 9421 first. A single legacy fallback is permitted only when
-the final response is `401` or `403` and a `WWW-Authenticate` field explicitly
-contains the `Signature` authentication scheme.
+origin it sends RFC 9421 first. A single legacy fallback is permitted when the
+final response is `401` or `403` with a `WWW-Authenticate` field explicitly
+containing the `Signature` authentication scheme, or when the unknown
+idempotent GET receives the bounded HTTP `400` compatibility signal.
 
 The rejected response body is drained only to a small bound and closed before
 the fallback. The fallback is executed once; its response cannot trigger
-another negotiation fallback. Redirects are re-planned and re-signed for their
-own normalized destination origin.
+another negotiation fallback. After the HTTP 400 compatibility path, a legacy
+preference is stored only if that fallback succeeds. Redirects are re-planned
+and re-signed for their own normalized destination origin.
 
 ### Accept-Signature evidence
 

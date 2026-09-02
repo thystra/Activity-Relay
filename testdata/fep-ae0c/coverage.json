@@ -146,9 +146,13 @@
     },
     {
       "case_id": "rfc9421-dual-profile-post",
-      "status": "future-protocol",
-      "tests": [],
-      "notes": "Becomes executable only when additive RFC 9421/RFC 9530 code exists."
+      "status": "executable-new",
+      "tests": [
+        "TestUnknownDualDeliveryNeverFallsBack",
+        "TestExplicitDeliveryProfileSendsOnlyOnce",
+        "TestDeliveryProfileFromTaskArgs"
+      ],
+      "notes": "Dual planning selects one concrete delivery profile, delivery POSTs never negotiate by resending, and queued retries persist only legacy or rfc9421 wire profiles."
     }
   ]
 }

@@ -15,8 +15,13 @@ func TestParseOutboundProfile(t *testing.T) {
 		wantError error
 	}{
 		{
-			name: "empty defaults to legacy",
-			want: ProfileLegacy,
+			name: "empty defaults to dual",
+			want: ProfileDual,
+		},
+		{
+			name:  "whitespace defaults to dual",
+			input: "  ",
+			want:  ProfileDual,
 		},
 		{
 			name:  "legacy",
@@ -67,7 +72,7 @@ func TestParseOutboundProfile(t *testing.T) {
 	}
 }
 
-func TestConfiguredSignerPreservesLegacyDefault(t *testing.T) {
+func TestFixedConfiguredSignerPreservesLegacyEmptyCompatibility(t *testing.T) {
 	baseSigner, publicKey := newTestSigner(t)
 	signer, err := NewConfiguredSigner(
 		baseSigner.keyID,
@@ -144,6 +149,27 @@ func TestConfiguredSignerRejectsDual(t *testing.T) {
 	)
 	if !errors.Is(err, ErrDualProfileRequiresDeliveryPolicy) {
 		t.Fatalf("dual configured signer error = %v", err)
+	}
+}
+
+func TestNegotiatingSignerUsesDualDefault(t *testing.T) {
+	baseSigner, _ := newTestSigner(t)
+	negotiator := testNegotiator(
+		t,
+		&memoryDestinationCapabilityStore{save: true},
+		time.Now().UTC(),
+	)
+	signer, err := NewNegotiatingSigner(
+		baseSigner.keyID,
+		baseSigner.privateKey,
+		"",
+		negotiator,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if signer.Profile() != ProfileDual {
+		t.Fatalf("profile = %q; want dual", signer.Profile())
 	}
 }
 

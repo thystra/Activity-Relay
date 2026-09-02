@@ -29,8 +29,8 @@ repository.
 - GitHub workflows must remain validation-only. They must not publish release
   artifacts or mutable container tags from mirrored commits or tags.
 - Canonical release artifacts must be built and promoted by the authoritative
-  Forgejo release path. If that path is unavailable or not yet implemented,
-  release publication is blocked rather than delegated back to GitHub.
+  Forgejo release path. If that path is unavailable, release publication is
+  blocked rather than delegated back to GitHub.
 - Repository authority does not change the public Go module path,
   `github.com/thystra/Activity-Relay`.
 
@@ -141,8 +141,8 @@ Never run tests against production Redis.
   published for that tag.
 - `docs/INTEGRATION-TESTING.md` defines host-neutral container and native-package
   release gates; private transcripts and host details remain outside the repo.
-- `docs/SECURITY.md` records the current signature profile and additive security
-  roadmap.
+- `docs/SECURITY.md` records the current signature architecture, compatibility
+  policy, and future hardening considerations.
 - `docs/FEP-AE0C-COMPATIBILITY.md` records the two retrospective relay
   families, Activity-Relay extensions, unresolved behavior questions, and the
   characterization fixtures that must remain synchronized with protocol
@@ -170,8 +170,9 @@ Never run tests against production Redis.
 - Do not move a published tag. Correct release mistakes with a later release
   candidate or patch release.
 - After publication, verify release checksums, internal package version,
-  architecture, installed example files, GitHub release metadata, and container
-  manifests before declaring the release complete.
+  architecture, installed example files, canonical Forgejo release metadata,
+  downstream GitHub tag propagation, and container manifests before declaring
+  the release complete.
 
 ## Upstream changes
 

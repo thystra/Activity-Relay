@@ -12,6 +12,16 @@ MAX_ACTIVITY_BYTES: 1048576
 MAX_FANOUT_TARGETS: 5000
 MAX_QUEUE_JOBS: 100000
 
+# Outbound authorized-fetch GET and delivery POST signature policy.
+# Supported values: legacy, rfc9421, and dual. Empty or omitted defaults to
+# dual. Unknown deliveries still start with legacy; delivery POSTs never switch
+# signature grammar across retries.
+OUTBOUND_SIGNATURE_PROFILE: dual
+
+# Fresh-install public fan-out policy. public_and_unlisted preserves pre-3.0
+# handling when explicitly selected or when this setting is omitted.
+PUBLIC_ADDRESS_DISTRIBUTION_POLICY: explicit_public_only
+
 # Optional Activity-Relay Directory scheduling is disabled by default. It runs
 # only in the API server and requires enabled entries in this regular YAML file.
 # Example public Directory (disabled until explicitly enabled):

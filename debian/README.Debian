@@ -29,6 +29,12 @@ Initial configuration
 
 Starting the API server or worker also starts activity-relay-redis.service.
 
+Activity-Relay 3.0 defaults OUTBOUND_SIGNATURE_PROFILE to `dual` when the
+setting is omitted. `dual` keeps legacy delivery compatibility for unknown
+peers while learning RFC 9421 capability independently for authenticated fetch
+and delivery. Set `legacy` or `rfc9421` explicitly only when a fixed policy is
+required. The shipped config.yml.example selects `dual` explicitly.
+
 Package upgrades restart Activity-Relay services that are already active and
 print the restart result when configuration finishes. Inactive services are
 not enabled or started by an upgrade.
@@ -147,6 +153,12 @@ PKCS#1 RSA public keys (`BEGIN RSA PUBLIC KEY`).
 Package upgrades do not replace /etc/activity-relay/actor.pem. The `2.4.0`
 public-key compatibility change alters only the public serialization of the
 existing key and retains the relay actor ID and `#main-key` key ID.
+
+The Debian package version and Activity-Relay application version are distinct.
+For example, package `3.0.0~rc2-1` contains application `3.0.0-rc2`; stable
+package `3.0.0-1` contains application `3.0.0`. `relay --version`, public status,
+and build metrics report the application version rather than Debian revision
+syntax.
 
 Storage placement
 -----------------

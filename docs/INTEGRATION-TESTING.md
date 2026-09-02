@@ -67,6 +67,13 @@ Exercise:
 ## Native package matrix
 
 Build the candidate or stable package version from the exact tested commit.
+
+The Debian package revision must not become the application version. For
+`X.Y.Z~rcN-1`, the packaged binary, `/status.json`, and `build_info` metric must
+report `X.Y.Z-rcN`; for `X.Y.Z-1`, they must report `X.Y.Z`. The canonical
+release build and mirror validation both assert the packaged binary's
+`relay --version` output.
+
 Inspect package metadata and contents, run Lintian, and test:
 
 1. clean installation with inactive services;
@@ -199,7 +206,7 @@ go test ./internal/httpsignature
 
 The focused suite freezes:
 
-- empty profile configuration preserving `legacy`;
+- low-level `ParseProfile` and the fixed signer preserving empty-as-`legacy` compatibility;
 - `dual` being rejected by the primitive wire signer unless a destination-aware policy is supplied;
 - exact RFC 9530 SHA-256 serialization and verification;
 - exact wire authority including non-default ports;
@@ -281,7 +288,8 @@ go test -count=1 ./internal/httpsignature ./models ./api ./deliver
 
 The configuration and runtime suite requires:
 
-- omitted and empty configuration to resolve to `legacy`;
+- omitted and empty operator configuration to resolve to `dual`;
+- explicit `legacy` to remain available as a fixed compatibility profile;
 - case-normalized `rfc9421` to be accepted;
 - `dual` to be accepted by `RelayConfig` only with its destination negotiator;
 - the low-level fixed-profile signer to reject `dual` as a wire format;
@@ -294,17 +302,18 @@ The configuration and runtime suite requires:
 - redirects to remove stale fields and re-sign the redirected target; and
 - no automatic fallback or duplicate POST attempt.
 
-Because omitted configuration is the compatibility default, also rerun:
+Because omitted configuration now exercises the stable `dual` compatibility
+default, also rerun:
 
 ```text
 contrib/ops/test_rfc9421_inbound_probe.sh /absolute/private/evidence/path
 contrib/ops/test_fep_ae0c_two_relay_probe.sh /absolute/private/evidence/path
 ```
 
-With the omitted/default profile, the first preserves the
-modern-inbound/legacy-outbound boundary. The second must retain
-`no_reflection_observed` with legacy wire signatures. Separate dual-mode
-validation follows below.
+The first preserves strict modern inbound verification while allowing the
+outbound side to negotiate per destination. The second must retain
+`no_reflection_observed` independent of the concrete selected wire profile.
+Explicit fixed-profile tests continue to cover legacy and RFC-only behavior.
 
 ## Destination negotiation core
 

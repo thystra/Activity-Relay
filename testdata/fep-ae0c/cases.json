@@ -390,24 +390,21 @@
     },
     {
       "id": "rfc9421-dual-profile-post",
-      "description": "Future dual-profile POST signs one exact body with legacy and modern fields.",
+      "description": "Dual-policy delivery selects one concrete signature profile for a POST and persists that choice across retries.",
       "profile": "cross-profile",
-      "status": "specified",
-      "decision": "investigate",
+      "status": "covered",
+      "decision": "preserve",
       "distribution": "forward-original",
       "http_request": {
         "method": "POST",
         "url": "https://receiver.example/inbox",
         "headers": [
-          "Digest",
-          "Content-Digest",
-          "Signature",
-          "Signature-Input"
+          "Signature"
         ],
         "signature_profile": "dual"
       },
       "current_v2_5": "Not implemented; v2.5.0 emits the legacy Fediverse profile.",
-      "v3_assertion": "Both digest fields must cover identical transmitted bytes, with independent verification and downgrade rules."
+      "v3_assertion": "Dual selects exactly one legacy or RFC 9421 wire profile. RFC 9421 POSTs carry Signature-Input and Content-Digest without legacy Digest; legacy POSTs carry Digest without Signature-Input. Delivery retries reuse the selected profile and never fall back to another grammar."
     }
   ]
 }

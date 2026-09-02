@@ -6,12 +6,13 @@ independent-validation surface; mirrored commits or tags must not cause GitHub
 to publish release artifacts or mutable container tags.
 
 The current GitHub release workflow is deliberately manual and
-validation-only. Forgejo now owns a manual canonical candidate-artifact build
-that accepts only an exact reviewed commit and version and does not publish by
-itself. New release publication remains blocked until that workflow has passed
-on the exact release-preparation commit, its retained artifact set has been
-inspected, and an exact-byte publication path has been proven. Do not tag a new
-release merely to exercise either workflow.
+validation-only. Forgejo owns the manual canonical candidate-artifact build and
+the authoritative exact-byte publication path proven during the 3.0 RC cycle.
+The build accepts only an exact reviewed commit and version and does not publish
+by itself. Do not tag a new release until that workflow has passed on the exact
+release-preparation commit, its retained artifact set has been inspected, and
+the accepted bytes are identified for publication. Do not tag merely to
+exercise either workflow.
 
 ## Version and tag policy
 
@@ -25,8 +26,10 @@ Prerelease tags publish only their complete prerelease container tag. They do
 not move `latest`, major, or major/minor tags.
 
 The workflow derives the Debian version series from the tag and preserves the
-top changelog version when it already belongs to that series. The stable
-`v2.5.1` release uses:
+top changelog version when it already belongs to that series. Debian packaging
+metadata and application identity are intentionally distinct: Debian revisions
+and prerelease ordering syntax must never leak into `relay --version`,
+`/status.json`, or `activity_relay_build_info`. The stable `v2.5.1` release uses:
 
 ```text
 2.5.1-1
@@ -182,6 +185,8 @@ Build and inspect the Debian package:
 
 ```bash
 DEB_VERSION="$(dpkg-parsechangelog -SVersion)"
+DEB_UPSTREAM="${DEB_VERSION%-*}"
+APP_VERSION="${DEB_UPSTREAM//\~/-}"
 ARCH="$(dpkg --print-architecture)"
 
 dpkg-buildpackage \
@@ -193,6 +198,11 @@ package="../activity-relay_${DEB_VERSION}_${ARCH}.deb"
 
 grep --quiet '^Distribution: noble$' "$changes"
 lintian --fail-on error "$package"
+
+extract="$(mktemp -d)"
+trap 'rm -rf "$extract"' EXIT
+dpkg-deb -x "$package" "$extract"
+test "$("$extract/usr/bin/relay" --version)" = "relay version $APP_VERSION"
 ```
 
 ## Canonical candidate artifact build
@@ -260,8 +270,8 @@ requires the exact reviewed commit, application version, and explicit `BUILD
 <version>` confirmation; re-runs source/package/container validation; emits one
 checksummed Debian package, CycloneDX SBOM, multi-architecture OCI archive,
 release-note copy, build metadata, and retained evidence bundle; and publishes
-nothing externally. Its first required validation target is the exact 3.0 RC1
-release-preparation commit.
+nothing externally. The 3.0 RC1 and RC2 cycles exercised this path, including
+exact-byte publication of the accepted RC2 artifact set.
 
 ## Smoke tests
 

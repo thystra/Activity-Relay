@@ -2,14 +2,34 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Select destination-aware `dual` as the Activity-Relay 3.0 omitted/default
+  outbound HTTP-signature policy after mixed Mastodon, Friendica, WordPress,
+  NodeBB, and two-relay acceptance testing. Explicit `legacy` and `rfc9421`
+  fixed modes remain supported.
+
+### Fixed
+
+- Stamp Debian-built binaries with the Activity-Relay application version rather
+  than the Debian package revision, so `3.0.0~rcN-1` reports `3.0.0-rcN` and
+  stable `3.0.0-1` reports `3.0.0` through `relay --version`, status, and build
+  metrics. Canonical and mirror release validation now assert that invariant.
+
 ### Documentation
 
 - Add a community-maintained Activity-Relay Directory index, include the public
   `https://directory.argentwolf.org` service as a disabled opt-in example, and
   clarify that Directory listings are discovery aids rather than trust or
   endorsement.
-- Update Directory status documentation to describe schema versions 2 and 3 and
-  remove stale RC1-specific wording for the outbound signature default.
+- Reconcile the HTTP-signature architecture, negotiation, security, package,
+  interoperability, FEP-ae0c, integration-testing, and release documentation
+  with the implemented 3.0 runtime, including the bounded unknown-GET HTTP 400
+  fallback path and the `dual` stable default.
+- Record the stock NodeBB 4.15.1 RFC 9421 Announce rejection as upstream
+  [NodeBB #14732](https://github.com/NodeBB/NodeBB/issues/14732) without treating
+  it as an Activity-Relay release blocker.
+- Update Directory status documentation to describe schema versions 2 and 3.
 
 ## [3.0.0-rc2] - 2026-09-01
 

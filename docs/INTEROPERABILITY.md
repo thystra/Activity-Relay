@@ -17,8 +17,8 @@ classification, and bounded error responses. They intentionally exclude raw
 activity bodies, signatures, and key material.
 
 This document records interoperability behavior validated for stable
-Activity-Relay releases through `v2.5.1` and the explicit acceptance gates for
-the `v3.0.0-rc1` candidate. Candidate behavior is not promoted to stable merely
+Activity-Relay releases through `v2.5.1` and retained acceptance evidence for
+the 3.0 RC1/RC2 cycle. Candidate behavior is not promoted to stable merely
 because it is implemented or passes CI. Historical `v2.4.0` and `v2.5.0`
 results are retained for comparison; no matrix can guarantee that every version
 or configuration of every ActivityPub server behaves identically.
@@ -139,6 +139,26 @@ verified for this path.
 
 The separate NodeBB category-actor RFC 9421 `GET` compatibility behavior below
 remains independently testable and is not implied by this result.
+
+### 3.0 RC2 mixed-software and RFC 9421 acceptance
+
+The RC2 acceptance topology exercised two independent relays without directly
+peering them. Friendica subscribed to both relays, while Mastodon and NodeBB
+used the test relay and WordPress used the production relay. A second WordPress
+author that was not configured as a Friendica "also me" identity provided an
+isolation control: the post reached Friendica through the production relay but
+did not appear on the test relay, Mastodon, or NodeBB. This is retained as a
+cross-relay isolation pass rather than evidence of relay-to-relay propagation.
+
+The test relay was then temporarily forced to `OUTBOUND_SIGNATURE_PROFILE:
+rfc9421` for a Mastodon canary. Both API and worker processes confirmed the
+forced profile. Friendica accepted the relay delivery with HTTP 202. Stock
+NodeBB 4.15.1 returned HTTP 400 for the same relay-generated Announce on all six
+bounded attempts, each recorded as `signature_profile=rfc9421`; the retry job
+then exhausted normally. This receiver-specific result is tracked upstream as
+[NodeBB #14732](https://github.com/NodeBB/NodeBB/issues/14732) and is not treated
+as an Activity-Relay release blocker without evidence that the relay's RFC 9421
+wire format is invalid. The test relay was returned to `dual` afterward.
 
 ## Public embedded Announce normalization
 
