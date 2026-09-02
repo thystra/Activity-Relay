@@ -14,7 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-fed/httpsig"
+	"github.com/common-fate/httpsig/alg_rsa"
+	"github.com/common-fate/httpsig/contentdigest"
+	"github.com/common-fate/httpsig/sigbase"
+	"github.com/common-fate/httpsig/sigset"
+	legacyhttpsig "github.com/go-fed/httpsig"
 	"github.com/thystra/Activity-Relay/models"
 )
 
@@ -31,13 +35,11 @@ func verifyFEPAE0CSignedGET(request *http.Request) error {
 	if request.Header.Get("Date") == "" {
 		return fmt.Errorf("signed remote GET has no Date header")
 	}
-	if request.Header.Get("Digest") != "" {
+	if request.Header.Get("Digest") != "" ||
+		request.Header.Get("Content-Digest") != "" {
 		return fmt.Errorf(
-			"signed remote GET unexpectedly has a Digest header",
+			"signed remote GET unexpectedly has a digest field",
 		)
-	}
-	if request.Header.Get("Signature") == "" {
-		return fmt.Errorf("remote GET has no Signature header")
 	}
 
 	publicKey, err := models.ReadPublicKeyRSAFromString(
@@ -46,9 +48,59 @@ func verifyFEPAE0CSignedGET(request *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("parse relay public key: %w", err)
 	}
-	verifier, err := httpsig.NewVerifier(request)
+
+	if request.Header.Get("Signature-Input") != "" {
+		wireRequest := request.Clone(request.Context())
+		wireURL := *request.URL
+		wireURL.Scheme = "http"
+		wireURL.Host = request.Host
+		wireRequest.URL = &wireURL
+		wireRequest.Host = request.Host
+
+		set, err := sigset.Unmarshal(wireRequest)
+		if err != nil {
+			return fmt.Errorf("parse RFC 9421 remote GET: %w", err)
+		}
+		message, err := set.Find("activitypub")
+		if err != nil {
+			return fmt.Errorf("find RFC 9421 remote GET signature: %w", err)
+		}
+		if message.Input.KeyID != RelayActor.PublicKey.ID {
+			return fmt.Errorf(
+				"remote GET key ID = %q; want %q",
+				message.Input.KeyID,
+				RelayActor.PublicKey.ID,
+			)
+		}
+		base, err := sigbase.Derive(
+			message.Input,
+			nil,
+			wireRequest,
+			contentdigest.SHA256,
+		)
+		if err != nil {
+			return fmt.Errorf("derive RFC 9421 remote GET base: %w", err)
+		}
+		signingString, err := base.CanonicalString(message.Input)
+		if err != nil {
+			return fmt.Errorf("canonicalize RFC 9421 remote GET: %w", err)
+		}
+		if err := alg_rsa.NewRSAPKCS256Verifier(publicKey).Verify(
+			request.Context(),
+			signingString,
+			message.Signature,
+		); err != nil {
+			return fmt.Errorf("verify RFC 9421 remote GET signature: %w", err)
+		}
+		return nil
+	}
+
+	if request.Header.Get("Signature") == "" {
+		return fmt.Errorf("remote GET has no HTTP signature fields")
+	}
+	verifier, err := legacyhttpsig.NewVerifier(request)
 	if err != nil {
-		return fmt.Errorf("create remote GET verifier: %w", err)
+		return fmt.Errorf("create legacy remote GET verifier: %w", err)
 	}
 	if verifier.KeyId() != RelayActor.PublicKey.ID {
 		return fmt.Errorf(
@@ -57,8 +109,8 @@ func verifyFEPAE0CSignedGET(request *http.Request) error {
 			RelayActor.PublicKey.ID,
 		)
 	}
-	if err := verifier.Verify(publicKey, httpsig.RSA_SHA256); err != nil {
-		return fmt.Errorf("verify remote GET signature: %w", err)
+	if err := verifier.Verify(publicKey, legacyhttpsig.RSA_SHA256); err != nil {
+		return fmt.Errorf("verify legacy remote GET signature: %w", err)
 	}
 	return nil
 }
