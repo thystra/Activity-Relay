@@ -1,4 +1,4 @@
-name: Canonical Release Candidate Artifacts
+name: Canonical Release Artifacts
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       version:
-        description: Exact application version, for example 3.0.0-rc1
+        description: Exact application version, for example 3.0.0 or 3.0.1-rc1
         required: true
         type: string
       confirm:
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   canonical:
-    name: Canonical candidate artifact set
+    name: Canonical release artifact set
     runs-on: forgejo-workstation
     timeout-minutes: 90
     env:
@@ -283,7 +283,7 @@ jobs:
             xargs -0 sha256sum >SHA256SUMS
           sha256sum -c SHA256SUMS
 
-      - name: Upload canonical candidate artifact set
+      - name: Upload canonical release artifact set
         uses: https://code.forgejo.org/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
         with:
           name: activity-relay-${{ inputs.version }}-canonical-${{ inputs.expected_commit }}

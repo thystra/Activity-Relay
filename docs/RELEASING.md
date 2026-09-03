@@ -6,7 +6,7 @@ independent-validation surface; mirrored commits or tags must not cause GitHub
 to publish release artifacts or mutable container tags.
 
 The current GitHub release workflow is deliberately manual and
-validation-only. Forgejo owns the manual canonical candidate-artifact build and
+validation-only. Forgejo owns the manual canonical release-artifact build and
 the authoritative exact-byte publication path proven during the 3.0 RC cycle.
 The build accepts only an exact reviewed commit and version and does not publish
 by itself. Do not tag a new release until that workflow has passed on the exact
@@ -29,10 +29,10 @@ The workflow derives the Debian version series from the tag and preserves the
 top changelog version when it already belongs to that series. Debian packaging
 metadata and application identity are intentionally distinct: Debian revisions
 and prerelease ordering syntax must never leak into `relay --version`,
-`/status.json`, or `activity_relay_build_info`. The stable `v2.5.1` release uses:
+`/status.json`, or `activity_relay_build_info`. The stable `v3.0.0` release uses:
 
 ```text
-2.5.1-1
+3.0.0-1
 ```
 
 A future prerelease such as `v2.6.0-rc1` uses a Debian series such as
@@ -89,14 +89,14 @@ package's internal Debian version is unchanged.
     outside the public repository.
 22. Commit and push the release preparation to the authoritative Forgejo
     repository.
-23. Run the manual canonical Forgejo candidate-artifact workflow against the
+23. Run the manual canonical Forgejo release-artifact workflow against the
     exact reviewed commit and version. Inspect its public artifacts and retained
     evidence, and verify every checksum.
 24. Confirm an exact-byte publication path exists for that artifact set. Do not
     rebuild the Debian package or OCI archive after acceptance. If exact-byte
     promotion is not available, stop.
 25. Create and push the annotated tag to Forgejo only after the accepted
-    candidate bytes are identified unambiguously.
+    canonical bytes are identified unambiguously.
 26. Publish those exact accepted bytes and only the reviewed versioned release
     notes for that artifact set.
 27. Verify the canonical published release, checksums, package metadata, packaged
@@ -205,22 +205,22 @@ dpkg-deb -x "$package" "$extract"
 test "$("$extract/usr/bin/relay" --version)" = "relay version $APP_VERSION"
 ```
 
-## Canonical candidate artifact build
+## Canonical release artifact build
 
-Before creating a release tag, dispatch **Canonical Release Candidate Artifacts**
+Before creating a release tag, dispatch **Canonical Release Artifacts**
 from Forgejo on the exact release-preparation commit. Supply:
 
 ```text
 expected_commit: <full 40-character reviewed commit>
-version:         X.Y.Z-rcN
-confirm:         BUILD X.Y.Z-rcN
+version:         X.Y.Z or X.Y.Z-rcN
+confirm:         BUILD <the exact version above>
 ```
 
 The versioned release-notes file must record both:
 
 ```text
-- Application version: `X.Y.Z-rcN`
-- Debian package version: `X.Y.Z~rcN-1`
+- Application version: `X.Y.Z` or `X.Y.Z-rcN`
+- Debian package version: `X.Y.Z-1` or `X.Y.Z~rcN-1`
 ```
 
 The workflow must produce one retained bundle with `public/` and `evidence/`.
@@ -229,12 +229,12 @@ Lintian output, and the OCI index evidence. The OCI archive must contain both
 `linux/amd64` and `linux/arm64`, and both exact archived images must report the
 requested application version when executed.
 
-Passing this workflow means the candidate bytes were built and retained; it
+Passing this workflow means the canonical release bytes were built and retained; it
 does **not** mean they were tagged or published. Those are later gates.
 
 ## Tag the tested commit
 
-Do not create a new release tag until the canonical Forgejo candidate workflow
+Do not create a new release tag until the canonical Forgejo release workflow
 has passed on the exact release-preparation commit, the retained bytes have been
 inspected, and the exact-byte publication path has been proven. Then tag only
 the exact reviewed Forgejo commit:
@@ -243,8 +243,8 @@ the exact reviewed Forgejo commit:
 git switch master
 git pull --ff-only origin master
 
-git tag -a vX.Y.Z-rcN -m 'Activity-Relay vX.Y.Z-rcN release candidate'
-git push origin vX.Y.Z-rcN
+git tag -s vX.Y.Z -m 'Activity-Relay vX.Y.Z'
+git push origin vX.Y.Z
 ```
 
 Promote a validated release candidate by creating a new stable preparation
@@ -265,7 +265,7 @@ release workflow is manual and validation-only: it may validate an existing tag
 and retain ephemeral Actions artifacts, but it does not create GitHub Releases,
 push container images, or move mutable container tags.
 
-`.forgejo/workflows/release.yml` is the manual canonical candidate build. It
+`.forgejo/workflows/release.yml` is the manual canonical release build. It
 requires the exact reviewed commit, application version, and explicit `BUILD
 <version>` confirmation; re-runs source/package/container validation; emits one
 checksummed Debian package, CycloneDX SBOM, multi-architecture OCI archive,

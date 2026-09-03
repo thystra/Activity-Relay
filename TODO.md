@@ -2,13 +2,16 @@
 
 ## Current stable release
 
-`v2.5.1` is the current stable maintained-fork patch release. It is prepared
-from loop-suppression merge commit
-`855ea56fe088e738dc708b99690d1224da0be330`.
+`v3.0.0` is the current stable maintained-fork release line. It promotes the
+accepted 3.0 release-candidate runtime after mixed-signature interoperability,
+two-relay isolation, Activity-Relay Directory heartbeat/lifecycle acceptance,
+and stable-default review.
 
-The patch preserves the established relay actor ID, endpoints, collections,
-`#main-key` identity, configuration, Redis data, queue formats, operator-owned
-website content, and supported deployment models.
+The release preserves the established relay actor ID, endpoints, collections,
+`#main-key` identity, Redis data, existing task readability, operator-owned
+website content, and supported deployment models. Destination-aware `dual` is
+the omitted/default outbound signature policy; explicit `legacy` and `rfc9421`
+remain available.
 
 ## v2.5.1 completed
 
@@ -72,7 +75,7 @@ the retrospective FEP-ae0c relay profiles, now in stable-promotion validation.
   container, Caddy, and Debian-package validation workflows.
 - [x] Make mirrored GitHub workflows validation-only so mirrored commits and
   tags cannot independently publish edge or release artifacts.
-- [x] Add a manual canonical Forgejo candidate-artifact workflow that requires
+- [x] Add a manual canonical Forgejo release-artifact workflow that requires
   an exact reviewed commit/version, rebuilds the release validation gates, and
   emits one checksummed Debian/SBOM/multi-architecture OCI artifact set without
   publishing it.
@@ -102,6 +105,18 @@ the retrospective FEP-ae0c relay profiles, now in stable-promotion validation.
   unregister was verified while its public actor endpoint remained online, its
   Directory absence was confirmed, and re-enable plus API recreation returned it
   to scheduler-driven registration and a healthy public projection.
+- [x] Prepare the stable 3.0 source/release metadata with application version
+  `3.0.0`, Debian version `3.0.0-1`, destination-aware `dual` as the omitted
+  outbound-signature policy, and the accepted container Directory lifecycle
+  operator sequence.
+- [ ] Run the canonical Forgejo stable artifact workflow on the exact reviewed
+  stable-preparation commit; independently inspect and retain the exact Debian,
+  SBOM, multi-architecture OCI, build-metadata, release-note, and checksum bytes.
+- [ ] Create the signed `v3.0.0` tag only after canonical-byte acceptance, then
+  publish the exact retained stable artifacts without rebuilding them.
+- [ ] Deploy the exact stable bytes first to the isolated test relay and then to
+  `relay.argentwolf.org`, preserving actor/key identity, Redis state,
+  subscriptions, and operator configuration while validating Directory health.
 - [ ] Package and retain the final cross-repository stable-promotion evidence
   after stable deployment. The functional soak gate is complete; this remaining
   item is evidence retention/teardown work rather than an uncompleted 3.0 runtime
@@ -151,7 +166,7 @@ the retrospective FEP-ae0c relay profiles, now in stable-promotion validation.
 - Retain the passing mixed two-relay no-reflection invariant while the 3.0
   signing architecture is developed.
 
-## Deferred work after v2.5.1
+## Deferred work after v3.0.0
 
 - Track the receiver-specific NodeBB 4.15.1 forced-RFC-9421 Announce rejection
   in upstream issue #14732. Treat it as external interoperability unless wire

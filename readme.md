@@ -113,7 +113,7 @@ cp config.yml.example config.yml
 Set the stable release image in `.env`:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:2.5.1
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:3.0.0
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move
@@ -197,7 +197,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:2.5.1 \
+  ghcr.io/thystra/activity-relay:3.0.0 \
   --version
 ```
 
@@ -236,7 +236,7 @@ Continue with:
 For a tagged stable build:
 
 ```bash
-VERSION=2.5.1
+VERSION=3.0.0
 
 git checkout "v${VERSION}"
 mkdir -p build
@@ -812,11 +812,11 @@ Published images contain website sources at:
 /usr/share/activity-relay/web
 ```
 
-The `2.5.1` image includes Python 3 for resource-guard tooling and website generation.
+The `3.0.0` image includes Python 3 for resource-guard tooling and website generation.
 To customize the website outside the running relay, extract the sources:
 
 ```bash
-export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:2.5.1'
+export ACTIVITY_RELAY_IMAGE='ghcr.io/thystra/activity-relay:3.0.0'
 
 mkdir -p \
   activity-relay-web \
@@ -915,14 +915,13 @@ profile and current RFC 9421/RFC 9530 negotiation behavior.
 
 Maintainer release steps are documented in
 [`docs/RELEASING.md`](docs/RELEASING.md). Versioned release notes are kept under
-[`docs/releases/`](docs/releases/). The current 3.0 release-candidate
-preparation is documented in
-[`v3.0.0-rc2`](docs/releases/v3.0.0-rc2.md); the published first candidate is
-retained in [`v3.0.0-rc1`](docs/releases/v3.0.0-rc1.md). The current stable
-release remains
-[`v2.5.1`](docs/releases/v2.5.1.md), with
-[`v2.5.0`](docs/releases/v2.5.0.md) and
-[`v2.4.0`](docs/releases/v2.4.0.md) retained for historical reference.
+[`docs/releases/`](docs/releases/). The current stable release is
+[`v3.0.0`](docs/releases/v3.0.0.md). Its accepted release-candidate history is
+retained in [`v3.0.0-rc2`](docs/releases/v3.0.0-rc2.md) and
+[`v3.0.0-rc1`](docs/releases/v3.0.0-rc1.md). Earlier stable releases
+[`v2.5.1`](docs/releases/v2.5.1.md),
+[`v2.5.0`](docs/releases/v2.5.0.md), and
+[`v2.4.0`](docs/releases/v2.4.0.md) remain available for historical reference.
 Historical RC notes remain under the same directory.
 
 ## Upstream and attribution

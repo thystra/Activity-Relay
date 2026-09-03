@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [3.0.0] - 2026-09-02
+
 ### Changed
 
 - Select destination-aware `dual` as the Activity-Relay 3.0 omitted/default

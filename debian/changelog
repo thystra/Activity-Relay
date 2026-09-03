@@ -1,3 +1,18 @@
+activity-relay (3.0.0-1) noble; urgency=medium
+
+  * Publish the Activity-Relay 3.0 stable release.
+  * Select destination-aware dual as the omitted outbound-signature policy
+    after mixed Mastodon, Friendica, WordPress, NodeBB, and two-relay testing.
+  * Retain explicit legacy and RFC 9421 fixed outbound modes.
+  * Promote the accepted Activity-Relay Directory v1 client, manual lifecycle
+    commands, and fenced API-process scheduler to stable.
+  * Record natural Directory heartbeat aging and controlled unregister/re-register
+    acceptance, including the safe single-file Compose bind recreation sequence.
+  * Preserve actor identity, Redis state, subscriptions, and existing queue/data
+    compatibility across the stable promotion.
+
+ -- thystra <noreply@github.com>  Wed, 02 Sep 2026 23:15:00 -0400
+
 activity-relay (3.0.0~rc2-1) noble; urgency=medium
 
   * Prepare the second Activity-Relay 3.0 release candidate.
