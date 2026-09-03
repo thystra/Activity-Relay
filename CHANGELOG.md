@@ -30,6 +30,14 @@
   [NodeBB #14732](https://github.com/NodeBB/NodeBB/issues/14732) without treating
   it as an Activity-Relay release blocker.
 - Update Directory status documentation to describe schema versions 2 and 3.
+- Document the accepted containerized Directory unregister/re-register sequence:
+  atomic replacement of the stock single-file `config.yml` bind requires
+  server recreation before scheduler state is trusted, authenticated unregister
+  keeps the public actor endpoint online, and workers are recreated afterward so
+  all long-running containers observe the current bind inode.
+- Record completion of natural Directory heartbeat aging and the controlled
+  unregister/re-register functional soak; final evidence packaging remains a
+  post-deployment retention task rather than a stable runtime blocker.
 
 ## [3.0.0-rc2] - 2026-09-01
 

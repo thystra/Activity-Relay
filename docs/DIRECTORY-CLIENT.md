@@ -81,6 +81,63 @@ Environment-only unregister cannot make that durable edit. It requires
 `--acknowledge-external-disable` and warns that the operator must disable the
 entry in the external configuration source before restart.
 
+### Compose deployments and single-file config binds
+
+The bundled Compose deployment bind-mounts `./config.yml` as one read-only file.
+An atomic host replacement of that file changes the host inode, but an already
+running container can remain attached to the old bind-mounted inode. This matters
+for Directory lifecycle operations because the API process alone runs the
+scheduler and may otherwise continue to observe an older `enabled: true` entry.
+It is a container bind-mount behavior, not a Directory protocol or persistence
+failure.
+
+For a controlled unregister in a container deployment:
+
+1. persist `enabled: false` for the selected Directory in the host-owned
+   `config.yml` before sending remote lifecycle traffic;
+2. force-recreate the API/server container so the running scheduler sees that
+   disabled host configuration;
+3. keep the API/server online while unregistering, because the Directory may
+   resolve the relay actor and `#main-key` through the public actor endpoint as
+   part of authentication;
+4. run a one-off lifecycle container with access to the same actor identity,
+   Redis state, and disabled Directory configuration, and with a writable
+   configuration source when using file-backed `directory unregister`;
+5. verify local `directory status` reports the entry disabled rather than
+   registered or retrying, and verify the relay is absent from the Directory's
+   public projection; and
+6. force-recreate worker containers as housekeeping after any atomic host
+   `config.yml` replacement so every long-running container observes the same
+   inode, even though workers never run the Directory scheduler.
+
+Do not stop the API/server before the signed unregister request has completed.
+A Directory that validates the relay actor by fetching its public actor/key
+cannot authenticate the unregister while that endpoint is offline.
+
+The file-backed unregister editor creates sibling temporary and backup files and
+uses atomic rename. A one-off container that lets the command perform that edit
+therefore needs writable access to the configuration *directory*, not merely a
+read-write remount of the single `config.yml` file. Keep that write scope as
+narrow as practical and do not make `actor.pem` writable. If configuration is
+managed externally instead, persist the disabled state there first and use the
+explicit environment-only acknowledgement path described above.
+
+To re-enable a Directory after a successful unregister:
+
+1. persist `enabled: true` in the host-owned configuration;
+2. remember that the still-running API/server may continue to see the old
+   disabled inode until it is recreated;
+3. force-recreate the API/server container;
+4. allow the enabled scheduler entry to reconcile registration automatically;
+5. verify local status returns to `registered` or `heartbeat-current` and the
+   Directory public projection reports the relay healthy; and
+6. recreate worker containers as the same bind-inode housekeeping step.
+
+These recreate steps are required after atomic replacement of a single-file bind.
+An in-place edit that preserves the inode does not have the same stale-inode
+failure mode, but operators should prefer the durable atomic configuration
+workflow and explicit container recreation rather than rely on edit mechanics.
+
 ## Optional scheduler
 
 Setting `DIRECTORY_SCHEDULER_ENABLED: true` in a regular YAML configuration

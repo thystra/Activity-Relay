@@ -61,8 +61,24 @@ Exercise:
 4. complete Compose restart with persisted Redis data;
 5. Redis stop, readiness failure, Redis start, and recovery;
 6. an abrupt worker termination while a delivery task is running;
-7. image rebuild and replacement without rotating the actor key; and
-8. removal of the test stack without deleting retained evidence.
+7. image rebuild and replacement without rotating the actor key;
+8. when Directory scheduling is enabled, atomically replace the host
+   `config.yml` with the selected entry disabled, prove the already-running
+   single-file bind may retain the old inode, then force-recreate the server and
+   verify it observes durable suppression;
+9. with the public API/actor endpoint still online, exercise authenticated
+   Directory unregister, verify the relay disappears from the Directory public
+   projection, then atomically re-enable the host entry, recreate the server,
+   and verify scheduler-driven registration returns the relay to healthy state;
+10. recreate workers after each atomic `config.yml` replacement and verify no
+    worker starts Directory scheduling; and
+11. removal of the test stack without deleting retained evidence.
+
+The container Directory lifecycle case must not stop the API before unregister.
+A validating Directory may need the live relay actor/key endpoint to authenticate
+the request. Record whether the configuration is a single-file bind and retain
+proof that server/worker recreation moved each long-running container onto the
+new host inode. See `docs/DIRECTORY-CLIENT.md` for the operator sequence.
 
 ## Native package matrix
 

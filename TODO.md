@@ -96,9 +96,16 @@ the retrospective FEP-ae0c relay profiles, now in stable-promotion validation.
 - [x] Upgrade `relay.argentwolf.org` to the accepted RC2 code without replacing
   Redis state, subscriptions, actor identity, or key identity; register both
   relays with `directory.argentwolf.org` and verify the public healthy projection.
-- [ ] Complete natural Directory heartbeat aging and a controlled
-  unregister/re-register lifecycle exercise before stable promotion, then retain
-  the final cross-repository soak evidence.
+- [x] Complete natural Directory heartbeat aging and a controlled
+  unregister/re-register lifecycle exercise before stable promotion. Both live
+  relays refreshed naturally; the test relay was durably disabled, authenticated
+  unregister was verified while its public actor endpoint remained online, its
+  Directory absence was confirmed, and re-enable plus API recreation returned it
+  to scheduler-driven registration and a healthy public projection.
+- [ ] Package and retain the final cross-repository stable-promotion evidence
+  after stable deployment. The functional soak gate is complete; this remaining
+  item is evidence retention/teardown work rather than an uncompleted 3.0 runtime
+  or interoperability gate.
 
 
 ### RFC 9421 / RFC 9530 implementation tranches
@@ -175,9 +182,14 @@ the retrospective FEP-ae0c relay profiles, now in stable-promotion validation.
   `Retry-After` guidance up to 24 hours. The false-by-default scheduler performs
   startup reconciliation and jittered daily heartbeats in API processes only,
   under signal-aware graceful shutdown. RC2 schema-3 status, both live relay
-  registrations, and the public healthy projection have passed; remaining work
-  is natural heartbeat aging, a controlled unregister/re-register exercise, and
-  the cross-repository stable-promotion soak.
+  registrations, natural heartbeat aging, and the controlled unregister/
+  re-register lifecycle have passed. The Compose exercise also established that
+  atomic replacement of a single-file `config.yml` bind requires API recreation
+  before scheduler state is trusted, that the public actor endpoint must remain
+  online through authenticated unregister, and that workers should be recreated
+  afterward as bind-inode housekeeping. The functional Directory
+  stable-promotion soak is complete; final evidence packaging remains
+  post-deployment retention work.
 ## Release gates for future versions
 
 Before any release:

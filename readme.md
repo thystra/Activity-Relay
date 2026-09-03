@@ -407,6 +407,18 @@ failures. A failed remote unregister is shown by local `directory status` as
 `unregister-pending`; it cannot be re-registered on restart. SIGINT and SIGTERM
 cancel in-flight scheduler work and gracefully stop the API listeners.
 
+For the bundled Compose deployment, `config.yml` is a single-file read-only bind.
+After an atomic host replacement, a running container may still see the old
+inode. Before containerized unregister, persist `enabled: false` on the host and
+force-recreate the API/server so its scheduler sees the disabled file, but keep
+that API online while the Directory resolves the relay actor/key and authenticates
+the unregister. After re-enabling, recreate the API/server again so automatic
+registration sees the new inode. Recreate workers after either replacement as
+bind-mount housekeeping. File-backed unregister also needs writable access to
+the configuration directory for its sibling backup/temp files and atomic rename;
+do not make `actor.pem` writable. See
+[`docs/DIRECTORY-CLIENT.md`](docs/DIRECTORY-CLIENT.md) for the full sequence.
+
 When the configuration file is absent, manual commands may read `ACTOR_PEM`,
 `RELAY_DOMAIN`, and a YAML or JSON `DIRECTORIES` sequence from the environment.
 Because Activity-Relay cannot mutate an external configuration source,
