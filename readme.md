@@ -116,7 +116,7 @@ cp config.yml.example config.yml
 Set the stable release image in `.env`:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:3.0.0
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:3.0.1
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move
@@ -200,7 +200,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:3.0.0 \
+  ghcr.io/thystra/activity-relay:3.0.1 \
   --version
 ```
 
@@ -239,7 +239,7 @@ Continue with:
 For a tagged stable build:
 
 ```bash
-VERSION=3.0.0
+VERSION=3.0.1
 
 git checkout "v${VERSION}"
 mkdir -p build

@@ -1,3 +1,18 @@
+activity-relay (3.0.1-1) noble; urgency=medium
+
+  * Harden follower registration so incomplete follower state is never
+    persisted or accepted as a receiving target.
+  * Make mutual-follow status updates atomic and unable to recreate deleted
+    follower hashes; remove incomplete hashes encountered during status updates.
+  * Ignore malformed persisted followers and skip invalid or unplannable
+    delivery targets without aborting healthy relay fan-out.
+  * Keep queue reservations and remaining-delivery counts aligned with the
+    delivery tasks that were actually planned.
+  * Update Forgejo container and canonical-release Docker client packaging for
+    Debian Trixie runners using an isolated TCP Docker engine.
+
+ -- thystra <noreply@github.com>  Wed, 30 Sep 2026 14:00:00 -0400
+
 activity-relay (3.0.0-1) noble; urgency=medium
 
   * Publish the Activity-Relay 3.0 stable release.

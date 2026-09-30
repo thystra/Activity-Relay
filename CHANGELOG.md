@@ -2,12 +2,22 @@
 
 ## [Unreleased]
 
+_No changes yet._
+
+## [3.0.1] - 2026-09-30
+
 ### Fixed
 
 - Validate follower-style registration as a complete state transition, prevent
   stale mutual-follow responses from recreating deleted Redis follower hashes,
   ignore incomplete persisted followers, and isolate malformed delivery targets
   so one bad receiver cannot abort otherwise healthy fan-out.
+
+### Build
+
+- Update Forgejo container validation for Debian Trixie's split `docker-cli`
+  and `docker-buildx` packages, and use the client-only Docker package in the
+  canonical release workflow for its isolated TCP Docker engine.
 
 ## [3.0.0] - 2026-09-02
 
