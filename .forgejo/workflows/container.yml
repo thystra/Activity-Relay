@@ -27,7 +27,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker-cli
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends docker-cli docker-buildx
           rm -rf /var/lib/apt/lists/*
 
       - name: Verify isolated Docker engine
