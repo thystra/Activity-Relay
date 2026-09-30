@@ -274,6 +274,13 @@ func enqueueActivityExcept(
 		if _, skip := excluded[domain]; skip {
 			continue
 		}
+		if _, err := relayhttpsig.NormalizeDestinationOrigin(subscription.InboxURL); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"domain":   domain,
+				"receiver": subscription.InboxURL,
+			}).Warn("Skipped invalid relay delivery target")
+			continue
+		}
 
 		dedupeKey := domain
 		if dedupeKey == "" {
@@ -302,14 +309,6 @@ func enqueueActivityExcept(
 		return true
 	}
 
-	accepted, reason := reserveQueueCapacityWithReason(len(targets))
-	if !accepted {
-		recordQueueAdmission("relay", "rejected", reason)
-		recordFanoutTargets("rejected", len(targets))
-		return false
-	}
-	defer releaseQueueCapacity(len(targets))
-
 	activityID := uuid.NewString()
 	signatures := make([]*tasks.Signature, 0, len(targets))
 	for _, target := range targets {
@@ -318,34 +317,43 @@ func enqueueActivityExcept(
 			activityID,
 		)
 		if err != nil {
-			logrus.WithError(err).
-				WithField("receiver", target.InboxURL).
-				Error("Unable to plan relay delivery signature")
-			recordQueueAdmission(
-				"relay",
-				"error",
-				"signature_plan",
-			)
-			recordFanoutTargets("error", len(targets))
-			return false
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"domain":   normalizedStoredDomain(target.Domain),
+				"receiver": target.InboxURL,
+			}).Warn("Skipped relay target after signature planning failure")
+			continue
 		}
 		signatures = append(signatures, signature)
 	}
+	if len(signatures) < 1 {
+		recordQueueAdmission("relay", "error", "signature_plan")
+		recordFanoutTargets("error", len(targets))
+		return false
+	}
+
+	accepted, reason := reserveQueueCapacityWithReason(len(signatures))
+	if !accepted {
+		recordQueueAdmission("relay", "rejected", reason)
+		recordFanoutTargets("rejected", len(signatures))
+		return false
+	}
+	defer releaseQueueCapacity(len(signatures))
+
 	if err := storeRelayActivity(
 		activityID,
 		body,
-		len(targets),
+		len(signatures),
 	); err != nil {
 		logrus.Error("Unable to store relay activity: ", err)
 		recordQueueAdmission("relay", "error", "store")
-		recordFanoutTargets("error", len(targets))
+		recordFanoutTargets("error", len(signatures))
 		return false
 	}
 	group, err := tasks.NewGroup(signatures...)
 	if err != nil {
 		logrus.Error("Unable to create relay task group: ", err)
 		recordQueueAdmission("relay", "error", "group")
-		recordFanoutTargets("error", len(targets))
+		recordFanoutTargets("error", len(signatures))
 		return false
 	}
 	concurrency := len(signatures)
@@ -355,11 +363,11 @@ func enqueueActivityExcept(
 	if _, err := MachineryServer.SendGroup(group, concurrency); err != nil {
 		logrus.Error("Unable to enqueue relay task group: ", err)
 		recordQueueAdmission("relay", "error", "broker")
-		recordFanoutTargets("error", len(targets))
+		recordFanoutTargets("error", len(signatures))
 		return false
 	}
 	recordQueueAdmission("relay", "accepted", "accepted")
-	recordFanoutTargets("queued", len(targets))
+	recordFanoutTargets("queued", len(signatures))
 	return true
 }
 
@@ -519,7 +527,7 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 		if isActorAbleToBeFollower(actor) {
 			if RelayState.ManualApprovalRequired() {
 				RelayState.RedisClient.HMSet(context.TODO(), "relay:pending:"+actorID.Host, map[string]interface{}{
-					"inbox_url":   actor.Endpoints.SharedInbox,
+					"inbox_url":   actor.Inbox,
 					"activity_id": activity.ID,
 					"type":        "Follow",
 					"actor":       actor.ID,
@@ -527,9 +535,6 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 				})
 				logrus.Info("Pending Follow Request : ", activity.Actor)
 			} else {
-				resp := activity.GenerateReply(RelayActor, activity, "Accept")
-				jsonData, _ := json.Marshal(&resp)
-				go enqueueRegisterActivity(actor.Inbox, jsonData)
 				follower := models.Follower{
 					Domain:         actorID.Host,
 					InboxURL:       actor.Inbox,
@@ -537,7 +542,12 @@ func executeFollowing(activity *models.Activity, actor *models.Actor) error {
 					ActorID:        actor.ID,
 					MutuallyFollow: false,
 				}
-				RelayState.AddFollower(follower)
+				if err := RelayState.AddFollowerChecked(follower); err != nil {
+					return fmt.Errorf("store follower: %w", err)
+				}
+				resp := activity.GenerateReply(RelayActor, activity, "Accept")
+				jsonData, _ := json.Marshal(&resp)
+				go enqueueRegisterActivity(actor.Inbox, jsonData)
 				logrus.Info("Accepted Follow Request : ", activity.Actor)
 
 				executeMutuallyFollow(follower)
@@ -586,7 +596,12 @@ func executeMutuallyFollow(follower models.Follower) error {
 func finalizeMutuallyFollow(activity *models.Activity, actor *models.Actor, activityType string) {
 	actorID, _ := url.Parse(actor.ID)
 	if contains(activity.Actor, RelayActor.ID) && contains(activity.Object, actor.ID) && isActorFollowers(actorID) {
-		RelayState.UpdateFollowerStatus(actorID.Host, activityType == "Accept")
+		if err := RelayState.UpdateFollowerStatusChecked(actorID.Host, activityType == "Accept"); err != nil {
+			logrus.WithError(err).
+				WithField("domain", actorID.Host).
+				Warn("Ignored stale or invalid mutual-follow response")
+			return
+		}
 		logrus.Info("Confirmed MutuallyFollow "+activityType+"ed : ", actor.ID)
 	}
 }

@@ -181,3 +181,37 @@ func TestCreateUpdateActorActivity(t *testing.T) {
 	app.SetArgs([]string{"update"})
 	app.Execute()
 }
+
+func TestAcceptFollowRejectsIncompleteFollowerWithoutDroppingPendingRequest(t *testing.T) {
+	ctx := context.Background()
+	if err := RelayState.RedisClient.FlushAll(ctx).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := RelayState.RedisClient.HSet(ctx, "relay:pending:orphan.example", map[string]interface{}{
+		"inbox_url":   "",
+		"activity_id": "https://orphan.example/activities/follow-test",
+		"type":        "Follow",
+		"actor":       "https://orphan.example/actor",
+		"object":      RelayActor.ID,
+	}).Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := createFollowRequestResponse("orphan.example", "Accept"); err == nil {
+		t.Fatal("expected incomplete follower approval to fail")
+	}
+	pending, err := RelayState.RedisClient.Exists(ctx, "relay:pending:orphan.example").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending != 1 {
+		t.Fatalf("pending follow request exists = %d; want 1 for operator inspection/retry", pending)
+	}
+	follower, err := RelayState.RedisClient.Exists(ctx, "relay:follower:orphan.example").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if follower != 0 {
+		t.Fatalf("invalid follower exists = %d; want 0", follower)
+	}
+}

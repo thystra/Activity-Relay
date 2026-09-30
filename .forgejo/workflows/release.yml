@@ -71,7 +71,7 @@ jobs:
             python3 \
             redis-server \
             skopeo \
-            docker.io
+            docker-cli
           rm -rf /var/lib/apt/lists/*
 
       - name: Require exact source package version

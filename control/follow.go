@@ -107,6 +107,20 @@ func createFollowRequestResponse(domain string, response string) error {
 		Object:  data["object"],
 	}
 
+	var acceptedFollower *models.Follower
+	if response == "Accept" && contains(activity.Object, RelayActor.ID) {
+		follower := models.Follower{
+			Domain:     domain,
+			InboxURL:   data["inbox_url"],
+			ActivityID: data["activity_id"],
+			ActorID:    data["actor"],
+		}
+		if err := RelayState.AddFollowerChecked(follower); err != nil {
+			return fmt.Errorf("store follower %s: %w", domain, err)
+		}
+		acceptedFollower = &follower
+	}
+
 	resp := activity.GenerateReply(RelayActor, activity, response)
 	jsonData, err := json.Marshal(&resp)
 	if err != nil {
@@ -126,18 +140,12 @@ func createFollowRequestResponse(domain string, response string) error {
 			})
 		}
 	case contains(activity.Object, RelayActor.ID):
-		if response == "Accept" {
-			RelayState.AddFollower(models.Follower{
-				Domain:     domain,
-				InboxURL:   data["inbox_url"],
-				ActivityID: data["activity_id"],
-				ActorID:    data["actor"],
-			})
-			actorID, _ := url.Parse(data["actor"])
+		if response == "Accept" && acceptedFollower != nil {
+			actorID, _ := url.Parse(acceptedFollower.ActorID)
 			if !RelayState.IsLimited(actorID.Host) {
-				followRequest := models.NewActivityPubActivity(RelayActor, []string{data["actor"]}, data["actor"], "Follow")
+				followRequest := models.NewActivityPubActivity(RelayActor, []string{acceptedFollower.ActorID}, acceptedFollower.ActorID, "Follow")
 				jsonData, _ := json.Marshal(&followRequest)
-				enqueueRegisterActivity(data["inbox_url"], jsonData)
+				enqueueRegisterActivity(acceptedFollower.InboxURL, jsonData)
 			}
 		}
 	}
@@ -186,7 +194,9 @@ func acceptFollow(cmd *cobra.Command, args []string) error {
 	for _, domain := range args {
 		if contains(domains, domain) {
 			cmd.Println("Accept [" + domain + "] follow request")
-			createFollowRequestResponse(domain, "Accept")
+			if err := createFollowRequestResponse(domain, "Accept"); err != nil {
+				return err
+			}
 		} else {
 			cmd.Println("Invalid domain provided: " + domain)
 		}
@@ -204,7 +214,9 @@ func rejectFollow(cmd *cobra.Command, args []string) error {
 	for _, domain := range args {
 		if contains(domains, domain) {
 			cmd.Println("Reject [" + domain + "] follow request")
-			createFollowRequestResponse(domain, "Reject")
+			if err := createFollowRequestResponse(domain, "Reject"); err != nil {
+				return err
+			}
 		} else {
 			cmd.Println("Invalid domain provided: " + domain)
 		}

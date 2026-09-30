@@ -48,6 +48,9 @@ Compared with the upstream baseline, this fork includes:
 - A tested Redis-backed fan-out pipeline with bounded queue and response
   controls, leased in-flight task claims, and at-least-once recovery after
   abrupt worker termination.
+- Complete follower-state validation that prevents stale mutual-follow updates
+  from creating partial Redis records and prevents one malformed receiver from
+  blocking healthy fan-out targets.
 - Non-configurable relay-reflection protection that excludes the supplying
   relay and deduplicates relay-authored wrappers by a hashed canonical
   activity reference for the bounded delivery-retention horizon.
@@ -113,7 +116,7 @@ cp config.yml.example config.yml
 Set the stable release image in `.env`:
 
 ```dotenv
-ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:3.0.0
+ACTIVITY_RELAY_IMAGE=ghcr.io/thystra/activity-relay:3.0.1
 ```
 
 Release candidates use their complete `-rcN` tag; prereleases do not move
@@ -197,7 +200,7 @@ Verify an image:
 ```bash
 docker run \
   --rm \
-  ghcr.io/thystra/activity-relay:3.0.0 \
+  ghcr.io/thystra/activity-relay:3.0.1 \
   --version
 ```
 
@@ -236,7 +239,7 @@ Continue with:
 For a tagged stable build:
 
 ```bash
-VERSION=3.0.0
+VERSION=3.0.1
 
 git checkout "v${VERSION}"
 mkdir -p build

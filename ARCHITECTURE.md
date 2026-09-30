@@ -228,7 +228,11 @@ Pleroma, Akkoma, Friendica, NodeBB, and compatible server actors follow
 retaining the established actor ID, collections, and key identity. The relay
 accepts valid remote `Application` and `Service` actors at implementation-
 defined paths, returns `Accept`, and sends a reciprocal `Follow`. Legacy
-`/relay` and `/friendica` paths remain compatible.
+`/relay` and `/friendica` paths remain compatible. Follower registration is
+committed only after the domain, actor ID, inbox, and originating Follow activity
+are complete. Mutual-follow status updates may update only an existing complete
+follower record; they cannot create a follower as a side effect. Incomplete
+persisted follower hashes are excluded from the in-memory receiving set.
 
 ### Publisher validation
 
@@ -260,6 +264,11 @@ original author, media, and tags.
 URL-only announcements and embedded announcements for another domain remain
 publisher-accounting events. They are not fanned out, preventing relay loops and
 ordinary boost amplification.
+
+Fan-out validates each destination independently before queue admission. Invalid
+or unplannable receivers are logged and skipped while healthy receivers continue;
+queue reservations and stored remaining-delivery counts cover only the delivery
+tasks that were actually planned.
 
 ## Public API and privacy
 
