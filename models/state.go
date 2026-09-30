@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -130,6 +132,44 @@ func stringValue(values []interface{}, index int) string {
 	return value
 }
 
+func validateFollowerURL(field string, value string) error {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil {
+		return fmt.Errorf("%s is invalid: %w", field, err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("%s must use http or https", field)
+	}
+	if parsed.Hostname() == "" {
+		return fmt.Errorf("%s has no host", field)
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("%s contains user information", field)
+	}
+	return nil
+}
+
+func validateFollower(follower Follower) error {
+	domain := normalizeStateDomain(follower.Domain)
+	if domain == "" {
+		return errors.New("follower domain is empty")
+	}
+	if err := validateFollowerURL("follower actor_id", follower.ActorID); err != nil {
+		return err
+	}
+	actorURL, _ := url.Parse(strings.TrimSpace(follower.ActorID))
+	if actorDomain := normalizeStateDomain(actorURL.Host); actorDomain != domain {
+		return fmt.Errorf("follower actor domain %q does not match stored domain %q", actorDomain, domain)
+	}
+	if err := validateFollowerURL("follower inbox_url", follower.InboxURL); err != nil {
+		return err
+	}
+	if strings.TrimSpace(follower.ActivityID) == "" {
+		return errors.New("follower activity_id is empty")
+	}
+	return nil
+}
+
 // Load refreshes relay state from Redis and atomically publishes a complete snapshot.
 func (config *RelayState) Load() error {
 	ctx := context.Background()
@@ -186,7 +226,20 @@ func (config *RelayState) Load() error {
 		activityID := stringValue(values[i], 1)
 		actorID := stringValue(values[i], 2)
 		mutuallyFollow := stringValue(values[i], 3)
-		followers = append(followers, Follower{domainName, inboxURL, activityID, actorID, mutuallyFollow == "1"})
+		follower := Follower{domainName, inboxURL, activityID, actorID, mutuallyFollow == "1"}
+		if err := validateFollower(follower); err != nil || (mutuallyFollow != "0" && mutuallyFollow != "1") {
+			fields := logrus.Fields{
+				"domain": domainName,
+			}
+			if err != nil {
+				fields["error"] = err.Error()
+			} else {
+				fields["error"] = "invalid mutually_follow value"
+			}
+			logrus.WithFields(fields).Warn("Ignoring invalid persisted follower")
+			continue
+		}
+		followers = append(followers, follower)
 		subscribersAndFollowers = append(subscribersAndFollowers, Subscriber{domainName, inboxURL, activityID, actorID})
 	}
 
@@ -377,27 +430,91 @@ func (config *RelayState) SelectSubscriber(domain string) *Subscriber {
 	return nil
 }
 
-// AddFollower : Add new instance for follower list
-func (config *RelayState) AddFollower(domain Follower) {
-	config.RedisClient.HMSet(context.TODO(), "relay:follower:"+domain.Domain, map[string]interface{}{
-		"inbox_url":       domain.InboxURL,
-		"activity_id":     domain.ActivityID,
-		"actor_id":        domain.ActorID,
-		"mutually_follow": domain.MutuallyFollow,
-	})
-
+// AddFollowerChecked validates and atomically stores a complete follower record.
+func (config *RelayState) AddFollowerChecked(follower Follower) error {
+	if err := validateFollower(follower); err != nil {
+		return err
+	}
+	domain := normalizeStateDomain(follower.Domain)
+	mutuallyFollow := "0"
+	if follower.MutuallyFollow {
+		mutuallyFollow = "1"
+	}
+	if err := config.RedisClient.HSet(context.TODO(), "relay:follower:"+domain, map[string]interface{}{
+		"inbox_url":       follower.InboxURL,
+		"activity_id":     follower.ActivityID,
+		"actor_id":        follower.ActorID,
+		"mutually_follow": mutuallyFollow,
+	}).Err(); err != nil {
+		return err
+	}
 	config.refresh()
+	return nil
 }
 
-// UpdateFollowerStatus : Update MutuallyFollow Status
-func (config *RelayState) UpdateFollowerStatus(domain string, mutuallyFollow bool) {
-	if mutuallyFollow {
-		config.RedisClient.HSet(context.TODO(), "relay:follower:"+domain, "mutually_follow", "1")
-	} else {
-		config.RedisClient.HSet(context.TODO(), "relay:follower:"+domain, "mutually_follow", "0")
+// AddFollower : Add new instance for follower list. Invalid records are dropped.
+func (config *RelayState) AddFollower(follower Follower) {
+	if err := config.AddFollowerChecked(follower); err != nil {
+		logrus.WithError(err).
+			WithField("domain", follower.Domain).
+			Warn("Rejected invalid follower")
 	}
+}
 
-	config.refresh()
+const updateFollowerStatusScript = `
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return 0
+end
+for _, field in ipairs({'inbox_url', 'activity_id', 'actor_id', 'mutually_follow'}) do
+  local value = redis.call('HGET', KEYS[1], field)
+  if not value or value == '' then
+    redis.call('DEL', KEYS[1])
+    return -1
+  end
+end
+redis.call('HSET', KEYS[1], 'mutually_follow', ARGV[1])
+return 1`
+
+// UpdateFollowerStatusChecked updates an existing complete follower without creating state.
+func (config *RelayState) UpdateFollowerStatusChecked(domain string, mutuallyFollow bool) error {
+	domain = normalizeStateDomain(domain)
+	if domain == "" {
+		return errors.New("follower domain is empty")
+	}
+	status := "0"
+	if mutuallyFollow {
+		status = "1"
+	}
+	result, err := config.RedisClient.Eval(
+		context.TODO(),
+		updateFollowerStatusScript,
+		[]string{"relay:follower:" + domain},
+		status,
+	).Int()
+	if err != nil {
+		return err
+	}
+	switch result {
+	case 1:
+		config.refresh()
+		return nil
+	case 0:
+		return errors.New("follower does not exist")
+	case -1:
+		config.refresh()
+		return errors.New("follower record was incomplete and has been removed")
+	default:
+		return fmt.Errorf("unexpected follower status update result: %d", result)
+	}
+}
+
+// UpdateFollowerStatus : Update MutuallyFollow Status without creating missing state.
+func (config *RelayState) UpdateFollowerStatus(domain string, mutuallyFollow bool) {
+	if err := config.UpdateFollowerStatusChecked(domain, mutuallyFollow); err != nil {
+		logrus.WithError(err).
+			WithField("domain", domain).
+			Warn("Unable to update follower status")
+	}
 }
 
 // DelFollower : Delete instance from follower list

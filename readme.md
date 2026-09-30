@@ -48,6 +48,9 @@ Compared with the upstream baseline, this fork includes:
 - A tested Redis-backed fan-out pipeline with bounded queue and response
   controls, leased in-flight task claims, and at-least-once recovery after
   abrupt worker termination.
+- Complete follower-state validation that prevents stale mutual-follow updates
+  from creating partial Redis records and prevents one malformed receiver from
+  blocking healthy fan-out targets.
 - Non-configurable relay-reflection protection that excludes the supplying
   relay and deduplicates relay-authored wrappers by a hashed canonical
   activity reference for the bounded delivery-retention horizon.
