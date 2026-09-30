@@ -107,6 +107,7 @@ func TestExecutePublicAnnounceFansOutRelaySignedWrapperToAllReceivers(t *testing
 	RelayState.AddFollower(models.Follower{
 		Domain:         followerDomain,
 		InboxURL:       "https://follower.example/inbox",
+		ActivityID:     "https://example.invalid/activities/follow-test",
 		ActorID:        "https://follower.example/actor",
 		MutuallyFollow: true,
 	})

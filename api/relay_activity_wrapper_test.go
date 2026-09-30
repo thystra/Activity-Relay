@@ -263,6 +263,7 @@ func TestExecuteRelayActivityWrapsUnsignedPublicActivitiesForAllReceivers(
 	RelayState.AddFollower(models.Follower{
 		Domain:         followerDomain,
 		InboxURL:       "https://" + followerDomain + "/inbox",
+		ActivityID:     "https://example.invalid/activities/follow-test",
 		ActorID:        "https://" + followerDomain + "/actor",
 		MutuallyFollow: true,
 	})
@@ -383,6 +384,7 @@ func TestExecuteRelayActivityPreservesLDSignatureForSubscriberAndWrapsFollower(
 	RelayState.AddFollower(models.Follower{
 		Domain:         followerDomain,
 		InboxURL:       "https://" + followerDomain + "/inbox",
+		ActivityID:     "https://example.invalid/activities/follow-test",
 		ActorID:        "https://" + followerDomain + "/actor",
 		MutuallyFollow: true,
 	})
@@ -463,6 +465,7 @@ func TestExecuteRelayActivityDeduplicatesUnsignedReceiverStylesAndExcludesSource
 	RelayState.AddFollower(models.Follower{
 		Domain:         targetDomain,
 		InboxURL:       "https://" + targetDomain + "/actor/inbox",
+		ActivityID:     "https://example.invalid/activities/follow-test",
 		ActorID:        "https://" + targetDomain + "/actor",
 		MutuallyFollow: true,
 	})
@@ -533,6 +536,7 @@ func TestExecuteRelayActivitySignedOverlapPrefersTraditionalRoute(
 	RelayState.AddFollower(models.Follower{
 		Domain:         targetDomain,
 		InboxURL:       "https://" + targetDomain + "/actor/inbox",
+		ActivityID:     "https://example.invalid/activities/follow-test",
 		ActorID:        "https://" + targetDomain + "/actor",
 		MutuallyFollow: true,
 	})
@@ -670,6 +674,7 @@ func TestExecuteRelayActivitySignedMissingObjectIDForwardsSubscriberOnly(
 	RelayState.AddFollower(models.Follower{
 		Domain:         followerDomain,
 		InboxURL:       "https://" + followerDomain + "/inbox",
+		ActivityID:     "https://example.invalid/activities/follow-test",
 		ActorID:        "https://" + followerDomain + "/actor",
 		MutuallyFollow: true,
 	})
