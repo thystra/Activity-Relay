@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
-_No changes yet._
+### Added
+
+- Add negotiated Activity-Relay Directory Protocol v2 profile synchronization
+  with schema-4 capability discovery, v1 fallback, complete signed registration
+  profiles, digest-based scheduler reconciliation, and explicit operator sync.
 
 ## [3.0.1] - 2026-09-30
 

@@ -46,10 +46,15 @@ func newDirectoryScheduler(config *models.RelayConfig) (*directoryscheduler.Sche
 			return durableDirectoryEnabled(current, origin)
 		},
 		Clients: func(entry directoryclient.Directory) (directoryscheduler.Client, error) {
+			current, err := directoryconfig.Load(path)
+			if err != nil || current.Source != directoryconfig.SourceFile {
+				return nil, errors.New("durable directory configuration is unavailable")
+			}
 			return directoryclient.New(directoryclient.Options{
 				Origin:        entry.Origin,
 				RelayActor:    actor.ID,
 				PublicBaseURL: config.ServerHostname().String(),
+				Profile:       current.Profile,
 				KeyID:         actor.PublicKey.ID,
 				PrivateKey:    config.ActorKey(),
 			})

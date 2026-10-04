@@ -1,5 +1,9 @@
 # Activity-Relay roadmap
 
+- [x] Directory Protocol v2 profile synchronization: capability negotiation,
+  v1 fallback, complete profile registration, scheduler digest reconciliation,
+  explicit sync, and shared signed fixture. (2026-10-03)
+
 ## Current stable release
 
 `v3.0.0` is the current stable maintained-fork release line. It promotes the

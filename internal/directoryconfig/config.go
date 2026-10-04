@@ -35,6 +35,7 @@ type Config struct {
 	Source           Source
 	Path             string
 	Directories      []directoryclient.Directory
+	Profile          directoryclient.RelayProfile
 	PublicBaseURL    string
 	RelayActor       string
 	KeyID            string
@@ -73,6 +74,10 @@ func Load(path string) (Config, error) {
 		if err != nil {
 			return Config{}, err
 		}
+		profile, err := profileSetting(root)
+		if err != nil {
+			return Config{}, err
+		}
 		schedulerEnabled, err := boolSetting(root, "DIRECTORY_SCHEDULER_ENABLED")
 		if err != nil {
 			return Config{}, err
@@ -89,9 +94,13 @@ func Load(path string) (Config, error) {
 		if schedulerEnabled && redisURL == "" {
 			return Config{}, ErrConfiguration
 		}
-		return build(SourceFile, path, actorPEM, relayDomain, directories, schedulerEnabled, redisURL)
+		return build(SourceFile, path, actorPEM, relayDomain, directories, profile, schedulerEnabled, redisURL)
 	case errors.Is(err, os.ErrNotExist):
 		directories, err := parseEnvironmentDirectories(os.Getenv("DIRECTORIES"))
+		if err != nil {
+			return Config{}, err
+		}
+		profile, err := parseEnvironmentProfile(os.Getenv("DIRECTORY_PROFILE"))
 		if err != nil {
 			return Config{}, err
 		}
@@ -101,6 +110,7 @@ func Load(path string) (Config, error) {
 			os.Getenv("ACTOR_PEM"),
 			os.Getenv("RELAY_DOMAIN"),
 			directories,
+			profile,
 			false,
 			"",
 		)
@@ -113,6 +123,7 @@ func build(
 	source Source,
 	path, actorPEM, relayDomain string,
 	directories []directoryclient.Directory,
+	profile directoryclient.RelayProfile,
 	schedulerEnabled bool,
 	redisURL string,
 ) (Config, error) {
@@ -133,6 +144,7 @@ func build(
 		Source:           source,
 		Path:             path,
 		Directories:      directories,
+		Profile:          profile,
 		PublicBaseURL:    base.String(),
 		RelayActor:       actor,
 		KeyID:            actor + "#main-key",

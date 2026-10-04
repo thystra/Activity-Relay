@@ -2,10 +2,11 @@
 
 ## Scope and activation
 
-The `internal/directoryclient` package is the version 1 transport foundation
-for explicit operator commands and the optional API-process scheduler. It does
-not add a public relay endpoint or worker task. Existing ActivityPub fetch and
-delivery signing remains unchanged.
+The `internal/directoryclient` package provides Protocol v1 compatibility and
+negotiated Protocol v2 profile synchronization for explicit operator commands
+and the optional API-process scheduler. It does not add a public relay endpoint
+or worker task. Existing ActivityPub fetch and delivery signing remains
+unchanged.
 
 `DIRECTORIES` accepts at most eight entries. Entries are opt-in; the public
 example below remains disabled until an operator deliberately enables it:
@@ -54,12 +55,11 @@ relay directory sync origin
 ```
 
 Status without an origin lists local entries. Status with an origin retrieves
-the strict public status document. The 3.0 client accepts Directory status
-schema versions 2 and 3; schema version 3 additionally exposes
-`public_listing_enabled` and `public_listing_available`. JSON decoding remains
-strict, so a future status schema or field set must be added deliberately rather
-than being silently ignored. Sync performs heartbeat reconciliation only for
-the explicit `relay_not_registered` result. Authentication, enrollment,
+the strict public status document. The client accepts Directory status schemas 2 and 3 as Protocol-v1-only and
+schema 4 with the ordered `lifecycle_protocol_versions` capability list. It uses
+Protocol v2 only when version 2 is explicitly advertised; malformed status or
+transport failure is not a downgrade signal. JSON decoding remains strict.
+`directory sync` performs an explicit registration/profile reconciliation. Authentication, enrollment,
 suspension, lifecycle, and malformed-response errors are not retried.
 Transport and `internal_error` failures receive at most three attempts with
 bounded backoff. Validated `Retry-After` values are accepted as delta seconds or
@@ -138,6 +138,20 @@ An in-place edit that preserves the inode does not have the same stale-inode
 failure mode, but operators should prefer the durable atomic configuration
 workflow and explicit container recreation rather than rely on edit mechanics.
 
+## Descriptive Directory profile
+
+`DIRECTORY_PROFILE` is optional public metadata. The complete v2 profile has
+12 fields: participation mode, availability, relay type, languages,
+countries, regions, topics, Fediverse contact, email contact, contact URL,
+participation URL, and notes. Missing configuration produces explicit empty
+values when v2 registration is sent. Lists are trimmed, deduplicated, and sorted;
+profile URLs must be canonical HTTPS URLs. The same normalized profile is sent
+to every enabled Directory, but each Directory applies its own review and source
+precedence. Profile metadata never changes Activity-Relay follow, delivery, or
+fan-out behavior.
+
+Environment-only use may provide the same YAML mapping in `DIRECTORY_PROFILE`.
+
 ## Optional scheduler
 
 Setting `DIRECTORY_SCHEDULER_ENABLED: true` in a regular YAML configuration
@@ -147,11 +161,14 @@ because the scheduler and unregister command must share a durable suppression
 source.
 
 At API startup, each enabled entry with no current persisted schedule is
-registered. Successful registrations and heartbeats schedule the next
-heartbeat after 24 hours plus a stable per-relay, per-directory jitter of at
-most two hours. A restart reloads that state rather than immediately repeating
-the operation. Only a strict `relay_not_registered` heartbeat response invokes
-the client's one-register/one-final-heartbeat reconciliation.
+registered. The scheduler also compares a SHA-256 digest of the normalized
+Directory profile with its prior state; a changed profile triggers registration
+without waiting for the next heartbeat. Successful registrations and heartbeats
+schedule the next heartbeat after 24 hours plus stable per-relay, per-directory
+jitter of at most two hours. Only a strict `relay_not_registered` heartbeat
+response invokes one register/one-final-heartbeat reconciliation. If a normal
+heartbeat first observes Protocol v2 after earlier v1 fallback, one registration
+synchronizes the profile under v2.
 
 Redis stores one bounded state record and one renewable lease per canonical
 directory origin. Redis keys contain a SHA-256 digest, not the raw origin. The
@@ -207,12 +224,13 @@ this order:
 5. `content-type`; and
 6. `date`.
 
-The signature uses label `directory`, tag
-`activity-relay-directory-v1`, algorithm `rsa-v1_5-sha256`, a fresh
+The signature uses label `directory`, algorithm `rsa-v1_5-sha256`, a fresh
 cryptographic nonce, a current whole-second `created` time, and an `expires`
-time exactly five minutes later. `Content-Digest` is the RFC 9530 SHA-256 value
-over the exact compact JSON bytes. Register, heartbeat, and unregister target
-only their exact version 1 paths.
+time exactly five minutes later. Protocol v1 uses tag
+`activity-relay-directory-v1`; Protocol v2 uses the distinct tag
+`activity-relay-directory-v2`. `Content-Digest` is the RFC 9530 SHA-256 value
+over the exact compact JSON bytes. Each protocol version uses its own exact
+register, heartbeat, and unregister paths.
 
 Every network call builds and signs a new request. Retries added in later work
 must therefore receive a new nonce and signature rather than replaying a
@@ -234,9 +252,9 @@ cause registration.
 
 ## Compatibility fixture
 
-`testdata/directory/v1/activity-relay-register.valid.json` contains a complete
-fixed-clock request generated with the repository's non-production test RSA
-key. The client test reproduces its body, fields, signature parameters,
-signature, and public key exactly. The identical fixture in the Directory
-repository is accepted by that server's real digest, signature, key-binding,
-replay, handler, and response path.
+`testdata/directory/v1/activity-relay-register.valid.json` remains the v1
+compatibility vector. `testdata/directory/v2/activity-relay-register.valid.json`
+freezes the complete twelve-field profile registration, v2 target, digest,
+signature tag, signature, and public test key. The v2 file is byte-for-byte
+identical to the Directory repository's shared fixture and contains no private
+key.

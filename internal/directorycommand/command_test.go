@@ -175,14 +175,26 @@ func errorResponse(code string) string {
 	return fmt.Sprintf(`{"protocol_version":1,"error":{"code":%q,"message":"bounded"}}`, code)
 }
 
+func statusResponse() *http.Response {
+	return jsonResponse(http.StatusOK, `{"schema_version":2,"service":"activity-relay-directory","version":"test","public_base_url":"https://directory.example","lifecycle_enabled":true,"lifecycle_available":true,"enrollment_open":true}`)
+}
+
 func TestRegisterRetriesTransportWithFreshNonce(t *testing.T) {
 	path := testCommandConfig(t, true)
-	calls := 0
+	lifecycleCalls := 0
+	statusCalls := 0
 	var signatures []string
 	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		calls++
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			statusCalls++
+			return statusResponse(), nil
+		}
+		if request.Method != http.MethodPost || request.URL.Path != "/v1/relays/register" {
+			t.Fatalf("unexpected request = %s %s", request.Method, request.URL.Path)
+		}
+		lifecycleCalls++
 		signatures = append(signatures, request.Header.Get("Signature-Input"))
-		if calls == 1 {
+		if lifecycleCalls == 1 {
 			return nil, errors.New("private transport detail")
 		}
 		return jsonResponse(http.StatusCreated, successResponse("register", "created")), nil
@@ -195,11 +207,11 @@ func TestRegisterRetriesTransportWithFreshNonce(t *testing.T) {
 	}, &sleeps)
 
 	stdout, _, err := executeCommand(t, deps, path, "directory", "register", commandTestOrigin)
-	if err != nil || !strings.Contains(stdout, "created") || calls != 2 ||
+	if err != nil || !strings.Contains(stdout, "created") || lifecycleCalls != 2 || statusCalls != 2 ||
 		len(signatures) != 2 || signatures[0] == signatures[1] ||
 		!strings.Contains(signatures[0], "nonce-1") || !strings.Contains(signatures[1], "nonce-2") ||
 		len(sleeps) != 1 || sleeps[0] != initialBackoff {
-		t.Fatalf("result=(%q, %v), calls=%d signatures=%#v sleeps=%#v", stdout, err, calls, signatures, sleeps)
+		t.Fatalf("result=(%q, %v), lifecycleCalls=%d statusCalls=%d signatures=%#v sleeps=%#v", stdout, err, lifecycleCalls, statusCalls, signatures, sleeps)
 	}
 }
 
@@ -213,14 +225,17 @@ func TestAuthenticationAndPolicyErrorsAreNotRetried(t *testing.T) {
 	} {
 		t.Run(test.code, func(t *testing.T) {
 			path := testCommandConfig(t, true)
-			calls := 0
-			deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
-				calls++
+			lifecycleCalls := 0
+			deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+					return statusResponse(), nil
+				}
+				lifecycleCalls++
 				return jsonResponse(test.status, errorResponse(test.code)), nil
 			}), func() (string, error) { return "nonce", nil }, nil)
 			_, _, err := executeCommand(t, deps, path, "directory", "register", commandTestOrigin)
-			if err == nil || calls != 1 || !strings.Contains(err.Error(), test.code) {
-				t.Fatalf("error=%v calls=%d", err, calls)
+			if err == nil || lifecycleCalls != 1 || !strings.Contains(err.Error(), test.code) {
+				t.Fatalf("error=%v lifecycleCalls=%d", err, lifecycleCalls)
 			}
 		})
 	}
@@ -228,22 +243,25 @@ func TestAuthenticationAndPolicyErrorsAreNotRetried(t *testing.T) {
 
 func TestRateLimitHonorsBoundedRetryAfter(t *testing.T) {
 	path := testCommandConfig(t, true)
-	calls := 0
+	lifecycleCalls := 0
 	var sleeps []time.Duration
-	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
-		calls++
-		if calls == 1 {
+	deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			return statusResponse(), nil
+		}
+		lifecycleCalls++
+		if lifecycleCalls == 1 {
 			response := jsonResponse(http.StatusTooManyRequests, errorResponse("rate_limited"))
 			response.Header.Set("Retry-After", "9")
 			return response, nil
 		}
 		return jsonResponse(http.StatusCreated, successResponse("register", "created")), nil
-	}), func() (string, error) { return fmt.Sprintf("nonce-%d", calls+1), nil }, &sleeps)
+	}), func() (string, error) { return fmt.Sprintf("nonce-%d", lifecycleCalls+1), nil }, &sleeps)
 	if _, _, err := executeCommand(t, deps, path, "directory", "register", commandTestOrigin); err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 || len(sleeps) != 1 || sleeps[0] != 9*time.Second {
-		t.Fatalf("calls=%d sleeps=%#v", calls, sleeps)
+	if lifecycleCalls != 2 || len(sleeps) != 1 || sleeps[0] != 9*time.Second {
+		t.Fatalf("lifecycleCalls=%d sleeps=%#v", lifecycleCalls, sleeps)
 	}
 }
 
@@ -275,8 +293,11 @@ func TestStatusHeartbeatAndSyncCommandPaths(t *testing.T) {
 
 	t.Run("heartbeat", func(t *testing.T) {
 		deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			if request.URL.Path != "/v1/relays/heartbeat" {
-				t.Fatalf("heartbeat path = %s", request.URL.Path)
+			if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+				return statusResponse(), nil
+			}
+			if request.Method != http.MethodPost || request.URL.Path != "/v1/relays/heartbeat" {
+				t.Fatalf("heartbeat request = %s %s", request.Method, request.URL.Path)
 			}
 			return jsonResponse(http.StatusOK, successResponse("heartbeat", "recorded")), nil
 		}), func() (string, error) { return "nonce", nil }, nil)
@@ -286,28 +307,24 @@ func TestStatusHeartbeatAndSyncCommandPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("sync reconciliation", func(t *testing.T) {
-		calls := 0
-		var signatureInputs []string
+	t.Run("sync register reconciliation", func(t *testing.T) {
+		lifecycleCalls := 0
+		var signatureInput string
 		deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			calls++
-			signatureInputs = append(signatureInputs, request.Header.Get("Signature-Input"))
-			switch calls {
-			case 1:
-				return jsonResponse(http.StatusConflict, errorResponse("relay_not_registered")), nil
-			case 2:
-				return jsonResponse(http.StatusCreated, successResponse("register", "created")), nil
-			default:
-				return jsonResponse(http.StatusOK, successResponse("heartbeat", "recorded")), nil
+			if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+				return statusResponse(), nil
 			}
-		}), func() (string, error) {
-			return fmt.Sprintf("sync-nonce-%d", calls+1), nil
-		}, nil)
+			if request.Method != http.MethodPost || request.URL.Path != "/v1/relays/register" {
+				t.Fatalf("sync request = %s %s", request.Method, request.URL.Path)
+			}
+			lifecycleCalls++
+			signatureInput = request.Header.Get("Signature-Input")
+			return jsonResponse(http.StatusCreated, successResponse("register", "created")), nil
+		}), func() (string, error) { return "sync-nonce", nil }, nil)
 		stdout, _, err := executeCommand(t, deps, path, "directory", "sync", commandTestOrigin)
-		if err != nil || calls != 3 || !strings.Contains(stdout, "recorded") ||
-			len(signatureInputs) != 3 || signatureInputs[0] == signatureInputs[1] ||
-			signatureInputs[1] == signatureInputs[2] {
-			t.Fatalf("sync=(%q, %v), calls=%d signatures=%#v", stdout, err, calls, signatureInputs)
+		if err != nil || lifecycleCalls != 1 || !strings.Contains(stdout, "created") ||
+			!strings.Contains(signatureInput, `nonce="sync-nonce"`) {
+			t.Fatalf("sync=(%q, %v), lifecycleCalls=%d signature=%q", stdout, err, lifecycleCalls, signatureInput)
 		}
 	})
 }
@@ -332,8 +349,7 @@ func TestDisabledEntryCannotRegisterHeartbeatOrSync(t *testing.T) {
 func TestUnregisterDisablesBeforeRequestAndStaysDisabledOnFailure(t *testing.T) {
 	path := testCommandConfig(t, true)
 	calls := 0
-	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
-		calls++
+	deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		config, err := directoryconfig.Load(path)
 		if err != nil {
 			t.Fatal(err)
@@ -342,6 +358,10 @@ func TestUnregisterDisablesBeforeRequestAndStaysDisabledOnFailure(t *testing.T) 
 		if err != nil || entry.Enabled {
 			t.Fatalf("entry was not disabled before request: %#v %v", entry, err)
 		}
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			return statusResponse(), nil
+		}
+		calls++
 		return jsonResponse(http.StatusUnauthorized, errorResponse("authentication_failed")), nil
 	}), func() (string, error) { return "nonce", nil }, nil)
 	_, stderr, err := executeCommand(t, deps, path, "directory", "unregister", commandTestOrigin)
@@ -357,7 +377,10 @@ func TestUnregisterDisablesBeforeRequestAndStaysDisabledOnFailure(t *testing.T) 
 
 func TestUnregisterMayRemoveOnlyAfterRemoteSuccess(t *testing.T) {
 	path := testCommandConfig(t, true)
-	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			return statusResponse(), nil
+		}
 		return jsonResponse(http.StatusOK, successResponse("unregister", "removed")), nil
 	}), func() (string, error) { return "nonce", nil }, nil)
 	stdout, _, err := executeCommand(
@@ -384,8 +407,7 @@ func TestScheduledUnregisterLeasesThenSuppressesBeforeRemoteRequest(t *testing.T
 		acquired: true,
 	}
 	calls := 0
-	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
-		calls++
+	deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		config, err := directoryconfig.Load(path)
 		if err != nil {
 			t.Fatal(err)
@@ -394,6 +416,10 @@ func TestScheduledUnregisterLeasesThenSuppressesBeforeRemoteRequest(t *testing.T
 		if err != nil || entry.Enabled || store.state.LastOutcome != "disabled" || !store.state.Registered {
 			t.Fatalf("remote request preceded durable suppression: entry=%#v state=%#v err=%v", entry, store.state, err)
 		}
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			return statusResponse(), nil
+		}
+		calls++
 		return jsonResponse(http.StatusUnauthorized, errorResponse("authentication_failed")), nil
 	}), func() (string, error) { return "nonce", nil }, nil)
 	deps.store = func(directoryconfig.Config) (directoryscheduler.StateStore, error) { return store, nil }
@@ -435,7 +461,10 @@ func TestEnvironmentUnregisterRequiresExplicitAcknowledgement(t *testing.T) {
 	t.Setenv("DIRECTORIES", `[{origin: "https://directory.example", enabled: true}]`)
 	path := filepath.Join(t.TempDir(), "missing.yml")
 	calls := 0
-	deps := testDependencies(t, roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+	deps := testDependencies(t, roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			return statusResponse(), nil
+		}
 		calls++
 		return jsonResponse(http.StatusOK, successResponse("unregister", "removed")), nil
 	}), func() (string, error) { return "nonce", nil }, nil)

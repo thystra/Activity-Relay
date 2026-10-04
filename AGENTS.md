@@ -120,7 +120,11 @@ Never run tests against production Redis.
   state, and durably disable and suppress the entry before remote traffic.
   Workers must never schedule directory traffic. Directory signatures use their own
   expiring nonce-bearing application profile and shared fixture; they must not
-  change the ActivityPub signing profile.
+  change the ActivityPub signing profile. Protocol v1 remains the compatibility
+  fallback. Protocol v2 is selected only from a valid schema-4 status capability,
+  uses its own signature tag, carries the complete normalized descriptive profile
+  only on register, and keeps heartbeat/unregister identity-only. Scheduler state
+  may retain only the profile digest/protocol version, never profile contents.
 - Open publisher ingestion must retain HTTP-signature, actor-host, blocked
   domain, limited-domain, and person-only policy enforcement.
 - The bundled public website is optional. Relay operation must not depend on

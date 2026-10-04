@@ -159,7 +159,15 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 		return time.Time{}, err
 	}
 	now := scheduler.monotonicNow(state.LastObserved)
-	if !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
+	profileChanged := false
+	if state.Registered {
+		if preview, previewErr := scheduler.clients(entry); previewErr == nil {
+			if digest, ok := clientProfileDigest(preview); ok {
+				profileChanged = state.ProfileDigest != digest
+			}
+		}
+	}
+	if !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
 		return state.NextAttempt, nil
 	}
 	lease, acquired, err := scheduler.store.Acquire(ctx, entry.Origin, leaseTTL)
@@ -179,9 +187,6 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 		return time.Time{}, err
 	}
 	now = scheduler.monotonicNow(state.LastObserved)
-	if !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
-		return state.NextAttempt, nil
-	}
 	enabled, err = scheduler.enabled(entry.Origin)
 	if err != nil || !enabled {
 		if err != nil {
@@ -198,6 +203,13 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 		scheduler.record(ctx, "failure", state.Diagnostic)
 		return state.NextAttempt, nil
 	}
+	profileChanged = false
+	if digest, ok := clientProfileDigest(client); ok && state.Registered {
+		profileChanged = state.ProfileDigest != digest
+	}
+	if !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
+		return state.NextAttempt, nil
+	}
 	operationContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	lost := make(chan struct{}, 1)
@@ -208,10 +220,14 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 	}()
 
 	var response directoryclient.Response
-	if state.Registered {
-		response, err = client.HeartbeatWithRegisterReconciliation(operationContext)
+	if state.Registered && !profileChanged {
+		response, err = schedulerHeartbeat(operationContext, client)
 	} else {
-		response, err = client.Register(operationContext)
+		response, err = schedulerRegister(operationContext, client)
+	}
+	if err == nil && response.Operation == directoryclient.OperationHeartbeat &&
+		response.ProtocolVersion == 2 && state.ProfileProtocolVersion != 2 {
+		response, err = schedulerRegister(operationContext, client)
 	}
 	cancel()
 	<-renewalDone
@@ -229,6 +245,12 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 	completedAt := scheduler.monotonicNow(state.LastObserved)
 	if err == nil {
 		state.Registered = true
+		if response.Operation == directoryclient.OperationRegister {
+			if digest, ok := clientProfileDigest(client); ok {
+				state.ProfileDigest = digest
+				state.ProfileProtocolVersion = response.ProtocolVersion
+			}
+		}
 		state.LastSuccess = completedAt
 		state.NextAttempt = completedAt.Add(NominalHeartbeatInterval + stableJitter(scheduler.relayActor, entry.Origin))
 		state.Attempt = 0
