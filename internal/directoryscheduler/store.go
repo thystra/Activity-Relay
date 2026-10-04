@@ -22,13 +22,15 @@ const (
 var ErrStore = errors.New("directory scheduler store failed")
 
 type State struct {
-	Registered   bool
-	LastSuccess  time.Time
-	NextAttempt  time.Time
-	LastOutcome  string
-	Diagnostic   string
-	Attempt      int
-	LastObserved time.Time
+	Registered             bool
+	LastSuccess            time.Time
+	NextAttempt            time.Time
+	LastOutcome            string
+	Diagnostic             string
+	Attempt                int
+	LastObserved           time.Time
+	ProfileDigest          string
+	ProfileProtocolVersion int
 }
 
 type Lease interface {
@@ -97,7 +99,16 @@ func (store *RedisStore) Load(ctx context.Context, origin string) (State, error)
 		}
 		state.Attempt = int(attempt)
 	}
-	if !validOutcome(state.LastOutcome) || !validDiagnostic(state.Diagnostic) {
+	state.ProfileDigest = values["profile_digest"]
+	if values["profile_protocol_version"] != "" {
+		version, parseErr := strconv.ParseUint(values["profile_protocol_version"], 10, 8)
+		if parseErr != nil || version > 2 {
+			return State{}, ErrStore
+		}
+		state.ProfileProtocolVersion = int(version)
+	}
+	if !validOutcome(state.LastOutcome) || !validDiagnostic(state.Diagnostic) ||
+		!validProfileState(state.ProfileDigest, state.ProfileProtocolVersion) {
 		return State{}, ErrStore
 	}
 	return state, nil
@@ -105,7 +116,8 @@ func (store *RedisStore) Load(ctx context.Context, origin string) (State, error)
 
 func validateState(origin string, state State) error {
 	if origin == "" || state.Attempt < 0 || state.Attempt > maximumAttempt ||
-		!validOutcome(state.LastOutcome) || !validDiagnostic(state.Diagnostic) {
+		!validOutcome(state.LastOutcome) || !validDiagnostic(state.Diagnostic) ||
+		!validProfileState(state.ProfileDigest, state.ProfileProtocolVersion) {
 		return ErrStore
 	}
 	return nil
@@ -124,6 +136,8 @@ func stateArguments(state State) []any {
 		state.Diagnostic,
 		strconv.Itoa(state.Attempt),
 		unixString(state.LastObserved),
+		state.ProfileDigest,
+		strconv.Itoa(state.ProfileProtocolVersion),
 	}
 }
 
@@ -135,13 +149,15 @@ func (store *RedisStore) Save(ctx context.Context, origin string, state State) e
 	arguments := stateArguments(state)
 	pipeline := store.client.TxPipeline()
 	pipeline.HSet(ctx, key, map[string]any{
-		"registered":         arguments[0],
-		"last_success_unix":  arguments[1],
-		"next_attempt_unix":  arguments[2],
-		"last_outcome":       arguments[3],
-		"diagnostic":         arguments[4],
-		"attempt":            arguments[5],
-		"last_observed_unix": arguments[6],
+		"registered":               arguments[0],
+		"last_success_unix":        arguments[1],
+		"next_attempt_unix":        arguments[2],
+		"last_outcome":             arguments[3],
+		"diagnostic":               arguments[4],
+		"attempt":                  arguments[5],
+		"last_observed_unix":       arguments[6],
+		"profile_digest":           arguments[7],
+		"profile_protocol_version": arguments[8],
 	})
 	pipeline.Expire(ctx, key, stateRetention)
 	if _, err := pipeline.Exec(ctx); err != nil {
@@ -161,8 +177,10 @@ redis.call('HSET', KEYS[2],
   'last_outcome', ARGV[5],
   'diagnostic', ARGV[6],
   'attempt', ARGV[7],
-  'last_observed_unix', ARGV[8])
-redis.call('PEXPIRE', KEYS[2], ARGV[9])
+  'last_observed_unix', ARGV[8],
+  'profile_digest', ARGV[9],
+  'profile_protocol_version', ARGV[10])
+redis.call('PEXPIRE', KEYS[2], ARGV[11])
 return 1
 `)
 
@@ -284,6 +302,17 @@ func unixString(value time.Time) string {
 		return "0"
 	}
 	return strconv.FormatInt(value.UTC().Unix(), 10)
+}
+
+func validProfileState(digest string, protocolVersion int) bool {
+	if digest == "" {
+		return protocolVersion == 0
+	}
+	if protocolVersion != 1 && protocolVersion != 2 || len(digest) != sha256.Size*2 {
+		return false
+	}
+	decoded, err := hex.DecodeString(digest)
+	return err == nil && len(decoded) == sha256.Size && hex.EncodeToString(decoded) == digest
 }
 
 func validOutcome(value string) bool {

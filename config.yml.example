@@ -38,6 +38,21 @@ DIRECTORY_SCHEDULER_ENABLED: false
 #     enabled: false
 #   - origin: https://directory.example.org
 #     enabled: false
+# Optional descriptive profile synchronized to v2-capable Directories. This is
+# public metadata only; it never changes relay delivery or follow policy.
+# DIRECTORY_PROFILE:
+#   participation_mode: open
+#   availability: public
+#   relay_type: general
+#   languages: [en]
+#   countries: [US]
+#   regions: []
+#   topics: [general]
+#   contact_fediverse: "@relay@example.social"
+#   contact_email: relay@example.org
+#   contact_url: https://relay.example.org/contact
+#   participation_url: https://relay.example.org/join
+#   notes: Public community relay
 
 # Single-disk defaults used by contrib/ops/resource-guard.py. These should
 # match RELAY_STORAGE_DIR and RELAY_CACHE_DIR in the deployment environment.

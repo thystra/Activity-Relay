@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "scheme": "https",
+  "authority": "directory.example",
+  "target": "/v2/relays/register",
+  "content_type": "application/json",
+  "content_digest": "sha-256=:x2iIIds5+D/BuxjVlSiKFpljY0a5P5QwLsUyzcNWHBI=:",
+  "date": "Sat, 03 Oct 2026 22:30:00 GMT",
+  "body": "{\"protocol_version\":2,\"operation\":\"register\",\"relay_actor\":\"https://relay.example/actor\",\"public_base_url\":\"https://relay.example\",\"profile\":{\"participation_mode\":\"open\",\"availability\":\"public\",\"relay_type\":\"general\",\"languages\":[\"en\",\"fr\"],\"countries\":[\"US\"],\"regions\":[\"North America\"],\"topics\":[\"general\"],\"contact_fediverse\":\"@relay@example.social\",\"contact_email\":\"relay@example.com\",\"contact_url\":\"https://relay.example/contact\",\"participation_url\":\"https://relay.example/join\",\"notes\":\"Public community relay\"}}",
+  "signature_input": "directory=(\"@method\" \"@authority\" \"@target-uri\" \"content-digest\" \"content-type\" \"date\");keyid=\"https://relay.example/actor#main-key\";alg=\"rsa-v1_5-sha256\";tag=\"activity-relay-directory-v2\";nonce=\"fixture-v2-nonce-0001\";created=1791066600;expires=1791066900",
+  "signature": "directory=:OYY2YXPlVxTZdt6g39m6aGt+35Vpl/qGAumeqNKJidxHwUxeu4jMg5Qfepon+eP7QlakE7EITUhhwWhoN8iqsOtZBhvsfyDqx/E4olB+GCx8SIsY9dqLWS/3ou7ot98PMHjnNQMY+kGJvaTrLcYjFwwH/NRe/0lpAH/Ro7tkcVGcwuOVNWZPrFkdq/baJhmJ15d3gOAQyp31dLZu9QHWHxbXKzEpzgmqaZ5vZDaHGLfe97W38OGecWaZY1fmPCOhy8b6xTZEDkdTXxiAbPbPdtvSzQ2VL9WrhtT8IvxnGg3ZCpkMIGU8RH+exek/p6lt9R7nDrcaMzz39kYR+UKfJg==:",
+  "key_id": "https://relay.example/actor#main-key",
+  "key_owner": "https://relay.example/actor",
+  "key_actor": "https://relay.example/actor",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtl1oFS/LyBBlygdHp7be\npNFgFvVLehdU31ReuFwt1WYDNEIQa60tH3CyjpnFw2Hq8z5tRtTIJgMTROBI2CU7\nwgpC4IEO1jFpl4vRqJ7bcCQBib+6QI+9TCCI2qLgnCObfU8i6HWj4Z5fDMhKrMLM\nbdjLDVNGy7PRlVGR/b/Ootur4PXF2Xnxp+otum477/vT5SVNcJy6ZbFn//M6wo1i\nenKTnBOPjvMmz5JR8I6YczGJfmdrIPFdfjz24JT3fyIYRP6jUEo6mAyMIJReBN66\nLrehOa+tETyMPCHnponrhbrpq49t/0dQmtIorQeD5Yxi3BTbk3mJrd0sxvz5cPws\ndQIDAQAB\n-----END PUBLIC KEY-----\n"
+}

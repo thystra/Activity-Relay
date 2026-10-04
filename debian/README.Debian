@@ -39,6 +39,12 @@ Package upgrades restart Activity-Relay services that are already active and
 print the restart result when configuration finishes. Inactive services are
 not enabled or started by an upgrade.
 
+Directory profile synchronization is optional. When an enabled Directory
+advertises lifecycle Protocol v2, `DIRECTORY_PROFILE` from config.yml is sent as
+public descriptive metadata during signed registration. It does not change
+relay follow, delivery, or fan-out policy. Protocol-v1-only Directories continue
+to use the existing lifecycle contract without profile data.
+
 Website and reverse proxy
 -------------------------
 

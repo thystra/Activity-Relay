@@ -43,15 +43,16 @@ type ProtocolError struct {
 
 // Status is the validated public Directory status document.
 type Status struct {
-	SchemaVersion          int    `json:"schema_version"`
-	Service                string `json:"service"`
-	Version                string `json:"version"`
-	PublicBaseURL          string `json:"public_base_url"`
-	LifecycleEnabled       bool   `json:"lifecycle_enabled"`
-	LifecycleAvailable     bool   `json:"lifecycle_available"`
-	EnrollmentOpen         bool   `json:"enrollment_open"`
-	PublicListingEnabled   bool   `json:"public_listing_enabled"`
-	PublicListingAvailable bool   `json:"public_listing_available"`
+	SchemaVersion             int    `json:"schema_version"`
+	LifecycleProtocolVersions []int  `json:"lifecycle_protocol_versions"`
+	Service                   string `json:"service"`
+	Version                   string `json:"version"`
+	PublicBaseURL             string `json:"public_base_url"`
+	LifecycleEnabled          bool   `json:"lifecycle_enabled"`
+	LifecycleAvailable        bool   `json:"lifecycle_available"`
+	EnrollmentOpen            bool   `json:"enrollment_open"`
+	PublicListingEnabled      bool   `json:"public_listing_enabled"`
+	PublicListingAvailable    bool   `json:"public_listing_available"`
 }
 
 func (err *ProtocolError) Error() string {
@@ -66,6 +67,7 @@ type Options struct {
 	Origin        string
 	RelayActor    string
 	PublicBaseURL string
+	Profile       RelayProfile
 	KeyID         string
 	PrivateKey    *rsa.PrivateKey
 	HTTPClient    *http.Client
@@ -79,6 +81,7 @@ type Client struct {
 	origin        *url.URL
 	relayActor    string
 	publicBaseURL string
+	profile       RelayProfile
 	signer        *requestSigner
 	httpClient    *http.Client
 	now           func() time.Time
@@ -87,6 +90,10 @@ type Client struct {
 func New(options Options) (*Client, error) {
 	origin, err := ParseOrigin(options.Origin)
 	if err != nil || !validRelayIdentity(options.RelayActor, options.PublicBaseURL) {
+		return nil, ErrDirectoryConfiguration
+	}
+	profile, err := NormalizeRelayProfile(options.Profile)
+	if err != nil {
 		return nil, ErrDirectoryConfiguration
 	}
 	now := options.Now
@@ -111,6 +118,7 @@ func New(options Options) (*Client, error) {
 		origin:        origin,
 		relayActor:    options.RelayActor,
 		publicBaseURL: options.PublicBaseURL,
+		profile:       profile,
 		signer:        signer,
 		httpClient:    httpClient,
 		now:           now,
@@ -195,7 +203,7 @@ func (client *Client) Status(ctx context.Context) (Status, error) {
 	}
 	var status Status
 	if err := decodeStrictJSON(body, &status); err != nil ||
-		(status.SchemaVersion != 2 && status.SchemaVersion != 3) ||
+		!validStatusLifecycleVersions(status) ||
 		status.Service != "activity-relay-directory" || status.Version == "" ||
 		status.PublicBaseURL != client.origin.String() {
 		return Status{}, ErrDirectoryResponse

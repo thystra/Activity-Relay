@@ -44,6 +44,7 @@ func productionDependencies() dependencies {
 				Origin:        origin,
 				RelayActor:    config.RelayActor,
 				PublicBaseURL: config.PublicBaseURL,
+				Profile:       config.Profile,
 				KeyID:         config.KeyID,
 				PrivateKey:    config.PrivateKey,
 			})
@@ -129,7 +130,7 @@ func buildCommand(deps dependencies) *cobra.Command {
 		"Register an explicitly enabled relay",
 		deps,
 		func(ctx context.Context, client *directoryclient.Client) (directoryclient.Response, error) {
-			return client.Register(ctx)
+			return client.RegisterNegotiated(ctx)
 		},
 	))
 	directory.AddCommand(lifecycleCommand(
@@ -137,15 +138,15 @@ func buildCommand(deps dependencies) *cobra.Command {
 		"Record a heartbeat for an explicitly enabled relay",
 		deps,
 		func(ctx context.Context, client *directoryclient.Client) (directoryclient.Response, error) {
-			return client.Heartbeat(ctx)
+			return client.HeartbeatNegotiated(ctx)
 		},
 	))
 	directory.AddCommand(lifecycleCommand(
 		"sync [origin]",
-		"Heartbeat and reconcile one explicit missing registration",
+		"Reconcile registration and descriptive Directory profile",
 		deps,
 		func(ctx context.Context, client *directoryclient.Client) (directoryclient.Response, error) {
-			return client.HeartbeatWithRegisterReconciliation(ctx)
+			return client.RegisterNegotiated(ctx)
 		},
 	))
 	directory.AddCommand(unregisterCommand(deps))
@@ -278,7 +279,7 @@ func unregisterCommand(deps dependencies) *cobra.Command {
 				return errors.New("directory scheduler lease was lost; the entry remains disabled and no remote request was sent")
 			}
 
-			response, err := retryLifecycle(operationContext, deps, client.Unregister)
+			response, err := retryLifecycle(operationContext, deps, client.UnregisterNegotiated)
 			if leaseHasBeenLost(leaseLost) {
 				return errors.New("directory scheduler lease was lost during remote unregister; the entry remains disabled")
 			}

@@ -23,6 +23,7 @@ import (
 const (
 	SignatureLabel = "directory"
 	SignatureTag   = "activity-relay-directory-v1"
+	SignatureTagV2 = "activity-relay-directory-v2"
 	SignatureAlg   = alg_rsa.RSASSA_PKCS1_1_5_SHA256
 	SignatureTTL   = 5 * time.Minute
 )
@@ -73,7 +74,11 @@ func randomNonce() (string, error) {
 }
 
 func (signer *requestSigner) sign(request *http.Request, body []byte) error {
-	if signer == nil || request == nil || request.URL == nil ||
+	return signer.signWithTag(request, body, SignatureTag)
+}
+
+func (signer *requestSigner) signWithTag(request *http.Request, body []byte, tag string) error {
+	if signer == nil || tag == "" || request == nil || request.URL == nil ||
 		request.Method != http.MethodPost || request.URL.Scheme != "https" ||
 		request.URL.Host == "" || request.URL.Fragment != "" {
 		return ErrDirectoryConfiguration
@@ -110,7 +115,7 @@ func (signer *requestSigner) sign(request *http.Request, body []byte) error {
 	algorithm := alg_rsa.NewRSAPKCS256Signer(signer.privateKey)
 	params := sigparams.Params{
 		KeyID:             signer.keyID,
-		Tag:               SignatureTag,
+		Tag:               tag,
 		Alg:               SignatureAlg,
 		Created:           created,
 		Expires:           created.Add(SignatureTTL),

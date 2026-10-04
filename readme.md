@@ -28,8 +28,9 @@ Compared with the upstream baseline, this fork includes:
   inbound verification and explicit `legacy`, `rfc9421`, and destination-aware
   `dual` outbound modes; 3.0 uses `dual` as the omitted/default policy so new
   deployments retain legacy compatibility while learning modern capability.
-- An opt-in Activity-Relay Directory v1 client with manual lifecycle commands
-  and a fenced API-process scheduler for registration and heartbeat handling.
+- An opt-in Activity-Relay Directory client with Protocol v1 compatibility,
+  negotiated Protocol v2 descriptive-profile synchronization, manual lifecycle
+  commands, and a fenced API-process scheduler for registration and heartbeat.
 - An ActivityStreams `Application` relay profile recognized by current
   Friendica discovery without rotating the actor key or changing endpoints.
 - Server-actor follow and unfollow compatibility for NodeBB, Friendica,
@@ -336,6 +337,20 @@ DIRECTORY_SCHEDULER_ENABLED: false
 #     enabled: false
 #   - origin: https://directory.example.org
 #     enabled: false
+# Optional public descriptive metadata sent only to v2-capable Directories.
+# DIRECTORY_PROFILE:
+#   participation_mode: open
+#   availability: public
+#   relay_type: general
+#   languages: [en]
+#   countries: [US]
+#   regions: []
+#   topics: [general]
+#   contact_fediverse: "@relay@example.social"
+#   contact_email: relay@example.org
+#   contact_url: https://relay.example.org/contact
+#   participation_url: https://relay.example.org/join
+#   notes: Public community relay
 
 # RELAY_SUMMARY: |
 # Optional public relay branding. These are interoperability recommendations,
@@ -389,9 +404,11 @@ Environment-only scheduling is unsupported because durable unregister
 suppression must be read from the same regular YAML file.
 
 `directory status` without an origin lists local entry state. With an origin it
-retrieves that Directory's strict public status document. The 3.0 client accepts
-status schema versions 2 and 3. `sync` performs a heartbeat and only reconciles
-registration for the explicit `relay_not_registered` result.
+retrieves that Directory's strict public status document. Status schemas 2 and 3
+mean Protocol v1 only; schema 4 advertises supported lifecycle protocol versions.
+When Protocol v2 is advertised, registration includes `DIRECTORY_PROFILE`;
+otherwise lifecycle operations use Protocol v1. `directory sync` explicitly
+reconciles registration and the current descriptive profile.
 
 For a regular file-backed configuration, `directory unregister` first
 atomically changes the selected entry to `enabled: false`, preserves ownership,
@@ -423,8 +440,9 @@ do not make `actor.pem` writable. See
 [`docs/DIRECTORY-CLIENT.md`](docs/DIRECTORY-CLIENT.md) for the full sequence.
 
 When the configuration file is absent, manual commands may read `ACTOR_PEM`,
-`RELAY_DOMAIN`, and a YAML or JSON `DIRECTORIES` sequence from the environment.
-Because Activity-Relay cannot mutate an external configuration source,
+`RELAY_DOMAIN`, a YAML or JSON `DIRECTORIES` sequence, and an optional YAML
+`DIRECTORY_PROFILE` mapping from the environment. Because Activity-Relay cannot
+mutate an external configuration source,
 environment-only unregister refuses to proceed unless
 `--acknowledge-external-disable` is supplied. Disable that external entry before
 restarting the relay.
@@ -462,6 +480,8 @@ MAX_FANOUT_TARGETS
 MAX_QUEUE_JOBS
 OUTBOUND_SIGNATURE_PROFILE
 PUBLIC_ADDRESS_DISTRIBUTION_POLICY
+DIRECTORIES
+DIRECTORY_PROFILE
 RELAY_SUMMARY
 RELAY_ICON
 RELAY_IMAGE
