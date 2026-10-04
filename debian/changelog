@@ -1,3 +1,16 @@
+activity-relay (3.1.0~rc1-1) noble; urgency=medium
+
+  * Prepare the first Activity-Relay 3.1 release candidate.
+  * Add Activity-Relay Directory Protocol v2 capability negotiation with
+    fail-closed status handling and Protocol v1 fallback only when advertised.
+  * Add complete normalized DIRECTORY_PROFILE registration with deterministic
+    profile digest reconciliation and explicit operator sync.
+  * Keep heartbeat/unregister identity-only and preserve existing relay
+    delivery, follow, actor, key, Redis, and queue behavior.
+  * Add the shared cross-repository signed Protocol v2 registration fixture.
+
+ -- thystra <noreply@github.com>  Sat, 03 Oct 2026 22:20:00 -0400
+
 activity-relay (3.0.1-1) noble; urgency=medium
 
   * Harden follower registration so incomplete follower state is never
