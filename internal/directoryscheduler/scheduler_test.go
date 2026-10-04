@@ -366,7 +366,17 @@ func TestAcceleratedMultiDayClientUsesFreshSignedRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 	var signatures []string
+	statusRequests := 0
 	transport := schedulerRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method == http.MethodGet && request.URL.Path == "/v1/status" {
+			statusRequests++
+			body := `{"schema_version":2,"service":"activity-relay-directory","version":"test","public_base_url":"https://directory.example","lifecycle_enabled":true,"lifecycle_available":true,"enrollment_open":true}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}, nil
+		}
 		signatures = append(signatures, request.Header.Get("Signature-Input"))
 		operation, status, outcome := "heartbeat", http.StatusOK, "recorded"
 		if strings.HasSuffix(request.URL.Path, "/register") {
@@ -408,8 +418,8 @@ func TestAcceleratedMultiDayClientUsesFreshSignedRequests(t *testing.T) {
 		}
 		clock.set(store.states[testOrigin].NextAttempt)
 	}
-	if len(store.states) != 1 || len(signatures) != 45 || nonce != 45 {
-		t.Fatalf("state=%d signatures=%d nonces=%d", len(store.states), len(signatures), nonce)
+	if len(store.states) != 1 || len(signatures) != 45 || nonce != 45 || statusRequests != 45 {
+		t.Fatalf("state=%d signatures=%d nonces=%d statusRequests=%d", len(store.states), len(signatures), nonce, statusRequests)
 	}
 	seen := make(map[string]struct{}, len(signatures))
 	for index, signature := range signatures {
