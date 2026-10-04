@@ -49,6 +49,14 @@ DIRECTORY_SCHEDULER_ENABLED: false
 #   contact_url: https://relay.example.org/contact
 #   participation_url: https://relay.example.org/join
 #   notes: Public community relay
+# Optional public support methods used by the bundled static landing site.
+# Each entry requires a title and exactly one absolute HTTPS url or plain-text
+# value. The relay runtime ignores this presentation-only block.
+# SUPPORT:
+#   - title: "Liberapay"
+#     url: "https://liberapay.com/example/"
+#   - title: "Bitcoin"
+#     value: "bc1qexample"
 
 # Single-disk VPS defaults.
 STORAGE_DIR: /var/lib/activity-relay/redis

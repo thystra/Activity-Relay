@@ -3,6 +3,9 @@
 - [x] Directory Protocol v2 profile synchronization: capability negotiation,
   v1 fallback, complete profile registration, scheduler digest reconciliation,
   explicit sync, and shared signed fixture. (2026-10-03)
+- [x] RC2 public presentation refinement: render the local descriptive profile
+  on the bundled relay landing page with information/focus grouping and add an
+  optional bounded, provider-neutral `Support this relay` block.
 
 ## Current stable release
 

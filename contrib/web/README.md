@@ -127,6 +127,32 @@ The optional `activitypub_contact` value displays a fediverse handle. Set
 `activitypub_contact_url` to its absolute HTTPS profile URL to make it
 clickable. These settings affect only generated website content.
 
+When `--relay-config` is present (the package wrapper uses
+`/etc/activity-relay/config.yml` by default), the builder also reads the relay's
+local `DIRECTORY_PROFILE`. The default home page renders that descriptive data
+near the top as `Relay information`, followed by `Relay focus`.
+`participation_mode` is displayed as `Registration status`;
+`participation_url` is displayed as `About this relay`. Languages, countries,
+and regions are shown only when at least one is declared, so an unrestricted
+relay can leave all three lists empty without displaying synthetic `any` or
+`global` values.
+
+The same relay config may contain an optional `SUPPORT` sequence:
+
+```yaml
+SUPPORT:
+  - title: "Liberapay"
+    url: "https://liberapay.com/example/"
+  - title: "Bitcoin"
+    value: "bc1qexample"
+```
+
+At most eight entries are accepted. Each entry requires a title and exactly one
+absolute HTTPS URL or plain-text value. The block is collapsed by default and
+uses only escaped local markup; HTML, Markdown, scripts, embeds, and tracking
+pixels are not accepted. `SUPPORT` is presentation-only and is not part of
+ActivityPub or Directory Protocol v2.
+
 Build to the package's default document root with the current
 package-managed source:
 

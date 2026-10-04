@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.1.0-rc2] - 2026-10-04
+
+### Changed
+
+- Render the local `DIRECTORY_PROFILE` near the top of the bundled static relay
+  landing page, grouping registration/contact information separately from relay
+  type/topics and declared language/country/region focus. Empty geographic and
+  language lists no longer need synthetic `any` values.
+- Display `participation_mode` as `Registration status` and
+  `participation_url` as `About this relay` without changing Protocol v2 field
+  names or semantics.
+
+### Added
+
+- Add an optional, collapsed `Support this relay` block backed by up to eight
+  provider-neutral `SUPPORT` entries containing a title and exactly one HTTPS
+  URL or escaped plain-text value. The block is static-site presentation only
+  and is never sent through ActivityPub or Directory Protocol v2.
+
 ## [3.1.0-rc1] - 2026-10-03
 
 ### Added

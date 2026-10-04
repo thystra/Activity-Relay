@@ -351,6 +351,12 @@ DIRECTORY_SCHEDULER_ENABLED: false
 #   contact_url: https://relay.example.org/contact
 #   participation_url: https://relay.example.org/join
 #   notes: Public community relay
+# Optional presentation-only support methods for the bundled landing site.
+# SUPPORT:
+#   - title: "Liberapay"
+#     url: "https://liberapay.com/example/"
+#   - title: "Bitcoin"
+#     value: "bc1qexample"
 
 # RELAY_SUMMARY: |
 # Optional public relay branding. These are interoperability recommendations,
@@ -409,6 +415,21 @@ mean Protocol v1 only; schema 4 advertises supported lifecycle protocol versions
 When Protocol v2 is advertised, registration includes `DIRECTORY_PROFILE`;
 otherwise lifecycle operations use Protocol v1. `directory sync` explicitly
 reconciles registration and the current descriptive profile.
+
+When the bundled static landing site is rebuilt with `--relay-config`, it reads
+the same local `DIRECTORY_PROFILE` and renders a `Relay information` box near
+the top of the home page. Registration/contact information is shown first;
+relay type/topics and any declared language/country/region focus are grouped
+separately below. Empty language/country/region lists mean that no focus is
+declared and the location-focus subsection is omitted. The profile remains
+descriptive and does not change delivery or follow policy.
+
+An optional top-level `SUPPORT` list may also provide up to eight public support
+methods for the bundled site. Each entry contains `title` and exactly one
+absolute HTTPS `url` or plain-text `value`. The generated site escapes all text,
+uses no remote embeds/scripts/pixels for support, and renders the block collapsed
+by default. `SUPPORT` is ignored by the relay runtime and is never sent to a
+Directory.
 
 For a regular file-backed configuration, `directory unregister` first
 atomically changes the selected entry to `enabled: false`, preserves ownership,

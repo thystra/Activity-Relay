@@ -8,7 +8,11 @@ from pathlib import Path
 
 
 class BuildSiteTest(unittest.TestCase):
-    def build_site(self, config_values: dict[str, str]) -> tuple[str, str]:
+    def build_site(
+        self,
+        config_values: dict[str, str],
+        relay_config_body: str | None = None,
+    ) -> tuple[str, str]:
         source = Path(__file__).resolve().parent
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -28,19 +32,22 @@ class BuildSiteTest(unittest.TestCase):
         values.update(config_values)
         config.write_text(json.dumps(values), encoding="utf-8")
 
-        subprocess.run(
-            [
-                "python3",
-                str(source / "build-site.py"),
-                "--source",
-                str(source),
-                "--config",
-                str(config),
-                "--output",
-                str(output),
-            ],
-            check=True,
-        )
+        command = [
+            "python3",
+            str(source / "build-site.py"),
+            "--source",
+            str(source),
+            "--config",
+            str(config),
+            "--output",
+            str(output),
+        ]
+        if relay_config_body is not None:
+            relay_config = root / "config.yml"
+            relay_config.write_text(relay_config_body, encoding="utf-8")
+            command.extend(["--relay-config", str(relay_config)])
+
+        subprocess.run(command, check=True)
 
         return (
             (output / "index.html").read_text(encoding="utf-8"),
@@ -145,6 +152,151 @@ class BuildSiteTest(unittest.TestCase):
             result.stderr,
         )
 
+
+
+    def test_directory_profile_renders_near_top_with_focus_grouping(self) -> None:
+        index, _ = self.build_site(
+            {},
+            """
+DIRECTORY_PROFILE:
+  participation_mode: open
+  availability: public
+  relay_type: unrestricted
+  languages: [EN]
+  countries:
+    - US
+    - UK
+  regions: [Americas]
+  topics: [general]
+  contact_fediverse: "@alan@friendica.argentwolf.org"
+  contact_email: webmaster@argentwolf.org
+  contact_url: https://www.wolfandraven.blog
+  participation_url: https://relay.argentwolf.org
+  notes: "Public relay & community <welcome>"
+""",
+        )
+        profile_position = index.index('id="relay-profile-heading"')
+        status_position = index.index('data-relay-dashboard')
+        self.assertLess(profile_position, status_position)
+        for required in [
+            "Relay information",
+            "Registration status",
+            "About this relay",
+            "Relay focus",
+            "This relay is focused on the following languages, countries, and/or regions:",
+            "unrestricted",
+            "general",
+            "EN",
+            "UK, US",
+            "Americas",
+            "@alan@friendica.argentwolf.org",
+            "webmaster@argentwolf.org",
+            'href="https://www.wolfandraven.blog"',
+            'href="https://relay.argentwolf.org"',
+            "Public relay &amp; community &lt;welcome&gt;",
+        ]:
+            self.assertIn(required, index)
+        self.assertNotIn("Public relay & community <welcome>", index)
+
+    def test_directory_profile_suppresses_location_focus_when_unspecified(self) -> None:
+        index, _ = self.build_site(
+            {},
+            """
+DIRECTORY_PROFILE:
+  participation_mode: open
+  availability: public
+  relay_type: general
+  languages: []
+  countries: []
+  regions: []
+  topics: [general]
+  contact_fediverse: ""
+  contact_email: ""
+  contact_url: ""
+  participation_url: ""
+  notes: ""
+""",
+        )
+        self.assertIn("Relay focus", index)
+        self.assertIn("Topics", index)
+        self.assertNotIn(
+            "This relay is focused on the following languages, countries, and/or regions:",
+            index,
+        )
+        self.assertNotIn("<dt>Languages</dt>", index)
+        self.assertNotIn("<dt>Countries</dt>", index)
+        self.assertNotIn("<dt>Regions</dt>", index)
+
+    def test_support_block_is_optional_collapsed_and_escaped(self) -> None:
+        empty, _ = self.build_site({})
+        self.assertNotIn("Support this relay", empty)
+
+        index, _ = self.build_site(
+            {},
+            """
+SUPPORT:
+  - title: "Liberapay & friends"
+    url: "https://support.example/path?x=1&y=2"
+  - title: "Wallet <primary>"
+    value: "bc1qexample&value"
+""",
+        )
+        self.assertIn('<details class="panel support-panel">', index)
+        self.assertIn("Support this relay", index)
+        self.assertIn("Optional ways to support the operation of this relay.", index)
+        self.assertIn("Liberapay &amp; friends", index)
+        self.assertIn('href="https://support.example/path?x=1&amp;y=2"', index)
+        self.assertIn("Wallet &lt;primary&gt;", index)
+        self.assertIn("bc1qexample&amp;value", index)
+        self.assertNotIn("Wallet <primary>", index)
+
+    def test_invalid_support_entry_fails_static_site_build_only(self) -> None:
+        source = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config = root / "site.json"
+            relay_config = root / "config.yml"
+            output = root / "public"
+            config.write_text(
+                json.dumps(
+                    {
+                        "site_name": "Test Relay",
+                        "tagline": "A test relay",
+                        "operator_name": "Test Operator",
+                        "contact_url": "mailto:test@example.com",
+                        "source_url": "https://github.com/thystra/Activity-Relay",
+                        "status_url": "/status.json",
+                        "language": "en",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            relay_config.write_text(
+                """
+SUPPORT:
+  - title: Broken
+    url: http://support.example/
+""",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(source / "build-site.py"),
+                    "--source",
+                    str(source),
+                    "--config",
+                    str(config),
+                    "--relay-config",
+                    str(relay_config),
+                    "--output",
+                    str(output),
+                ],
+                text=True,
+                capture_output=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must be an absolute HTTPS URL", result.stderr)
 
     def test_operator_name_content_token_is_rendered(self) -> None:
         source = Path(__file__).resolve().parent

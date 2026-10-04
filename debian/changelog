@@ -1,3 +1,16 @@
+activity-relay (3.1.0~rc2-1) noble; urgency=medium
+
+  * Prepare the second Activity-Relay 3.1 release candidate.
+  * Render the local DIRECTORY_PROFILE near the top of the bundled landing
+    site with registration/contact information separated from relay focus.
+  * Suppress language/country/region focus when those lists are empty.
+  * Add an optional collapsed Support this relay block with bounded,
+    provider-neutral HTTPS-link or plain-text support methods.
+  * Keep ActivityPub, Directory Protocol v2, delivery, follow, queue, Redis,
+    actor identity, and scheduler behavior unchanged.
+
+ -- thystra <noreply@github.com>  Sun, 04 Oct 2026 09:30:00 -0400
+
 activity-relay (3.1.0~rc1-1) noble; urgency=medium
 
   * Prepare the first Activity-Relay 3.1 release candidate.

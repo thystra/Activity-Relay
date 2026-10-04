@@ -43,6 +43,22 @@ main { padding-bottom: 3rem; }
 .panel { margin: 1rem 0; padding: clamp(1.25rem, 3vw, 2rem); border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.05); }
 .grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .status-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; }
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem 1rem; margin: 0; }
+.profile-grid > div { min-width: 0; }
+.profile-grid dt { font-weight: 700; }
+.profile-grid dd { margin: 0.2rem 0 0; color: var(--muted); overflow-wrap: anywhere; }
+.relay-profile-panel h2, .relay-profile-panel h3 { margin-top: 0; }
+.relay-profile-section + .relay-profile-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.relay-profile-section h3 { font-size: 1rem; }
+.relay-focus-intro { margin: 0.85rem 0 0.55rem; color: var(--muted); font-weight: 650; }
+.support-panel summary { cursor: pointer; font-size: 1.05rem; font-weight: 800; }
+.support-panel[open] summary { margin-bottom: 0.75rem; }
+.support-panel > .muted { margin: 0 0 0.75rem; }
+.support-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem 1rem; margin: 0; }
+.support-methods > div { min-width: 0; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.65rem; }
+.support-methods dt { font-weight: 700; }
+.support-methods dd { margin: 0.3rem 0 0; }
+.support-methods code { width: 100%; }
 .status-row > div { display: grid; gap: 0.25rem; }
 .label { color: var(--muted); font-size: 0.85rem; }
 .muted { color: var(--muted); }
