@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/directoryclient"
@@ -59,7 +58,7 @@ func newDirectoryScheduler(config *models.RelayConfig) (*directoryscheduler.Sche
 				KeyID:         actor.PublicKey.ID,
 				PrivateKey:    config.ActorKey(),
 				Telemetry: func(context.Context) (directoryclient.Telemetry, error) {
-					return directoryclient.Telemetry{ReceivingInstanceCount: receivingInstanceCount(RelayState.Snapshot())}, nil
+					return directoryclient.Telemetry{ParticipatingInstanceCount: participatingInstanceCount(RelayState.Snapshot())}, nil
 				},
 			})
 		},
@@ -67,10 +66,16 @@ func newDirectoryScheduler(config *models.RelayConfig) (*directoryscheduler.Sche
 	})
 }
 
-func receivingInstanceCount(snapshot models.RelayStateSnapshot) int {
-	seen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers))
+func participatingInstanceCount(snapshot models.RelayStateSnapshot) int {
+	seen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers)+len(snapshot.Publishers))
 	for _, instance := range snapshot.SubscribersAndFollowers {
-		domain := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(instance.Domain), "."))
+		domain := normalizedStatusDomain(instance.Domain)
+		if domain != "" {
+			seen[domain] = struct{}{}
+		}
+	}
+	for _, publisher := range snapshot.Publishers {
+		domain := normalizedStatusDomain(publisher.Domain)
 		if domain != "" {
 			seen[domain] = struct{}{}
 		}

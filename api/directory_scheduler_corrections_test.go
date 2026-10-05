@@ -6,6 +6,7 @@ import (
 
 	"github.com/thystra/Activity-Relay/internal/directoryclient"
 	"github.com/thystra/Activity-Relay/internal/directoryconfig"
+	"github.com/thystra/Activity-Relay/models"
 )
 
 func TestDurableDirectoryEnabledTreatsGateDisableAndRemovalAsSuppression(t *testing.T) {
@@ -29,5 +30,24 @@ func TestDurableDirectoryEnabledTreatsGateDisableAndRemovalAsSuppression(t *test
 	_, err = durableDirectoryEnabled(config, "not an origin")
 	if !errors.Is(err, directoryconfig.ErrConfiguration) {
 		t.Fatalf("malformed origin error = %v", err)
+	}
+}
+
+func TestParticipatingInstanceCountMatchesStatusSemantics(t *testing.T) {
+	snapshot := models.RelayStateSnapshot{
+		SubscribersAndFollowers: []models.Subscriber{
+			{Domain: "z.example"},
+			{Domain: "a.example"},
+			{Domain: "Z.EXAMPLE."},
+			{Domain: ""},
+		},
+		Publishers: []models.Publisher{
+			{Domain: "publisher.example"},
+			{Domain: "A.EXAMPLE"},
+		},
+	}
+
+	if got, want := participatingInstanceCount(snapshot), 3; got != want {
+		t.Fatalf("participating instance count = %d; want %d", got, want)
 	}
 }
