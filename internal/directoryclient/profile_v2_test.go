@@ -183,7 +183,7 @@ func TestV3RegisterMatchesSharedFixture(t *testing.T) {
 			capturedBody = body
 			return jsonHTTPResponse(
 				http.StatusCreated,
-				`{"protocol_version":2,"operation":"register","outcome":"created","relay_actor":"https://relay.example/actor"}`,
+				`{"protocol_version":3,"operation":"register","outcome":"created","relay_actor":"https://relay.example/actor"}`,
 			), nil
 		})},
 		Now:       func() time.Time { return fixtureNow },
