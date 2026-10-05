@@ -38,9 +38,10 @@ DIRECTORY_SCHEDULER_ENABLED: false
 #     enabled: false
 #   - origin: https://directory.example.org
 #     enabled: false
-# Optional descriptive profile synchronized to v2-capable Directories. This is
+# Optional descriptive profile synchronized to v2/v3-capable Directories. This is
 # public metadata only; it never changes relay delivery or follow policy.
 # DIRECTORY_PROFILE:
+# YAML top-level keys begin at column 1; indent only values nested below them.
 #   # Registration status: open, restricted, or closed. Any other value is
 #   # ignored with an operator warning and is not transmitted.
 #   participation_mode: open

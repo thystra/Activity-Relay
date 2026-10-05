@@ -2,8 +2,12 @@ package directorycommand
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -49,7 +53,7 @@ func productionDependencies() dependencies {
 				Profile:       config.Profile,
 				KeyID:         config.KeyID,
 				PrivateKey:    config.PrivateKey,
-				Telemetry:     redisReceivingInstanceTelemetry(config.RedisURL),
+				Telemetry:     statusParticipatingInstanceTelemetry(config.PublicBaseURL),
 			})
 		},
 		sleep: sleepContext,
@@ -73,34 +77,45 @@ func productionDependencies() dependencies {
 	}
 }
 
-func redisReceivingInstanceTelemetry(redisURL string) directoryclient.TelemetryProvider {
-	if redisURL == "" {
+func statusParticipatingInstanceTelemetry(publicBaseURL string) directoryclient.TelemetryProvider {
+	base, err := url.Parse(strings.TrimSpace(publicBaseURL))
+	if err != nil || base == nil || (base.Scheme != "http" && base.Scheme != "https") || base.Host == "" {
 		return nil
 	}
+	endpoint := *base
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/status.json"
+	endpoint.RawQuery = ""
+	endpoint.Fragment = ""
+	client := &http.Client{
+		Timeout:       5 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 	return func(ctx context.Context) (directoryclient.Telemetry, error) {
-		options, err := redis.ParseURL(redisURL)
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 		if err != nil {
 			return directoryclient.Telemetry{}, err
 		}
-		client := redis.NewClient(options)
-		defer client.Close()
-		seen := make(map[string]struct{})
-		for _, prefix := range []string{"relay:subscription:", "relay:follower:"} {
-			iterator := client.Scan(ctx, 0, prefix+"*", 256).Iterator()
-			for iterator.Next(ctx) {
-				domain := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(strings.TrimPrefix(iterator.Val(), prefix)), "."))
-				if domain != "" {
-					seen[domain] = struct{}{}
-				}
-			}
-			if err := iterator.Err(); err != nil {
-				return directoryclient.Telemetry{}, err
-			}
+		response, err := client.Do(request)
+		if err != nil {
+			return directoryclient.Telemetry{}, err
 		}
-		if len(seen) > directoryclient.MaximumReceivingInstanceCount {
-			return directoryclient.Telemetry{}, errors.New("receiving instance count exceeds protocol bound")
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return directoryclient.Telemetry{}, fmt.Errorf("relay status returned HTTP %d", response.StatusCode)
 		}
-		return directoryclient.Telemetry{ReceivingInstanceCount: len(seen)}, nil
+		body, err := io.ReadAll(io.LimitReader(response.Body, 64*1024+1))
+		if err != nil || len(body) > 64*1024 {
+			return directoryclient.Telemetry{}, errors.New("relay status response is invalid")
+		}
+		var status struct {
+			ConnectedInstances struct {
+				Count int `json:"count"`
+			} `json:"connected_instances"`
+		}
+		if err := json.Unmarshal(body, &status); err != nil || status.ConnectedInstances.Count < 0 || status.ConnectedInstances.Count > directoryclient.MaximumParticipatingInstanceCount {
+			return directoryclient.Telemetry{}, errors.New("participating instance count is invalid")
+		}
+		return directoryclient.Telemetry{ParticipatingInstanceCount: status.ConnectedInstances.Count}, nil
 	}
 }
 

@@ -181,7 +181,6 @@ DIRECTORY_PROFILE:
         for required in [
             "Relay information",
             "Registration status",
-            "About this relay",
             "Relay focus",
             "This relay is focused on the following languages, countries, and/or regions:",
             "unrestricted",
@@ -192,11 +191,11 @@ DIRECTORY_PROFILE:
             "@alan@friendica.argentwolf.org",
             "webmaster@argentwolf.org",
             'href="https://www.wolfandraven.blog"',
-            'href="https://relay.argentwolf.org"',
             "Public relay &amp; community &lt;welcome&gt;",
         ]:
             self.assertIn(required, index)
         self.assertNotIn("Public relay & community <welcome>", index)
+        self.assertNotIn("https://relay.argentwolf.org", index)
 
     def test_directory_profile_suppresses_location_focus_when_unspecified(self) -> None:
         index, _ = self.build_site(

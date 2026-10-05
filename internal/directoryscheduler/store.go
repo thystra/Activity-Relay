@@ -308,7 +308,7 @@ func validProfileState(digest string, protocolVersion int) bool {
 	if digest == "" {
 		return protocolVersion == 0
 	}
-	if protocolVersion != 1 && protocolVersion != 2 || len(digest) != sha256.Size*2 {
+	if protocolVersion != 1 && protocolVersion != 2 && protocolVersion != 3 || len(digest) != sha256.Size*2 {
 		return false
 	}
 	decoded, err := hex.DecodeString(digest)

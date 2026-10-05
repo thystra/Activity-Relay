@@ -1,3 +1,15 @@
+activity-relay (3.1.0~rc4-1) noble; urgency=medium
+
+  * Prepare the fourth Activity-Relay 3.1 release candidate.
+  * Add Directory Protocol v3 participating-instance telemetry sourced from
+    status.json connected_instances.count.
+  * Restore Protocol v2 heartbeat to identity-only and keep v2 registration
+    profile-only; negotiate v3 only when explicitly advertised.
+  * Stop locally rendering participation_url while continuing to synchronize it.
+  * Install and document the static-site rebuild wrapper for container use.
+
+ -- thystra <noreply@github.com>  Mon, 05 Oct 2026 15:30:00 -0400
+
 activity-relay (3.1.0~rc3-1) noble; urgency=medium
 
   * Prepare the third Activity-Relay 3.1 release candidate.

@@ -391,7 +391,6 @@ def relay_profile_html(profile: dict[str, object]) -> str:
             row("Fediverse contact", scalar("contact_fediverse")),
             row("Email", scalar("contact_email")),
             row("Contact", scalar("contact_url"), str(profile.get("contact_url", ""))),
-            row("About this relay", scalar("participation_url"), str(profile.get("participation_url", ""))),
             row("Notes", scalar("notes")),
         ]
     )

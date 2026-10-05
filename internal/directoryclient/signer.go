@@ -24,6 +24,7 @@ const (
 	SignatureLabel = "directory"
 	SignatureTag   = "activity-relay-directory-v1"
 	SignatureTagV2 = "activity-relay-directory-v2"
+	SignatureTagV3 = "activity-relay-directory-v3"
 	SignatureAlg   = alg_rsa.RSASSA_PKCS1_1_5_SHA256
 	SignatureTTL   = 5 * time.Minute
 )
