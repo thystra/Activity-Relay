@@ -123,7 +123,8 @@ Never run tests against production Redis.
   change the ActivityPub signing profile. Protocol v1 remains the compatibility
   fallback. Protocol v2 is selected only from a valid schema-4 status capability,
   uses its own signature tag, carries the complete normalized descriptive profile
-  only on register, and keeps heartbeat/unregister identity-only. Scheduler state
+  only on register, permits bounded self-reported receiving-site telemetry on
+  register/heartbeat, and keeps unregister identity-only. Scheduler state
   may retain only the profile digest/protocol version, never profile contents.
 - Open publisher ingestion must retain HTTP-signature, actor-host, blocked
   domain, limited-domain, and person-only policy enforcement.

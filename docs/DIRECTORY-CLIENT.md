@@ -258,3 +258,29 @@ freezes the complete twelve-field profile registration, v2 target, digest,
 signature tag, signature, and public test key. The v2 file is byte-for-byte
 identical to the Directory repository's shared fixture and contains no private
 key.
+
+
+## RC3 configuration and malicious-Directory containment
+
+`DIRECTORY_PROFILE.participation_mode` accepts only `open`, `restricted`, or
+`closed`. Other optional profile values that fail validation are treated as
+unset: the relay continues to start, the field is not transmitted, and an
+operator warning identifies the configuration line when available. Run
+`relay -t -c /etc/activity-relay/config.yml` to validate configuration; add
+`--strict` to make optional metadata warnings fail the test command.
+
+The Directory client treats every configured Directory as potentially hostile.
+It refuses redirects, bounds response bodies and headers, disables response
+compression, uses a short TLS/dial/header/overall timeout budget, rejects
+loopback/link-local/unspecified/multicast dial targets while permitting normal
+private split-DNS deployments, validates closed response vocabularies, and
+never signs remote-supplied arbitrary bytes or follows remote-supplied URLs.
+Each scheduled Directory reconciliation also has a fixed total deadline.
+
+Protocol v2 register and heartbeat may carry an optional
+`telemetry.receiving_instance_count` in the range 0..10,000,000. Absence means
+unknown/no update; zero means the relay explicitly reports zero receiving sites.
+Telemetry does not affect relay delivery, follow policy, or Directory tiering.
+
+
+`relay -t` / `relay --test-config` performs configuration validation without Directory or Redis network requests and without state mutation.

@@ -1,3 +1,14 @@
+activity-relay (3.1.0~rc3-1) noble; urgency=medium
+
+  * Prepare the third Activity-Relay 3.1 release candidate.
+  * Add bounded receiving-instance telemetry to Directory v2 register/heartbeat.
+  * Add -t/--test-config and optional --strict profile diagnostics.
+  * Omit invalid optional profile metadata while keeping the relay available.
+  * Harden the outbound Directory client against malicious endpoints with
+    bounded transport, response, redirect, terminal-output, and retry behavior.
+
+ -- thystra <noreply@github.com>  Sun, 04 Oct 2026 16:30:00 -0400
+
 activity-relay (3.1.0~rc2-1) noble; urgency=medium
 
   * Prepare the second Activity-Relay 3.1 release candidate.

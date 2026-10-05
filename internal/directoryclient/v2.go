@@ -12,6 +12,8 @@ import (
 )
 
 const ProtocolVersion2 = 2
+const MaximumReceivingInstanceCount = 10_000_000
+const MaximumLifecycleProtocolVersions = 8
 
 const (
 	registerPathV2   = "/v2/relays/register"
@@ -19,12 +21,30 @@ const (
 	unregisterPathV2 = "/v2/relays/unregister"
 )
 
+type Telemetry struct {
+	ReceivingInstanceCount int
+}
+
+type TelemetryProvider func(context.Context) (Telemetry, error)
+
+type v2TelemetryWire struct {
+	ReceivingInstanceCount int `json:"receiving_instance_count"`
+}
+
 type v2RegisterRequest struct {
-	ProtocolVersion int           `json:"protocol_version"`
-	Operation       Operation     `json:"operation"`
-	RelayActor      string        `json:"relay_actor"`
-	PublicBaseURL   string        `json:"public_base_url"`
-	Profile         v2ProfileWire `json:"profile"`
+	ProtocolVersion int              `json:"protocol_version"`
+	Operation       Operation        `json:"operation"`
+	RelayActor      string           `json:"relay_actor"`
+	PublicBaseURL   string           `json:"public_base_url"`
+	Profile         v2ProfileWire    `json:"profile"`
+	Telemetry       *v2TelemetryWire `json:"telemetry,omitempty"`
+}
+
+type v2HeartbeatRequest struct {
+	ProtocolVersion int              `json:"protocol_version"`
+	Operation       Operation        `json:"operation"`
+	RelayActor      string           `json:"relay_actor"`
+	Telemetry       *v2TelemetryWire `json:"telemetry,omitempty"`
 }
 
 type v2ProfileWire struct {
@@ -76,7 +96,7 @@ func validStatusLifecycleVersions(status Status) bool {
 	case 2, 3:
 		return len(status.LifecycleProtocolVersions) == 0
 	case 4:
-		if len(status.LifecycleProtocolVersions) == 0 {
+		if len(status.LifecycleProtocolVersions) == 0 || len(status.LifecycleProtocolVersions) > MaximumLifecycleProtocolVersions {
 			return false
 		}
 		previous := 0
@@ -157,6 +177,17 @@ func (client *Client) HeartbeatWithRegisterReconciliationNegotiated(ctx context.
 	return client.heartbeatVersion(ctx, version)
 }
 
+func (client *Client) currentTelemetry(ctx context.Context) *v2TelemetryWire {
+	if client == nil || client.telemetry == nil || ctx == nil {
+		return nil
+	}
+	telemetry, err := client.telemetry(ctx)
+	if err != nil || telemetry.ReceivingInstanceCount < 0 || telemetry.ReceivingInstanceCount > MaximumReceivingInstanceCount {
+		return nil
+	}
+	return &v2TelemetryWire{ReceivingInstanceCount: telemetry.ReceivingInstanceCount}
+}
+
 func (client *Client) registerVersion(ctx context.Context, version int) (Response, error) {
 	if version == ProtocolVersion {
 		return client.send(ctx, OperationRegister, registerRequest{ProtocolVersion: ProtocolVersion, Operation: OperationRegister, RelayActor: client.relayActor, PublicBaseURL: client.publicBaseURL})
@@ -164,7 +195,7 @@ func (client *Client) registerVersion(ctx context.Context, version int) (Respons
 	if version != ProtocolVersion2 {
 		return Response{}, ErrDirectoryConfiguration
 	}
-	return client.sendV2(ctx, OperationRegister, v2RegisterRequest{ProtocolVersion: ProtocolVersion2, Operation: OperationRegister, RelayActor: client.relayActor, PublicBaseURL: client.publicBaseURL, Profile: profileWire(client.profile)})
+	return client.sendV2(ctx, OperationRegister, v2RegisterRequest{ProtocolVersion: ProtocolVersion2, Operation: OperationRegister, RelayActor: client.relayActor, PublicBaseURL: client.publicBaseURL, Profile: profileWire(client.profile), Telemetry: client.currentTelemetry(ctx)})
 }
 
 func (client *Client) heartbeatVersion(ctx context.Context, version int) (Response, error) {
@@ -174,7 +205,7 @@ func (client *Client) heartbeatVersion(ctx context.Context, version int) (Respon
 	if version != ProtocolVersion2 {
 		return Response{}, ErrDirectoryConfiguration
 	}
-	return client.sendV2(ctx, OperationHeartbeat, identityRequest{ProtocolVersion: ProtocolVersion2, Operation: OperationHeartbeat, RelayActor: client.relayActor})
+	return client.sendV2(ctx, OperationHeartbeat, v2HeartbeatRequest{ProtocolVersion: ProtocolVersion2, Operation: OperationHeartbeat, RelayActor: client.relayActor, Telemetry: client.currentTelemetry(ctx)})
 }
 
 func (client *Client) unregisterVersion(ctx context.Context, version int) (Response, error) {

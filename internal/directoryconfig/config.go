@@ -36,6 +36,7 @@ type Config struct {
 	Path             string
 	Directories      []directoryclient.Directory
 	Profile          directoryclient.RelayProfile
+	Warnings         []Warning
 	PublicBaseURL    string
 	RelayActor       string
 	KeyID            string
@@ -74,7 +75,7 @@ func Load(path string) (Config, error) {
 		if err != nil {
 			return Config{}, err
 		}
-		profile, err := profileSetting(root)
+		profile, warnings, err := profileSetting(root)
 		if err != nil {
 			return Config{}, err
 		}
@@ -94,17 +95,22 @@ func Load(path string) (Config, error) {
 		if schedulerEnabled && redisURL == "" {
 			return Config{}, ErrConfiguration
 		}
-		return build(SourceFile, path, actorPEM, relayDomain, directories, profile, schedulerEnabled, redisURL)
+		config, err := build(SourceFile, path, actorPEM, relayDomain, directories, profile, schedulerEnabled, redisURL)
+		if err != nil {
+			return Config{}, err
+		}
+		config.Warnings = warnings
+		return config, nil
 	case errors.Is(err, os.ErrNotExist):
 		directories, err := parseEnvironmentDirectories(os.Getenv("DIRECTORIES"))
 		if err != nil {
 			return Config{}, err
 		}
-		profile, err := parseEnvironmentProfile(os.Getenv("DIRECTORY_PROFILE"))
+		profile, warnings, err := parseEnvironmentProfile(os.Getenv("DIRECTORY_PROFILE"))
 		if err != nil {
 			return Config{}, err
 		}
-		return build(
+		config, err := build(
 			SourceEnvironment,
 			path,
 			os.Getenv("ACTOR_PEM"),
@@ -114,6 +120,11 @@ func Load(path string) (Config, error) {
 			false,
 			"",
 		)
+		if err != nil {
+			return Config{}, err
+		}
+		config.Warnings = warnings
+		return config, nil
 	default:
 		return Config{}, ErrConfiguration
 	}

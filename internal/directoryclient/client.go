@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/rsa"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -17,14 +20,18 @@ import (
 )
 
 const (
-	registerPath          = "/v1/relays/register"
-	heartbeatPath         = "/v1/relays/heartbeat"
-	unregisterPath        = "/v1/relays/unregister"
-	statusPath            = "/v1/status"
-	maximumResponseBytes  = int64(16 * 1024)
-	maximumErrorMessage   = 256
-	defaultRequestTimeout = 15 * time.Second
-	MaximumRetryAfter     = 24 * time.Hour
+	registerPath                   = "/v1/relays/register"
+	heartbeatPath                  = "/v1/relays/heartbeat"
+	unregisterPath                 = "/v1/relays/unregister"
+	statusPath                     = "/v1/status"
+	maximumResponseBytes           = int64(16 * 1024)
+	maximumErrorMessage            = 256
+	maximumResponseHeaderBytes     = 64 * 1024
+	defaultRequestTimeout          = 15 * time.Second
+	directoryDialTimeout           = 5 * time.Second
+	directoryTLSHandshakeTimeout   = 5 * time.Second
+	directoryResponseHeaderTimeout = 5 * time.Second
+	MaximumRetryAfter              = 24 * time.Hour
 )
 
 var (
@@ -73,6 +80,7 @@ type Options struct {
 	HTTPClient    *http.Client
 	Now           func() time.Time
 	Nonce         func() (string, error)
+	Telemetry     TelemetryProvider
 }
 
 // Client signs strict version 1 lifecycle requests. Construction has no
@@ -85,6 +93,7 @@ type Client struct {
 	signer        *requestSigner
 	httpClient    *http.Client
 	now           func() time.Time
+	telemetry     TelemetryProvider
 }
 
 func New(options Options) (*Client, error) {
@@ -104,8 +113,9 @@ func New(options Options) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	httpClient := &http.Client{}
+	httpClient := newDirectoryHTTPClient()
 	if options.HTTPClient != nil {
+		httpClient = new(http.Client)
 		*httpClient = *options.HTTPClient
 	}
 	if httpClient.Timeout <= 0 || httpClient.Timeout > defaultRequestTimeout {
@@ -122,7 +132,59 @@ func New(options Options) (*Client, error) {
 		signer:        signer,
 		httpClient:    httpClient,
 		now:           now,
+		telemetry:     options.Telemetry,
 	}, nil
+}
+
+func newDirectoryHTTPClient() *http.Client {
+	dialer := &net.Dialer{Timeout: directoryDialTimeout, KeepAlive: 30 * time.Second}
+	transport := &http.Transport{
+		Proxy:                  nil,
+		DialContext:            guardedDirectoryDialContext(dialer),
+		ForceAttemptHTTP2:      true,
+		MaxIdleConns:           2,
+		MaxIdleConnsPerHost:    1,
+		MaxConnsPerHost:        2,
+		IdleConnTimeout:        30 * time.Second,
+		TLSHandshakeTimeout:    directoryTLSHandshakeTimeout,
+		ResponseHeaderTimeout:  directoryResponseHeaderTimeout,
+		ExpectContinueTimeout:  time.Second,
+		MaxResponseHeaderBytes: maximumResponseHeaderBytes,
+		DisableCompression:     true,
+		TLSClientConfig:        &tls.Config{MinVersion: tls.VersionTLS12},
+	}
+	return &http.Client{Timeout: defaultRequestTimeout, Transport: transport}
+}
+
+func guardedDirectoryDialContext(dialer *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return nil, ErrDirectoryTransport
+		}
+		addresses, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+		if err != nil || len(addresses) == 0 {
+			return nil, ErrDirectoryTransport
+		}
+		for _, candidate := range addresses {
+			if unsafeDirectoryDestination(candidate) {
+				continue
+			}
+			connection, err := dialer.DialContext(ctx, network, net.JoinHostPort(candidate.String(), port))
+			if err == nil {
+				return connection, nil
+			}
+		}
+		return nil, ErrDirectoryTransport
+	}
+}
+
+func unsafeDirectoryDestination(address netip.Addr) bool {
+	if !address.IsValid() {
+		return true
+	}
+	return address.IsUnspecified() || address.IsLoopback() || address.IsLinkLocalUnicast() ||
+		address.IsLinkLocalMulticast() || address.IsMulticast()
 }
 
 func validRelayIdentity(actor, publicBase string) bool {
@@ -204,11 +266,25 @@ func (client *Client) Status(ctx context.Context) (Status, error) {
 	var status Status
 	if err := decodeStrictJSON(body, &status); err != nil ||
 		!validStatusLifecycleVersions(status) ||
-		status.Service != "activity-relay-directory" || status.Version == "" ||
+		status.Service != "activity-relay-directory" || !validDirectoryVersionToken(status.Version) ||
 		status.PublicBaseURL != client.origin.String() {
 		return Status{}, ErrDirectoryResponse
 	}
 	return status, nil
+}
+
+func validDirectoryVersionToken(value string) bool {
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '.' || r == '_' || r == '+' || r == '~' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // HeartbeatWithRegisterReconciliation performs one register reconciliation

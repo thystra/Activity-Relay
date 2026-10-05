@@ -61,6 +61,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -73,12 +74,15 @@ import (
 	"github.com/thystra/Activity-Relay/control"
 	"github.com/thystra/Activity-Relay/deliver"
 	"github.com/thystra/Activity-Relay/internal/directorycommand"
+	"github.com/thystra/Activity-Relay/internal/directoryconfig"
 	"github.com/thystra/Activity-Relay/models"
 )
 
 var (
-	version = "devel"
-	verbose bool
+	version          = "devel"
+	verbose          bool
+	testConfig       bool
+	strictConfigTest bool
 
 	GlobalConfig *models.RelayConfig
 )
@@ -91,6 +95,8 @@ func main() {
 	var app = buildCommand()
 	app.PersistentFlags().StringP("config", "c", "config.yml", "Path of config")
 	app.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Show debug log")
+	app.PersistentFlags().BoolVarP(&testConfig, "test-config", "t", false, "Test configuration and exit")
+	app.PersistentFlags().BoolVar(&strictConfigTest, "strict", false, "With --test-config, treat optional metadata warnings as errors")
 
 	if err := app.Execute(); err != nil {
 		os.Exit(1)
@@ -165,6 +171,12 @@ func buildCommand() *cobra.Command {
 		Short:   "Activity-Relay",
 		Long:    "Activity-Relay - ActivityPub Relay Server",
 		Version: version,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !testConfig {
+				return cmd.Help()
+			}
+			return runConfigTest(cmd)
+		},
 	}
 	app.AddCommand(server)
 	app.AddCommand(worker)
@@ -175,6 +187,43 @@ func buildCommand() *cobra.Command {
 	return app
 }
 
+func runConfigTest(cmd *cobra.Command) error {
+	if cmd == nil {
+		return errors.New("configuration test command is unavailable")
+	}
+	configPath := cmd.Flag("config").Value.String()
+	viper.Reset()
+	file, err := os.Open(configPath)
+	if err != nil {
+		return fmt.Errorf("activity-relay: configuration file %s cannot be opened: %w", configPath, err)
+	}
+	defer file.Close()
+	viper.SetConfigType("yaml")
+	if err := viper.ReadConfig(file); err != nil {
+		return fmt.Errorf("activity-relay: configuration file %s syntax is invalid: %w", configPath, err)
+	}
+	if err := models.ValidateRelayConfig(); err != nil {
+		return fmt.Errorf("activity-relay: configuration file %s is invalid: %w", configPath, err)
+	}
+	directoryConfig, err := directoryconfig.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("activity-relay: Directory configuration in %s is invalid: %w", configPath, err)
+	}
+	fmt.Printf("activity-relay: configuration file %s syntax is ok\n", configPath)
+	for _, warning := range directoryConfig.Warnings {
+		fmt.Fprintf(cmd.ErrOrStderr(), "activity-relay: warning: %s: %s\n", configPath, warning.String())
+	}
+	if strictConfigTest && len(directoryConfig.Warnings) != 0 {
+		return errors.New("activity-relay: configuration test completed with warnings (--strict)")
+	}
+	if len(directoryConfig.Warnings) != 0 {
+		fmt.Fprintln(cmd.ErrOrStderr(), "activity-relay: configuration test completed with warnings")
+	} else {
+		fmt.Println("activity-relay: configuration test is successful")
+	}
+	return nil
+}
+
 func initConfig(cmd *cobra.Command) {
 	if verbose {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -182,11 +231,13 @@ func initConfig(cmd *cobra.Command) {
 
 	configPath := cmd.Flag("config").Value.String()
 	file, err := os.Open(configPath)
-	defer file.Close()
 
 	if err == nil {
+		defer file.Close()
 		viper.SetConfigType("yaml")
-		viper.ReadConfig(file)
+		if err := viper.ReadConfig(file); err != nil {
+			logrus.Fatal("Configuration file is invalid: ", err.Error())
+		}
 	} else {
 		logrus.Warn("Config file not exist. Use environment variables.")
 
@@ -212,4 +263,11 @@ func initConfig(cmd *cobra.Command) {
 		logrus.Fatal(err.Error())
 	}
 	GlobalConfig.SetConfigurationPath(configPath)
+	if directoryConfig, directoryErr := directoryconfig.Load(configPath); directoryErr == nil {
+		for _, warning := range directoryConfig.Warnings {
+			logrus.WithField("configuration", configPath).Warn(warning.String())
+		}
+	} else {
+		logrus.Warn("Directory-specific configuration validation failed; optional Directory metadata will be ignored and the scheduler will remain fail-closed")
+	}
 }

@@ -13,14 +13,15 @@ import (
 )
 
 const (
-	NominalHeartbeatInterval = 24 * time.Hour
-	MaximumStableJitter      = 2 * time.Hour
-	SchedulerPollInterval    = time.Minute
-	minimumSchedulerSleep    = time.Second
-	leaseTTL                 = time.Minute
-	leaseRenewInterval       = 20 * time.Second
-	initialRetry             = 30 * time.Second
-	maximumLocalRetry        = 15 * time.Minute
+	NominalHeartbeatInterval       = 24 * time.Hour
+	MaximumStableJitter            = 2 * time.Hour
+	SchedulerPollInterval          = time.Minute
+	minimumSchedulerSleep          = time.Second
+	leaseTTL                       = time.Minute
+	leaseRenewInterval             = 20 * time.Second
+	initialRetry                   = 30 * time.Second
+	maximumLocalRetry              = 15 * time.Minute
+	DirectoryReconciliationTimeout = 30 * time.Second
 )
 
 type Client interface {
@@ -210,7 +211,7 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 	if !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
 		return state.NextAttempt, nil
 	}
-	operationContext, cancel := context.WithCancel(ctx)
+	operationContext, cancel := context.WithTimeout(ctx, DirectoryReconciliationTimeout)
 	defer cancel()
 	lost := make(chan struct{}, 1)
 	renewalDone := make(chan struct{})

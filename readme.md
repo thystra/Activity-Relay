@@ -339,6 +339,7 @@ DIRECTORY_SCHEDULER_ENABLED: false
 #     enabled: false
 # Optional public descriptive metadata sent only to v2-capable Directories.
 # DIRECTORY_PROFILE:
+#   # Registration status: open, restricted, or closed.
 #   participation_mode: open
 #   availability: public
 #   relay_type: general
@@ -412,9 +413,13 @@ suppression must be read from the same regular YAML file.
 `directory status` without an origin lists local entry state. With an origin it
 retrieves that Directory's strict public status document. Status schemas 2 and 3
 mean Protocol v1 only; schema 4 advertises supported lifecycle protocol versions.
-When Protocol v2 is advertised, registration includes `DIRECTORY_PROFILE`;
-otherwise lifecycle operations use Protocol v1. `directory sync` explicitly
-reconciles registration and the current descriptive profile.
+When Protocol v2 is advertised, registration includes `DIRECTORY_PROFILE` and
+may include the relay's bounded receiving-site count; v2 heartbeats may refresh
+that count. Otherwise lifecycle operations use Protocol v1. `directory sync`
+explicitly reconciles registration and the current descriptive profile.
+`DIRECTORY_PROFILE.participation_mode` accepts only `open`, `restricted`, or
+`closed`. Invalid optional profile fields are warned about and omitted rather
+than preventing the relay from serving ActivityPub.
 
 When the bundled static landing site is rebuilt with `--relay-config`, it reads
 the same local `DIRECTORY_PROFILE` and renders a `Relay information` box near
@@ -467,6 +472,12 @@ mutate an external configuration source,
 environment-only unregister refuses to proceed unless
 `--acknowledge-external-disable` is supplied. Disable that external entry before
 restarting the relay.
+
+Configuration can be checked before restart with `relay -t -c /path/to/config.yml`
+(or `relay --test-config`). Optional Directory-profile problems are reported with
+line-aware warnings and omitted from publication; add `--strict` to make those
+warnings fail the configuration test. Structural/runtime configuration errors
+remain fatal.
 
 `dual` uses expiring Redis capability evidence scoped separately to fetches and
 deliveries. An unknown GET tries RFC 9421 and may make one legacy fallback after
