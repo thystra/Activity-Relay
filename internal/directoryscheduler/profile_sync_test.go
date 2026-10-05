@@ -39,3 +39,33 @@ func TestProfileDigestChangeReconcilesBeforeHeartbeatDeadline(t *testing.T) {
 		t.Fatalf("client=%#v state=%#v", client, state)
 	}
 }
+
+func TestProtocolV3HeartbeatReconcilesStoredProfileProtocol(t *testing.T) {
+	now := time.Date(2026, 10, 5, 18, 0, 0, 0, time.UTC)
+	store := newFakeStore()
+	digest := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	store.states[testOrigin] = State{
+		Registered:             true,
+		NextAttempt:            now,
+		LastObserved:           now.Add(-time.Hour),
+		ProfileDigest:          digest,
+		ProfileProtocolVersion: 2,
+	}
+	client := &profileSyncClient{digest: digest, version: 3}
+	scheduler := testScheduler(t, store, &fakeClock{now: now}, client, nil)
+	if err := scheduler.RunOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	state := store.states[testOrigin]
+	if client.negotiatedRegisters != 1 || state.ProfileProtocolVersion != 3 || state.LastOutcome != "registered" {
+		t.Fatalf("client=%#v state=%#v", client, state)
+	}
+}
+
+func TestProfileStateAcceptsProtocolV3(t *testing.T) {
+	digest := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	state := State{ProfileDigest: digest, ProfileProtocolVersion: 3}
+	if err := validateState(testOrigin, state); err != nil {
+		t.Fatalf("validateState() rejected protocol v3 profile state: %v", err)
+	}
+}

@@ -40,6 +40,8 @@ func TestRedisStorePersistsBoundedStateAndOwnsLeaseToken(t *testing.T) {
 	want := State{
 		Registered: true, LastSuccess: now, NextAttempt: now.Add(time.Hour),
 		LastOutcome: "heartbeat", Diagnostic: "none", Attempt: 0, LastObserved: now,
+		ProfileDigest:          "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+		ProfileProtocolVersion: 3,
 	}
 	if err := store.Save(ctx, origin, want); err != nil {
 		t.Fatal(err)

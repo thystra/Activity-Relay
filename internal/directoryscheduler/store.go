@@ -102,7 +102,7 @@ func (store *RedisStore) Load(ctx context.Context, origin string) (State, error)
 	state.ProfileDigest = values["profile_digest"]
 	if values["profile_protocol_version"] != "" {
 		version, parseErr := strconv.ParseUint(values["profile_protocol_version"], 10, 8)
-		if parseErr != nil || version > 2 {
+		if parseErr != nil || version > 3 {
 			return State{}, ErrStore
 		}
 		state.ProfileProtocolVersion = int(version)

@@ -16,6 +16,9 @@
   only when a Directory explicitly advertises Protocol v3.
 - Negotiate the highest explicitly advertised lifecycle protocol while
   retaining v1/v2 compatibility during rolling upgrades.
+- Persist Protocol v3 profile-sync scheduler state and reconcile the profile when
+  a negotiated v2/v3 heartbeat reports a different protocol version than the
+  version that last carried the stored profile digest.
 - Keep `participation_url` in the Directory profile but stop rendering it on
   the relay's local static landing page.
 - Install the static-site rebuild wrapper in the container image and document

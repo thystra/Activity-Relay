@@ -227,7 +227,8 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 		response, err = schedulerRegister(operationContext, client)
 	}
 	if err == nil && response.Operation == directoryclient.OperationHeartbeat &&
-		response.ProtocolVersion == 2 && state.ProfileProtocolVersion != 2 {
+		response.ProtocolVersion >= directoryclient.ProtocolVersion2 &&
+		state.ProfileProtocolVersion != response.ProtocolVersion {
 		response, err = schedulerRegister(operationContext, client)
 	}
 	cancel()
