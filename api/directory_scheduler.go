@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thystra/Activity-Relay/internal/directoryclient"
@@ -57,10 +58,24 @@ func newDirectoryScheduler(config *models.RelayConfig) (*directoryscheduler.Sche
 				Profile:       current.Profile,
 				KeyID:         actor.PublicKey.ID,
 				PrivateKey:    config.ActorKey(),
+				Telemetry: func(context.Context) (directoryclient.Telemetry, error) {
+					return directoryclient.Telemetry{ReceivingInstanceCount: receivingInstanceCount(RelayState.Snapshot())}, nil
+				},
 			})
 		},
 		Metrics: OperationalMetrics,
 	})
+}
+
+func receivingInstanceCount(snapshot models.RelayStateSnapshot) int {
+	seen := make(map[string]struct{}, len(snapshot.SubscribersAndFollowers))
+	for _, instance := range snapshot.SubscribersAndFollowers {
+		domain := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(instance.Domain), "."))
+		if domain != "" {
+			seen[domain] = struct{}{}
+		}
+	}
+	return len(seen)
 }
 
 func durableDirectoryEnabled(config directoryconfig.Config, origin string) (bool, error) {

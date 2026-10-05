@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 const environmentAcknowledgementFlag = "acknowledge-external-disable"
 
 const (
+	maximumDirectoryCommandTime = 30 * time.Second
 	schedulerLeaseTTL           = time.Minute
 	schedulerLeaseRenewInterval = 20 * time.Second
 )
@@ -47,6 +49,7 @@ func productionDependencies() dependencies {
 				Profile:       config.Profile,
 				KeyID:         config.KeyID,
 				PrivateKey:    config.PrivateKey,
+				Telemetry:     redisReceivingInstanceTelemetry(config.RedisURL),
 			})
 		},
 		sleep: sleepContext,
@@ -67,6 +70,37 @@ func productionDependencies() dependencies {
 			storeURL = config.RedisURL
 			return store, nil
 		},
+	}
+}
+
+func redisReceivingInstanceTelemetry(redisURL string) directoryclient.TelemetryProvider {
+	if redisURL == "" {
+		return nil
+	}
+	return func(ctx context.Context) (directoryclient.Telemetry, error) {
+		options, err := redis.ParseURL(redisURL)
+		if err != nil {
+			return directoryclient.Telemetry{}, err
+		}
+		client := redis.NewClient(options)
+		defer client.Close()
+		seen := make(map[string]struct{})
+		for _, prefix := range []string{"relay:subscription:", "relay:follower:"} {
+			iterator := client.Scan(ctx, 0, prefix+"*", 256).Iterator()
+			for iterator.Next(ctx) {
+				domain := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(strings.TrimPrefix(iterator.Val(), prefix)), "."))
+				if domain != "" {
+					seen[domain] = struct{}{}
+				}
+			}
+			if err := iterator.Err(); err != nil {
+				return directoryclient.Telemetry{}, err
+			}
+		}
+		if len(seen) > directoryclient.MaximumReceivingInstanceCount {
+			return directoryclient.Telemetry{}, errors.New("receiving instance count exceeds protocol bound")
+		}
+		return directoryclient.Telemetry{ReceivingInstanceCount: len(seen)}, nil
 	}
 }
 
@@ -107,7 +141,9 @@ func buildCommand(deps dependencies) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			remote, err := retryStatus(cmd.Context(), deps, client.Status)
+			operationContext, cancel := context.WithTimeout(cmd.Context(), maximumDirectoryCommandTime)
+			defer cancel()
+			remote, err := retryStatus(operationContext, deps, client.Status)
 			if err != nil {
 				return commandError("status", err)
 			}
@@ -174,7 +210,9 @@ func lifecycleCommand(
 			if err != nil {
 				return err
 			}
-			response, err := retryLifecycle(cmd.Context(), deps, func(ctx context.Context) (directoryclient.Response, error) {
+			operationContext, cancel := context.WithTimeout(cmd.Context(), maximumDirectoryCommandTime)
+			defer cancel()
+			response, err := retryLifecycle(operationContext, deps, func(ctx context.Context) (directoryclient.Response, error) {
 				return operation(ctx, client)
 			})
 			if err != nil {
@@ -279,7 +317,9 @@ func unregisterCommand(deps dependencies) *cobra.Command {
 				return errors.New("directory scheduler lease was lost; the entry remains disabled and no remote request was sent")
 			}
 
-			response, err := retryLifecycle(operationContext, deps, client.UnregisterNegotiated)
+			boundedContext, boundedCancel := context.WithTimeout(operationContext, maximumDirectoryCommandTime)
+			defer boundedCancel()
+			response, err := retryLifecycle(boundedContext, deps, client.UnregisterNegotiated)
 			if leaseHasBeenLost(leaseLost) {
 				return errors.New("directory scheduler lease was lost during remote unregister; the entry remains disabled")
 			}

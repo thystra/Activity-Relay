@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.1.0-rc3] - 2026-10-04
+
+### Added
+
+- Add bounded receiving-site telemetry to Directory Protocol v2 register and
+  heartbeat requests. The count is derived from the same deduplicated receiving
+  instance set used by `/status.json`; it is descriptive telemetry only.
+- Add `-t` / `--test-config` with optional `--strict` validation and line-aware
+  warnings for invalid optional `DIRECTORY_PROFILE` metadata.
+- Add malicious-Directory containment tests and a dedicated bounded outbound
+  Directory HTTP transport.
+
+### Changed
+
+- Restrict `DIRECTORY_PROFILE.participation_mode` to `open`, `restricted`, or
+  `closed`. Invalid optional profile values are omitted, never transmitted, and
+  do not prevent the relay from starting.
+- Harden Directory status handling against control-character/terminal injection,
+  oversized version lists and headers, redirect abuse, compression bombs,
+  special-address dialing, and unbounded reconciliation time.
+- Preserve Directory failures as isolated optional-integration failures; they do
+  not alter relay delivery/follow behavior or stop the ActivityPub service.
+
 ## [3.1.0-rc2] - 2026-10-04
 
 ### Changed

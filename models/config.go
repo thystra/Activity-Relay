@@ -55,8 +55,20 @@ type RelayConfig struct {
 	configurationPath               string
 }
 
-// NewRelayConfig create valid RelayConfig from viper configuration.
+// NewRelayConfig creates a runtime RelayConfig and verifies required external
+// runtime dependencies such as Redis connectivity.
 func NewRelayConfig() (*RelayConfig, error) {
+	return newRelayConfig(false)
+}
+
+// ValidateRelayConfig validates configuration without making network requests or
+// initializing mutable runtime stores. It is used by relay -t/--test-config.
+func ValidateRelayConfig() error {
+	_, err := newRelayConfig(true)
+	return err
+}
+
+func newRelayConfig(validationOnly bool) (*RelayConfig, error) {
 	directorySchedulerEnabled := false
 	if configured := viper.Get("DIRECTORY_SCHEDULER_ENABLED"); configured != nil {
 		var valid bool
@@ -155,35 +167,39 @@ func NewRelayConfig() (*RelayConfig, error) {
 	if err != nil {
 		return nil, errors.New("REDIS_URL: " + err.Error())
 	}
-	redisClient := redis.NewClient(redisOptions)
-	pingContext, cancelPing := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelPing()
-	if err := redisClient.Ping(pingContext).Err(); err != nil {
-		_ = redisClient.Close()
-		return nil, errors.New("REDIS_URL: " + err.Error())
-	}
-	capabilityStore, err :=
-		relayhttpsig.NewRedisDestinationCapabilityStore(
-			redisClient,
-			"",
-		)
-	if err != nil {
-		_ = redisClient.Close()
-		return nil, errors.New(
-			"HTTP SIGNATURE CAPABILITY STORE: " + err.Error(),
-		)
-	}
-	outboundSignatureNegotiator, err :=
-		relayhttpsig.NewDestinationNegotiator(
-			relayhttpsig.DestinationNegotiatorOptions{
-				Store: capabilityStore,
-			},
-		)
-	if err != nil {
-		_ = redisClient.Close()
-		return nil, errors.New(
-			"HTTP SIGNATURE NEGOTIATOR: " + err.Error(),
-		)
+	var redisClient *redis.Client
+	var outboundSignatureNegotiator *relayhttpsig.DestinationNegotiator
+	if !validationOnly {
+		redisClient = redis.NewClient(redisOptions)
+		pingContext, cancelPing := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelPing()
+		if err := redisClient.Ping(pingContext).Err(); err != nil {
+			_ = redisClient.Close()
+			return nil, errors.New("REDIS_URL: " + err.Error())
+		}
+		capabilityStore, err :=
+			relayhttpsig.NewRedisDestinationCapabilityStore(
+				redisClient,
+				"",
+			)
+		if err != nil {
+			_ = redisClient.Close()
+			return nil, errors.New(
+				"HTTP SIGNATURE CAPABILITY STORE: " + err.Error(),
+			)
+		}
+		outboundSignatureNegotiator, err =
+			relayhttpsig.NewDestinationNegotiator(
+				relayhttpsig.DestinationNegotiatorOptions{
+					Store: capabilityStore,
+				},
+			)
+		if err != nil {
+			_ = redisClient.Close()
+			return nil, errors.New(
+				"HTTP SIGNATURE NEGOTIATOR: " + err.Error(),
+			)
+		}
 	}
 
 	serverBind := viper.GetString("RELAY_BIND")

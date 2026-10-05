@@ -6,6 +6,34 @@
 - [x] RC2 public presentation refinement: render the local descriptive profile
   on the bundled relay landing page with information/focus grouping and add an
   optional bounded, provider-neutral `Support this relay` block.
+- [x] RC3 Directory boundary hardening: bounded receiving-site telemetry,
+  controlled registration-status vocabulary, lenient optional-profile warnings,
+  `-t` / `--test-config`, malicious-Directory transport containment, and bounded
+  per-Directory reconciliation.
+
+## Activity-Relay 3.2 filtering roadmap
+
+- Add operator hashtag policy modes with a closed vocabulary:
+  - `neutral`: no hashtag filtering; preserve current relay behavior.
+  - `allowlist`: strict/positive filtering; deliver only activities containing
+    at least one configured structured ActivityStreams `Hashtag`.
+  - `blocklist`: loose/negative filtering; otherwise allow traffic but reject
+    activities containing any configured blocked hashtag.
+- Normalize configured hashtag values case-insensitively, remove one optional
+  leading `#`, deduplicate/sort them, and match structured ActivityStreams
+  hashtag metadata rather than scraping rendered HTML.
+- Keep operator policy separate from moderation and from subscriber-requested
+  delivery preferences. Operator policy defines the maximum eligible stream.
+- Preserve a per-subscriber policy evaluation hook in fan-out so a future
+  authenticated subscriber can request a narrower stream, e.g. a subscribing
+  server requesting only `#dogs`. Effective delivery is the intersection of
+  normal relay eligibility, operator policy, and subscriber policy.
+- Model future subscriber policy as `all` or `filtered`, with `match: any|all`
+  and bounded `hashtags` (and later declared languages/topics). A subscriber
+  may narrow its own stream but can never broaden or bypass operator policy.
+- Bind future subscriber policy management to the exact authenticated server
+  actor/subscription with RFC 9421 signatures, freshness, nonce replay defense,
+  strict request bounds, revisions/ETags, and no inference from domain alone.
 
 ## Current stable release
 
