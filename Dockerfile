@@ -37,10 +37,12 @@ COPY --from=build /rootfs/usr/bin/relay /usr/bin/relay
 COPY --from=build /Activity-Relay/contrib/web /usr/share/activity-relay/web
 COPY --from=build /Activity-Relay/contrib/ops/resource-guard.py /usr/lib/activity-relay/resource-guard.py
 COPY --from=build /Activity-Relay/contrib/ops/activity-relay-resource-guard /usr/bin/activity-relay-resource-guard
+COPY --from=build /Activity-Relay/contrib/web/activity-relay-rebuild-site /usr/bin/activity-relay-rebuild-site
 
 RUN chmod 0755 \
       /usr/bin/relay \
       /usr/bin/activity-relay-resource-guard \
+      /usr/bin/activity-relay-rebuild-site \
       /usr/lib/activity-relay/resource-guard.py && \
     apk add --no-cache ca-certificates python3
 

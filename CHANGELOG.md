@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.1.0-rc4] - 2026-10-05
+
+### Added
+
+- Add Activity-Relay Directory Protocol v3 with bounded
+  `participating_instance_count` telemetry sourced from the public relay
+  `status.json` connected-instance count and a synchronized cross-project
+  signed v3 fixture.
+
+### Changed
+
+- Restore Protocol v2 to profile synchronization only: v2 registration sends
+  the complete profile and v2 heartbeat is identity-only. Telemetry is sent
+  only when a Directory explicitly advertises Protocol v3.
+- Negotiate the highest explicitly advertised lifecycle protocol while
+  retaining v1/v2 compatibility during rolling upgrades.
+- Keep `participation_url` in the Directory profile but stop rendering it on
+  the relay's local static landing page.
+- Install the static-site rebuild wrapper in the container image and document
+  explicit relay-config handling for package and container deployments.
+
 ## [3.1.0-rc3] - 2026-10-04
 
 ### Added

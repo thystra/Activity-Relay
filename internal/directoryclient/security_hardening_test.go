@@ -59,7 +59,7 @@ func TestDefaultDirectoryTransportIsBoundedAndDoesNotUseEnvironmentProxy(t *test
 	}
 }
 
-func TestV2RegisterAndHeartbeatIncludeBoundedTelemetry(t *testing.T) {
+func TestV2RegisterAndHeartbeatRemainTelemetryFree(t *testing.T) {
 	var bodies [][]byte
 	client, err := New(Options{
 		Origin:        testDirectoryOrigin,
@@ -77,17 +77,14 @@ func TestV2RegisterAndHeartbeatIncludeBoundedTelemetry(t *testing.T) {
 			operation := OperationRegister
 			outcome := OutcomeCreated
 			if request.URL.Path == heartbeatPathV2 {
-				operation = OperationHeartbeat
-				outcome = OutcomeRecorded
+				operation, outcome = OperationHeartbeat, OutcomeRecorded
 			}
 			response, _ := json.Marshal(Response{ProtocolVersion: ProtocolVersion2, Operation: operation, Outcome: outcome, RelayActor: testRelayActor})
 			return jsonHTTPResponse(http.StatusOK, string(response)), nil
 		})},
-		Now:   func() time.Time { return testNow },
-		Nonce: func() (string, error) { return "telemetry-test-nonce", nil },
-		Telemetry: func(context.Context) (Telemetry, error) {
-			return Telemetry{ReceivingInstanceCount: 12}, nil
-		},
+		Now:       func() time.Time { return testNow },
+		Nonce:     func() (string, error) { return "telemetry-test-nonce", nil },
+		Telemetry: func(context.Context) (Telemetry, error) { return Telemetry{ParticipatingInstanceCount: 12}, nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -99,8 +96,45 @@ func TestV2RegisterAndHeartbeatIncludeBoundedTelemetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, body := range bodies {
-		if !strings.Contains(string(body), `"telemetry":{"receiving_instance_count":12}`) {
-			t.Fatalf("telemetry missing from %s", body)
+		if strings.Contains(string(body), `"telemetry"`) {
+			t.Fatalf("v2 unexpectedly carried telemetry: %s", body)
+		}
+	}
+}
+
+func TestV3RegisterAndHeartbeatIncludeBoundedParticipatingTelemetry(t *testing.T) {
+	var bodies [][]byte
+	client, err := New(Options{
+		Origin: testDirectoryOrigin, RelayActor: testRelayActor, PublicBaseURL: testRelayBase,
+		Profile: RelayProfile{ParticipationMode: ParticipationOpen}, KeyID: testKeyID, PrivateKey: testPrivateKey(t),
+		HTTPClient: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			body, readErr := io.ReadAll(request.Body)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			bodies = append(bodies, body)
+			operation, outcome := OperationRegister, OutcomeCreated
+			if request.URL.Path == heartbeatPathV3 {
+				operation, outcome = OperationHeartbeat, OutcomeRecorded
+			}
+			response, _ := json.Marshal(Response{ProtocolVersion: ProtocolVersion3, Operation: operation, Outcome: outcome, RelayActor: testRelayActor})
+			return jsonHTTPResponse(http.StatusOK, string(response)), nil
+		})},
+		Now: func() time.Time { return testNow }, Nonce: func() (string, error) { return "telemetry-test-nonce-v3", nil },
+		Telemetry: func(context.Context) (Telemetry, error) { return Telemetry{ParticipatingInstanceCount: 12}, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.registerVersion(context.Background(), ProtocolVersion3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.heartbeatVersion(context.Background(), ProtocolVersion3); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range bodies {
+		if !strings.Contains(string(body), `"telemetry":{"participating_instance_count":12}`) {
+			t.Fatalf("v3 telemetry missing from %s", body)
 		}
 	}
 }

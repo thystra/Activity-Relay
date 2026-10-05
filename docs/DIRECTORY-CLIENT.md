@@ -140,8 +140,9 @@ workflow and explicit container recreation rather than rely on edit mechanics.
 
 ## Descriptive Directory profile
 
-`DIRECTORY_PROFILE` is optional public metadata. The complete v2 profile has
-12 fields: participation mode, availability, relay type, languages,
+`DIRECTORY_PROFILE` is optional public metadata. In a YAML file the
+`DIRECTORY_PROFILE:` top-level key starts in column 1; only its child fields are
+indented. The complete v2/v3 profile has 12 fields: participation mode, availability, relay type, languages,
 countries, regions, topics, Fediverse contact, email contact, contact URL,
 participation URL, and notes. Missing configuration produces explicit empty
 values when v2 registration is sent. Lists are trimmed, deduplicated, and sorted;
@@ -166,9 +167,10 @@ Directory profile with its prior state; a changed profile triggers registration
 without waiting for the next heartbeat. Successful registrations and heartbeats
 schedule the next heartbeat after 24 hours plus stable per-relay, per-directory
 jitter of at most two hours. Only a strict `relay_not_registered` heartbeat
-response invokes one register/one-final-heartbeat reconciliation. If a normal
-heartbeat first observes Protocol v2 after earlier v1 fallback, one registration
-synchronizes the profile under v2.
+response invokes one register/one-final-heartbeat reconciliation. If a normal heartbeat first observes a higher explicitly advertised protocol
+after earlier fallback, one registration synchronizes the profile under that
+protocol. Protocol v3 additionally carries participating-instance telemetry;
+Protocol v2 heartbeat remains identity-only.
 
 Redis stores one bounded state record and one renewable lease per canonical
 directory origin. Redis keys contain a SHA-256 digest, not the raw origin. The

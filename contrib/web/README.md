@@ -131,8 +131,9 @@ When `--relay-config` is present (the package wrapper uses
 `/etc/activity-relay/config.yml` by default), the builder also reads the relay's
 local `DIRECTORY_PROFILE`. The default home page renders that descriptive data
 near the top as `Relay information`, followed by `Relay focus`.
-`participation_mode` is displayed as `Registration status`;
-`participation_url` is displayed as `About this relay`. Languages, countries,
+`participation_mode` is displayed as `Registration status`. The local site does
+not display `participation_url`; that field remains part of the Directory profile
+and is transmitted to capable Directories. Languages, countries,
 and regions are shown only when at least one is declared, so an unrestricted
 relay can leave all three lists empty without displaying synthetic `any` or
 `global` values.
@@ -171,6 +172,12 @@ The package-managed command also accepts `--source`, `--config`,
 `--relay-config`, `--content-overrides`, and `--asset-overrides`. An older
 regular file at `/etc/activity-relay-web/rebuild-site.sh` may remain after an
 upgrade, but it is not authoritative.
+
+The container image also installs `activity-relay-rebuild-site`. When rebuilding
+inside a container, pass the mounted relay configuration explicitly when it is
+not at `/etc/activity-relay/config.yml`, for example
+`activity-relay-rebuild-site --relay-config /config/config.yml`. The YAML
+`DIRECTORY_PROFILE:` and `SUPPORT:` top-level keys must begin at column 1.
 
 For a source checkout or completely user-owned directories, invoke the checkout
 wrapper directly:
