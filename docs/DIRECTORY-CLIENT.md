@@ -2,11 +2,11 @@
 
 ## Scope and activation
 
-The `internal/directoryclient` package provides Protocol v1 compatibility and
-negotiated Protocol v2 profile synchronization for explicit operator commands
-and the optional API-process scheduler. It does not add a public relay endpoint
-or worker task. Existing ActivityPub fetch and delivery signing remains
-unchanged.
+The `internal/directoryclient` package provides Protocol v1 compatibility,
+negotiated Protocol v2 profile synchronization, and negotiated Protocol v3
+participating-site telemetry for explicit operator commands and the optional
+API-process scheduler. It does not add a public relay endpoint or worker task.
+Existing ActivityPub fetch and delivery signing remains unchanged.
 
 `DIRECTORIES` accepts at most eight entries. Entries are opt-in; the public
 example below remains disabled until an operator deliberately enables it:
@@ -57,16 +57,24 @@ relay directory sync origin
 Status without an origin lists local entries. Status with an origin retrieves
 the strict public status document. The client accepts Directory status schemas 2 and 3 as Protocol-v1-only and
 schema 4 with the ordered `lifecycle_protocol_versions` capability list. It uses
-Protocol v2 only when version 2 is explicitly advertised; malformed status or
+the highest explicitly advertised supported protocol; malformed status or
 transport failure is not a downgrade signal. JSON decoding remains strict.
-`directory sync` performs an explicit registration/profile reconciliation. Authentication, enrollment,
-suspension, lifecycle, and malformed-response errors are not retried.
-Transport and `internal_error` failures receive at most three attempts with
-bounded backoff. Validated `Retry-After` values are accepted as delta seconds or
-HTTP dates for retryable 429 and 503 responses and are capped at 24 hours.
-Interactive commands honor values up to 30 seconds; for a longer remote lower
-bound they return without retrying early. Every attempt constructs a new request
-with a fresh nonce and signature.
+`directory sync` performs an explicit registration/profile reconciliation.
+`directory heartbeat` sends an immediate liveness update. Authentication,
+enrollment, suspension, lifecycle, and malformed-response errors are not
+retried. Transport and `internal_error` failures receive at most three attempts
+with bounded backoff. Validated `Retry-After` values are accepted as delta
+seconds or HTTP dates for retryable 429 and 503 responses and are capped at 24
+hours. Interactive commands honor values up to 30 seconds; for a longer remote
+lower bound they return without retrying early. Every attempt constructs a new
+request with a fresh nonce and signature.
+
+When the file-backed scheduler is enabled, manual register, heartbeat, and sync
+commands acquire the same per-Directory Redis lease as the background
+scheduler. A successful command updates the persisted success time and next
+heartbeat deadline; successful register/sync also updates the persisted profile
+digest and negotiated profile protocol. This prevents an operator-triggered
+success from being immediately duplicated by the scheduler.
 
 File-backed unregister structurally edits YAML and durably disables the
 selected entry before sending network traffic. It rejects symlinks and
@@ -161,16 +169,23 @@ directory traffic. Environment-only activation is deliberately unsupported
 because the scheduler and unregister command must share a durable suppression
 source.
 
-At API startup, each enabled entry with no current persisted schedule is
-registered. The scheduler also compares a SHA-256 digest of the normalized
-Directory profile with its prior state; a changed profile triggers registration
-without waiting for the next heartbeat. Successful registrations and heartbeats
-schedule the next heartbeat after 24 hours plus stable per-relay, per-directory
-jitter of at most two hours. Only a strict `relay_not_registered` heartbeat
-response invokes one register/one-final-heartbeat reconciliation. If a normal heartbeat first observes a higher explicitly advertised protocol
-after earlier fallback, one registration synchronizes the profile under that
-protocol. Protocol v3 additionally carries participating-instance telemetry;
-Protocol v2 heartbeat remains identity-only.
+At API startup, each enabled entry receives one immediate lifecycle
+reconciliation even when Redis contains a future normal heartbeat deadline. A
+known registered relay with unchanged profile state sends a heartbeat; a new or
+profile-changed relay registers instead. The startup pulse does not bypass a
+persisted retry, rate-limit, authentication, suspension, enrollment, lifecycle,
+or malformed-response deadline from an earlier failed operation.
+
+The scheduler also compares a SHA-256 digest of the normalized Directory profile
+with its prior state; a changed profile triggers registration without waiting
+for the next heartbeat. Successful registrations and heartbeats schedule the
+next heartbeat after 24 hours plus stable per-relay, per-directory jitter of at
+most two hours. Only a strict `relay_not_registered` heartbeat response invokes
+one register/one-final-heartbeat reconciliation. If a normal heartbeat first
+observes a higher explicitly advertised protocol after earlier fallback, one
+registration synchronizes the profile under that protocol. Protocol v3
+additionally carries participating-instance telemetry; Protocol v2 heartbeat
+remains identity-only.
 
 Redis stores one bounded state record and one renewable lease per canonical
 directory origin. Redis keys contain a SHA-256 digest, not the raw origin. The
@@ -229,8 +244,9 @@ this order:
 The signature uses label `directory`, algorithm `rsa-v1_5-sha256`, a fresh
 cryptographic nonce, a current whole-second `created` time, and an `expires`
 time exactly five minutes later. Protocol v1 uses tag
-`activity-relay-directory-v1`; Protocol v2 uses the distinct tag
-`activity-relay-directory-v2`. `Content-Digest` is the RFC 9530 SHA-256 value
+`activity-relay-directory-v1`; Protocol v2 uses
+`activity-relay-directory-v2`; and Protocol v3 uses
+`activity-relay-directory-v3`. `Content-Digest` is the RFC 9530 SHA-256 value
 over the exact compact JSON bytes. Each protocol version uses its own exact
 register, heartbeat, and unregister paths.
 
@@ -257,12 +273,12 @@ cause registration.
 `testdata/directory/v1/activity-relay-register.valid.json` remains the v1
 compatibility vector. `testdata/directory/v2/activity-relay-register.valid.json`
 freezes the complete twelve-field profile registration, v2 target, digest,
-signature tag, signature, and public test key. The v2 file is byte-for-byte
-identical to the Directory repository's shared fixture and contains no private
-key.
+signature tag, signature, and public test key. Protocol v3 has a corresponding
+`testdata/directory/v3/activity-relay-register.valid.json` fixture that adds the
+bounded participating-site telemetry field. These shared fixtures contain no
+private key.
 
-
-## RC3 configuration and malicious-Directory containment
+## Configuration and malicious-Directory containment
 
 `DIRECTORY_PROFILE.participation_mode` accepts only `open`, `restricted`, or
 `closed`. Other optional profile values that fail validation are treated as
@@ -279,10 +295,11 @@ private split-DNS deployments, validates closed response vocabularies, and
 never signs remote-supplied arbitrary bytes or follows remote-supplied URLs.
 Each scheduled Directory reconciliation also has a fixed total deadline.
 
-Protocol v2 register and heartbeat may carry an optional
-`telemetry.receiving_instance_count` in the range 0..10,000,000. Absence means
-unknown/no update; zero means the relay explicitly reports zero receiving sites.
-Telemetry does not affect relay delivery, follow policy, or Directory tiering.
+Protocol v3 register and heartbeat may carry
+`telemetry.participating_instance_count` in the range 0..10,000,000. The count
+is derived from the relay's participating/connected-site view. Protocol v2
+remains profile synchronization only and its heartbeat is identity-only.
+Telemetry does not affect relay delivery or follow policy.
 
 
 `relay -t` / `relay --test-config` performs configuration validation without Directory or Redis network requests and without state mutation.

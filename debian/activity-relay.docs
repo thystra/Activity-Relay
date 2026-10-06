@@ -1,4 +1,7 @@
 readme.md
+docs/INSTALLATION.md
+docs/ADMINISTRATION.md
+docs/DEVELOPMENT.md
 contrib/ops/README.md
 contrib/web/README.md
 debian/README.Debian

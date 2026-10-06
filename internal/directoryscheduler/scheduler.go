@@ -92,8 +92,9 @@ func (scheduler *Scheduler) Run(ctx context.Context) {
 	if scheduler == nil || ctx == nil {
 		return
 	}
+	startupBoundary := scheduler.clock.Now().UTC().Truncate(time.Second)
 	for {
-		nextAttempt, _ := scheduler.runCycle(ctx)
+		nextAttempt, _ := scheduler.runCycle(ctx, startupBoundary)
 		if ctx.Err() != nil {
 			return
 		}
@@ -107,11 +108,11 @@ func (scheduler *Scheduler) Run(ctx context.Context) {
 }
 
 func (scheduler *Scheduler) RunOnce(ctx context.Context) error {
-	_, err := scheduler.runCycle(ctx)
+	_, err := scheduler.runCycle(ctx, time.Time{})
 	return err
 }
 
-func (scheduler *Scheduler) runCycle(ctx context.Context) (time.Time, error) {
+func (scheduler *Scheduler) runCycle(ctx context.Context, startupBoundary time.Time) (time.Time, error) {
 	if scheduler == nil || ctx == nil {
 		return time.Time{}, errors.New("directory scheduler is unavailable")
 	}
@@ -121,7 +122,7 @@ func (scheduler *Scheduler) runCycle(ctx context.Context) (time.Time, error) {
 		if !entry.Enabled {
 			continue
 		}
-		nextAttempt, err := scheduler.runDirectory(ctx, entry)
+		nextAttempt, err := scheduler.runDirectory(ctx, entry, startupBoundary)
 		if !nextAttempt.IsZero() && (earliest.IsZero() || nextAttempt.Before(earliest)) {
 			earliest = nextAttempt
 		}
@@ -146,7 +147,11 @@ func (scheduler *Scheduler) nextWakeDelay(nextAttempt time.Time) time.Duration {
 	return delay
 }
 
-func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directoryclient.Directory) (time.Time, error) {
+func (scheduler *Scheduler) runDirectory(
+	ctx context.Context,
+	entry directoryclient.Directory,
+	startupBoundary time.Time,
+) (time.Time, error) {
 	enabled, err := scheduler.enabled(entry.Origin)
 	if err != nil || !enabled {
 		if err != nil {
@@ -160,6 +165,7 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 		return time.Time{}, err
 	}
 	now := scheduler.monotonicNow(state.LastObserved)
+	startupDue := startupReconciliationDue(state, startupBoundary)
 	profileChanged := false
 	if state.Registered {
 		if preview, previewErr := scheduler.clients(entry); previewErr == nil {
@@ -168,7 +174,7 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 			}
 		}
 	}
-	if !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
+	if !startupDue && !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
 		return state.NextAttempt, nil
 	}
 	lease, acquired, err := scheduler.store.Acquire(ctx, entry.Origin, leaseTTL)
@@ -188,6 +194,7 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 		return time.Time{}, err
 	}
 	now = scheduler.monotonicNow(state.LastObserved)
+	startupDue = startupReconciliationDue(state, startupBoundary)
 	enabled, err = scheduler.enabled(entry.Origin)
 	if err != nil || !enabled {
 		if err != nil {
@@ -208,7 +215,7 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 	if digest, ok := clientProfileDigest(client); ok && state.Registered {
 		profileChanged = state.ProfileDigest != digest
 	}
-	if !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
+	if !startupDue && !profileChanged && !state.NextAttempt.IsZero() && now.Before(state.NextAttempt) {
 		return state.NextAttempt, nil
 	}
 	operationContext, cancel := context.WithTimeout(ctx, DirectoryReconciliationTimeout)
@@ -254,7 +261,7 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 			}
 		}
 		state.LastSuccess = completedAt
-		state.NextAttempt = completedAt.Add(NominalHeartbeatInterval + stableJitter(scheduler.relayActor, entry.Origin))
+		state.NextAttempt = NextHeartbeatAttempt(scheduler.relayActor, entry.Origin, completedAt)
 		state.Attempt = 0
 		state.Diagnostic = "none"
 		if response.Operation == directoryclient.OperationRegister {
@@ -275,6 +282,29 @@ func (scheduler *Scheduler) runDirectory(ctx context.Context, entry directorycli
 	}
 	scheduler.record(ctx, "failure", state.Diagnostic)
 	return state.NextAttempt, nil
+}
+
+// NextHeartbeatAttempt returns the normal post-success scheduler deadline used
+// by both automatic and operator-invoked Directory lifecycle operations.
+func NextHeartbeatAttempt(relayActor, origin string, completedAt time.Time) time.Time {
+	if completedAt.IsZero() {
+		return time.Time{}
+	}
+	completedAt = completedAt.UTC().Truncate(time.Second)
+	return completedAt.Add(NominalHeartbeatInterval + stableJitter(relayActor, origin))
+}
+
+func startupReconciliationDue(state State, startupBoundary time.Time) bool {
+	if startupBoundary.IsZero() ||
+		(!state.LastObserved.IsZero() && !state.LastObserved.Before(startupBoundary)) {
+		return false
+	}
+	switch state.LastOutcome {
+	case "", "registered", "heartbeat":
+		return true
+	default:
+		return false
+	}
 }
 
 func (scheduler *Scheduler) monotonicNow(persisted time.Time) time.Time {
@@ -314,7 +344,7 @@ func (scheduler *Scheduler) applyFailure(state *State, origin string, now time.T
 	}
 	if state.LastOutcome != "retrying" {
 		state.Attempt = 0
-		state.NextAttempt = now.Add(NominalHeartbeatInterval + stableJitter(scheduler.relayActor, origin))
+		state.NextAttempt = NextHeartbeatAttempt(scheduler.relayActor, origin, now)
 		return
 	}
 	state.Attempt++

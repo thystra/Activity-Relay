@@ -33,6 +33,7 @@ type dependencies struct {
 	disable func(string, string) (string, error)
 	remove  func(string, string) (string, error)
 	client  func(directoryconfig.Config, string) (*directoryclient.Client, error)
+	now     func() time.Time
 	sleep   func(context.Context, time.Duration) error
 	store   func(directoryconfig.Config) (directoryscheduler.StateStore, error)
 }
@@ -56,6 +57,7 @@ func productionDependencies() dependencies {
 				Telemetry:     statusParticipatingInstanceTelemetry(config.PublicBaseURL),
 			})
 		},
+		now:   time.Now,
 		sleep: sleepContext,
 		store: func(config directoryconfig.Config) (directoryscheduler.StateStore, error) {
 			storeMutex.Lock()
@@ -225,13 +227,90 @@ func lifecycleCommand(
 			if err != nil {
 				return err
 			}
-			operationContext, cancel := context.WithTimeout(cmd.Context(), maximumDirectoryCommandTime)
-			defer cancel()
-			response, err := retryLifecycle(operationContext, deps, func(ctx context.Context) (directoryclient.Response, error) {
+
+			var schedulerStore directoryscheduler.StateStore
+			var schedulerLease directoryscheduler.Lease
+			var schedulerState directoryscheduler.State
+			operationContext := cmd.Context()
+			var leaseLost <-chan struct{}
+			if config.Source == directoryconfig.SourceFile && config.SchedulerEnabled && config.RedisURL != "" {
+				if deps.store == nil {
+					return errors.New("directory scheduler store is unavailable; no remote request was sent")
+				}
+				schedulerStore, err = deps.store(config)
+				if err != nil {
+					return errors.New("directory scheduler store is unavailable; no remote request was sent")
+				}
+				var acquired bool
+				schedulerLease, acquired, err = schedulerStore.Acquire(cmd.Context(), entry.Origin, schedulerLeaseTTL)
+				if err != nil || !acquired {
+					return errors.New("directory scheduler lease is unavailable; no remote request was sent")
+				}
+				schedulerState, err = schedulerStore.Load(cmd.Context(), entry.Origin)
+				if err != nil {
+					releaseSchedulerLease(schedulerLease)
+					return errors.New("directory scheduler state is invalid; no remote request was sent")
+				}
+				var stopLease context.CancelFunc
+				var leaseDone <-chan struct{}
+				operationContext, stopLease, leaseLost, leaseDone = maintainSchedulerLease(cmd.Context(), schedulerLease)
+				defer func() {
+					stopLease()
+					<-leaseDone
+					releaseSchedulerLease(schedulerLease)
+				}()
+			}
+
+			boundedContext, boundedCancel := context.WithTimeout(operationContext, maximumDirectoryCommandTime)
+			defer boundedCancel()
+			response, err := retryLifecycle(boundedContext, deps, func(ctx context.Context) (directoryclient.Response, error) {
 				return operation(ctx, client)
 			})
+			if leaseHasBeenLost(leaseLost) {
+				return errors.New("directory scheduler lease was lost during remote lifecycle request")
+			}
 			if err != nil {
 				return commandError(cmd.Name(), err)
+			}
+
+			if schedulerStore != nil {
+				completedAt := deps.now().UTC().Truncate(time.Second)
+				if completedAt.Before(schedulerState.LastObserved) {
+					completedAt = schedulerState.LastObserved
+				}
+				if completedAt.Before(schedulerState.LastSuccess) {
+					completedAt = schedulerState.LastSuccess
+				}
+				schedulerState.Registered = true
+				schedulerState.LastSuccess = completedAt
+				schedulerState.NextAttempt = directoryscheduler.NextHeartbeatAttempt(
+					config.RelayActor,
+					entry.Origin,
+					completedAt,
+				)
+				schedulerState.Attempt = 0
+				schedulerState.Diagnostic = "none"
+				schedulerState.LastObserved = completedAt
+				if response.Operation == directoryclient.OperationRegister {
+					digest := client.ProfileDigest()
+					if len(digest) != 64 {
+						return errors.New("remote lifecycle request succeeded but scheduler profile state could not be finalized")
+					}
+					schedulerState.ProfileDigest = digest
+					schedulerState.ProfileProtocolVersion = response.ProtocolVersion
+					schedulerState.LastOutcome = "registered"
+				} else {
+					schedulerState.LastOutcome = "heartbeat"
+				}
+				owned, saveErr := schedulerStore.SaveOwned(
+					operationContext,
+					entry.Origin,
+					schedulerLease,
+					schedulerState,
+				)
+				if saveErr != nil || !owned {
+					return errors.New("remote lifecycle request succeeded but scheduler state could not be finalized")
+				}
 			}
 			cmd.Printf("%s %s: %s\n", cmd.Name(), entry.Origin, response.Outcome)
 			return nil

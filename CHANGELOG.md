@@ -19,10 +19,22 @@
 - Persist Protocol v3 profile-sync scheduler state and reconcile the profile when
   a negotiated v2/v3 heartbeat reports a different protocol version than the
   version that last carried the stored profile digest.
+- Reconcile every enabled Directory once when the API/server process starts,
+  even when Redis contains a future normal heartbeat deadline. Existing failure
+  and rate-limit deadlines remain authoritative.
+- Coordinate manual Directory register, heartbeat, and sync commands through
+  the scheduler lease when file-backed scheduling is enabled, and persist
+  successful manual operations so the background scheduler does not immediately
+  repeat them.
 - Keep `participation_url` in the Directory profile but stop rendering it on
   the relay's local static landing page.
 - Install the static-site rebuild wrapper in the container image and document
   explicit relay-config handling for package and container deployments.
+
+### Documentation
+
+- Reduce the project README to a concise overview and move installation,
+  operator/CLI, and development/testing material into focused documents.
 
 ## [3.1.0-rc3] - 2026-10-04
 
