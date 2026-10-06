@@ -283,10 +283,25 @@ jobs:
             xargs -0 sha256sum >SHA256SUMS
           sha256sum -c SHA256SUMS
 
+      - name: Wrap canonical release artifact set with preserved metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUNDLE="$RUNNER_TEMP/activity-relay-canonical.tar"
+          REPRO="$RUNNER_TEMP/activity-relay-canonical.repro.tar"
+
+          scripts/release/package-canonical-bundle.sh \
+            "$RUNNER_TEMP/canonical-release" "$BUNDLE"
+          scripts/release/package-canonical-bundle.sh \
+            "$RUNNER_TEMP/canonical-release" "$REPRO"
+          cmp "$BUNDLE" "$REPRO"
+          rm -f "$REPRO"
+          sha256sum "$BUNDLE"
+
       - name: Upload canonical release artifact set
         uses: https://code.forgejo.org/actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
         with:
           name: activity-relay-${{ inputs.version }}-canonical-${{ inputs.expected_commit }}
-          path: ${{ runner.temp }}/canonical-release/
+          path: ${{ runner.temp }}/activity-relay-canonical.tar
           if-no-files-found: error
           retention-days: 30

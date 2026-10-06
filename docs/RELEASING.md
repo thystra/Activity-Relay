@@ -223,11 +223,26 @@ The versioned release-notes file must record both:
 - Debian package version: `X.Y.Z-1` or `X.Y.Z~rcN-1`
 ```
 
-The workflow must produce one retained bundle with `public/` and `evidence/`.
-Verify `public/SHA256SUMS`, inspect `BUILD-METADATA.txt`, the Debian metadata and
-Lintian output, and the OCI index evidence. The OCI archive must contain both
-`linux/amd64` and `linux/arm64`, and both exact archived images must report the
-requested application version when executed.
+The workflow must produce one retained deterministic
+`activity-relay-canonical.tar` containing the complete `public/` and `evidence/`
+trees. Verify `public/SHA256SUMS`, inspect `BUILD-METADATA.txt`, the Debian
+metadata and Lintian output, and the OCI index evidence. The OCI archive must
+contain both `linux/amd64` and `linux/arm64`, and both exact archived images must
+report the requested application version when executed.
+
+Forgejo's outer Actions artifact wrapper is transport only. It may rewrite ZIP
+entry timestamps and other metadata, so it is not a release identity or checksum
+authority. The deterministic tar carrier sorts members, normalizes UID/GID to
+zero, and sets member mtimes to the `source_date_epoch` already recorded in
+`public/BUILD-METADATA.txt`. Existing file modes are preserved. The workflow
+builds the carrier twice and requires byte identity before upload; the packaging
+script re-extracts the carrier and revalidates `public/SHA256SUMS` before
+returning success.
+
+After downloading a Forgejo Actions artifact, extract its outer wrapper and then
+extract `activity-relay-canonical.tar`. Perform release acceptance and later
+publication from the resulting `public/` assets rather than directly from the
+outer wrapper.
 
 Passing this workflow means the canonical release bytes were built and retained; it
 does **not** mean they were tagged or published. Those are later gates.
@@ -269,9 +284,11 @@ push container images, or move mutable container tags.
 requires the exact reviewed commit, application version, and explicit `BUILD
 <version>` confirmation; re-runs source/package/container validation; emits one
 checksummed Debian package, CycloneDX SBOM, multi-architecture OCI archive,
-release-note copy, build metadata, and retained evidence bundle; and publishes
-nothing externally. The 3.0 RC1 and RC2 cycles exercised this path, including
-exact-byte publication of the accepted RC2 artifact set.
+release-note copy, build metadata, and retained evidence tree; wraps that tree in
+one deterministic metadata-preserving tar carrier; and publishes nothing
+externally. The 3.0 RC1 and RC2 cycles exercised the exact-byte build/publication
+model; current releases additionally protect canonical file metadata from the
+Forgejo artifact transport layer.
 
 ## Smoke tests
 

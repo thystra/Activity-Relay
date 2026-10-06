@@ -10,6 +10,10 @@
   controlled registration-status vocabulary, lenient optional-profile warnings,
   `-t` / `--test-config`, malicious-Directory transport containment, and bounded
   per-Directory reconciliation.
+- [x] RC4 Directory Protocol v3 and scheduler completion: participating-site
+  telemetry, protocol-version reconciliation, immediate startup liveness,
+  scheduler-aware manual lifecycle commands, and deterministic canonical release
+  artifact transport.
 
 ## Activity-Relay 3.2 filtering roadmap
 
@@ -37,16 +41,16 @@
 
 ## Current stable release
 
-`v3.0.0` is the current stable maintained-fork release line. It promotes the
-accepted 3.0 release-candidate runtime after mixed-signature interoperability,
-two-relay isolation, Activity-Relay Directory heartbeat/lifecycle acceptance,
-and stable-default review.
+`v3.1.0` is the current stable maintained-fork release line. It promotes the
+accepted 3.1.0-rc4 runtime after Directory profile/telemetry interoperability,
+startup-heartbeat recovery, manual lifecycle-command validation, and RC4
+release-artifact workflow preparation.
 
 The release preserves the established relay actor ID, endpoints, collections,
 `#main-key` identity, Redis data, existing task readability, operator-owned
-website content, and supported deployment models. Destination-aware `dual` is
-the omitted/default outbound signature policy; explicit `legacy` and `rfc9421`
-remain available.
+website content, and supported deployment models. Destination-aware `dual`
+remains the omitted/default outbound signature policy; explicit `legacy` and
+`rfc9421` modes remain available. Directory participation remains opt-in.
 
 ## v2.5.1 completed
 

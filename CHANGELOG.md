@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.0] - 2026-10-06
+
+### Stable promotion
+
+- Promote the accepted `3.1.0-rc4` behavior to stable `3.1.0` without runtime
+  changes.
+- Promote negotiated Activity-Relay Directory Protocol v2 profile synchronization
+  and Protocol v3 participating-site telemetry, with v1 compatibility retained.
+- Promote immediate startup Directory reconciliation and scheduler-aware manual
+  register, heartbeat, and sync commands.
+- Promote the bounded Directory-client hardening, configuration validation,
+  operator documentation split, and deterministic canonical artifact carrier.
+
 ## [3.1.0-rc4] - 2026-10-05
 
 ### Added
@@ -30,6 +43,9 @@
   the relay's local static landing page.
 - Install the static-site rebuild wrapper in the container image and document
   explicit relay-config handling for package and container deployments.
+- Wrap the Forgejo canonical `public/` and `evidence/` trees in a deterministic
+  tar carrier before Actions artifact upload so the outer transport cannot
+  replace release-file timestamps with its legacy 1979/1980 metadata.
 
 ### Documentation
 

@@ -1,3 +1,18 @@
+activity-relay (3.1.0-1) noble; urgency=medium
+
+  * Publish the Activity-Relay 3.1 stable release.
+  * Promote the accepted 3.1.0-rc4 runtime without behavior changes.
+  * Promote Activity-Relay Directory Protocol v2 profile synchronization and
+    Protocol v3 participating-instance telemetry with v1 compatibility.
+  * Reconcile enabled Directories once at server startup and coordinate manual
+    lifecycle commands with the persisted scheduler state.
+  * Retain bounded Directory transport hardening and strict optional-profile
+    validation while preserving relay delivery/follow behavior.
+  * Publish the concise operator documentation layout and deterministic
+    canonical artifact carrier validated during the RC4 cycle.
+
+ -- thystra <noreply@github.com>  Tue, 06 Oct 2026 11:55:00 -0400
+
 activity-relay (3.1.0~rc4-1) noble; urgency=medium
 
   * Prepare the fourth Activity-Relay 3.1 release candidate.
